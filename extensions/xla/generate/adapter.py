@@ -18,8 +18,8 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla_gpt.generate.base import generate
-from xla_gpt.utils import rank_print
+from xla.generate.base import generate
+from xla.utils import rank_print
 
 
 def setup(
@@ -35,13 +35,13 @@ def setup(
 ) -> None:
     """Generates a response based on a given instruction and an optional input.
     This script will only work with checkpoints from the instruction-tuned Adapter model.
-    See `xla_gpt/finetune/adapter.py`.
+    See `xla/finetune/adapter.py`.
 
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
-            `xla_gpt/finetune/adapter.py`.
+            `xla/finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.

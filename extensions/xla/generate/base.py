@@ -19,10 +19,10 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla_gpt.utils import rank_print
+from xla.utils import rank_print
 
 
-# xla_gpt does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
+# xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
 @torch.no_grad()
 def generate(
     model: GPT,

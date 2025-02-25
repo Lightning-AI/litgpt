@@ -11,7 +11,7 @@ from litgpt.args import EvalArgs, TrainArgs
 from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
 
 if _THUNDER_AVAILABLE:
-    import thunder_gpt.pretrain as thunder_pretrain
+    import extensions.thunder.pretrain as thunder_pretrain
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)

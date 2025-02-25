@@ -93,7 +93,7 @@ def sequential_load_and_fsdp_wrap(
 
     # load the rest of the state_dict, this assumes that all keys need to be loaded
     # an alternative technique would be to do load the rest of the state dict at once, but we want to materialize
-    # and move the params to the xla_gpt device to reduce the system memory usage
+    # and move the params to the xla device to reduce the system memory usage
     for key in list(state_dict):
         rank_print(fabric, f"Loading {key}")
         param = state_dict.pop(key)

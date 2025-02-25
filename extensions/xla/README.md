@@ -94,7 +94,7 @@ This project provides custom versions of the regular recipes to run with XLA in 
 To generate text, use the following command:
 
 ```shell
-python3 xla_gpt/generate/base.py --prompt "Hello, my name is" --num_samples 3
+python3 xla/generate/base.py --prompt "Hello, my name is" --num_samples 3
 ```
 
 For the first generation, this command will take around 17 seconds as XLA needs to compile the graph.
@@ -105,9 +105,9 @@ Subsequent generations will take around 2 seconds.
 To get started fine-tuning Falcon 7B with adapter, run the following command:
 
 ```shell
-python3 xla_gpt/scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
+python3 xla/scripts/prepare_alpaca.py --checkpoint_dir checkpoints/tiiuae/falcon-7b
 
-python3 xla_gpt/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
+python3 xla/finetune/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true
 ```
 
 <details>
@@ -138,7 +138,7 @@ setting `reduce_cpu_memory_usage_during_load = True`. This is necessary to load 
 To generate text with the adapter fine-tuned model weights, use the following command:
 
 ```shell
-python3 xla_gpt/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth
+python3 xla/generate/adapter.py --checkpoint_dir checkpoints/tiiuae/falcon-7b --precision bf16-true --adapter_path out/adapter/alpaca/lit_model_adapter_finetuned.pth
 ```
 
 > **Warning**
