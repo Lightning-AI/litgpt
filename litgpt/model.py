@@ -309,7 +309,7 @@ class GPT(nn.Module):
                 attn = block.attn
                 if attn.kv_cache.batch_size < eff_batch_size:
                     raise ValueError(f"Batch size {eff_batch_size} is too large for KV cache layer {l_ix} (batch size {attn.kv_cache.batch_size}). Use 'assign_kv_caches' or `set_kv_cache'")
-            x = block(x, cos, sin, input_pos, self.mask_cache)
+            x = block(x, cos, sin, idx, input_pos, self.mask_cache)
 
         x = self.transformer.ln_f(x)
         clamp_head = partial(
@@ -428,6 +428,7 @@ class Block(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
+        token_idx: torch.Tensor,
         input_pos: Optional[int] = None,
         mask_cache: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -457,6 +458,7 @@ class Block(nn.Module):
             x_normed,
             cos=cos,
             sin=sin,
+            token_idx=token_idx,
             input_pos=input_pos,
             mask_cache=mask_cache,
         )
@@ -511,6 +513,7 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
+        token_idx: torch.Tensor,
         input_pos: Optional[int] = None,
         mask_cache: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
@@ -596,12 +599,12 @@ class CausalSelfAttention(nn.Module):
             # Instead of asking for the key and value tensors as such,
             # `k_and_v` allows access to them. Since they are never needed at
             # the same time, this can save memory.
-            k_and_v = self.kv_cache(k, v)
+            k_and_v = self.kv_cache(k, v, token_idx=token_idx)
             # k, v: (B, nh_k, cache_length, hs)
         else:
             if for_prefill:
                 # Prefill KV cache
-                self.kv_cache.prefill(key=k, value=v)
+                self.kv_cache.prefill(key=k, value=v, token_idx=token_idx)
             # In this case, `k_and_v` can vend both keys and values at the same
             # time.
             k_and_v = DefaultKeysAndValues(k, v)

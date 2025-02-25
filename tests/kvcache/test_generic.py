@@ -18,6 +18,7 @@ def test_store_retrieve(name):
     seed = 31415927
     random.seed(seed)
     torch.random.manual_seed(seed)
+    vocab_size = 128
 
     params = KVCacheParams(
         batch_size=3,
@@ -40,11 +41,22 @@ def test_store_retrieve(name):
         num_prefill = max_prefill_length
 
     keys, values = random_keys_values(params, num=num_insert)
-    kv_cache.prefill(keys[:, :, :num_prefill, :], values[:, :, :num_prefill, :])
+    token_idx = torch.randint(
+        low=0,
+        high=vocab_size,
+        size=(params.batch_size, num_insert),
+    )
+    kv_cache.prefill(
+        key=keys[:, :, :num_prefill, :],
+        value=values[:, :, :num_prefill, :],
+        token_idx=token_idx[:, :num_prefill],
+    )
     keys_and_values = None
     for pos in range(num_prefill, num_insert):
         keys_and_values = kv_cache(
-            keys[:, :, pos:(pos + 1), :], values[:, :, pos:(pos + 1), :]
+            keys[:, :, pos:(pos + 1), :],
+            values[:, :, pos:(pos + 1), :],
+            token_idx=token_idx[:, pos:(pos + 1)],
         )
         if kv_cache.update_requires_attn_weights():
             attn_weights = random_attn_weights(params, num=kv_cache.current_length)
@@ -80,6 +92,7 @@ def test_prefill(name):
     seed = 31415927
     random.seed(seed)
     torch.random.manual_seed(seed)
+    vocab_size = 128
     num_compares = 3
 
     params = KVCacheParams(
@@ -95,6 +108,11 @@ def test_prefill(name):
     kv_cache = create_kv_cache(name, params)
 
     keys, values = random_keys_values(params, num=cache_length)
+    token_idx = torch.randint(
+        low=0,
+        high=vocab_size,
+        size=(params.batch_size, cache_length),
+    )
     keys_cached = []
     values_cached = []
     max_prefill_length = kv_cache.max_prefill_length
@@ -102,11 +120,17 @@ def test_prefill(name):
         num_prefill = random.randint(cache_length // 8, cache_length)
         if max_prefill_length is not None and num_prefill > max_prefill_length:
             num_prefill = max_prefill_length
-        kv_cache.prefill(keys[:, :, :num_prefill, :], values[:, :, :num_prefill, :])
+        kv_cache.prefill(
+            key=keys[:, :, :num_prefill, :],
+            value=values[:, :, :num_prefill, :],
+            token_idx=token_idx[:, :num_prefill],
+        )
         keys_and_values = None
         for pos in range(num_prefill, cache_length):
             keys_and_values = kv_cache(
-                keys[:, :, pos:(pos + 1), :], values[:, :, pos:(pos + 1), :]
+                keys[:, :, pos:(pos + 1), :],
+                values[:, :, pos:(pos + 1), :],
+                token_idx=token_idx[:, pos:(pos + 1)],
             )
             if kv_cache.update_requires_attn_weights():
                 attn_weights = random_attn_weights(params, num=kv_cache.current_length)

@@ -158,7 +158,12 @@ class KVCache(torch.nn.Module):
         """
         raise NotImplementedError()
 
-    def forward(self, key: torch.Tensor, value: torch.Tensor) -> KeysAndValues:
+    def forward(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ) -> KeysAndValues:
         """
         Accepts key and value tensors for `1 <= num <= max_tokens_forward`
         new token positions. These are written into the cache. If the cache
@@ -176,6 +181,7 @@ class KVCache(torch.nn.Module):
             key: New keys, `(eff_batch_size, n_query_groups, num, head_size)`,
                 where `1 <= num <= max_tokens_forward`
             value: New values, `(eff_batch_size, n_query_groups, num, head_size)`
+            token_idx: Token indices of input sequence, `(eff_batch_size, num)`
 
         Returns:
             key_cached, value_cached, `(eff_batch_size, n_query_groups, T,
@@ -203,6 +209,7 @@ class KVCache(torch.nn.Module):
         Args:
             *args: Depends on subclass
             **kwargs: Depends on subclass
+
         """
         raise NotImplementedError()
 
@@ -228,7 +235,12 @@ class KVCache(torch.nn.Module):
         """
         raise NotImplementedError()
 
-    def prefill(self, key: torch.Tensor, value: torch.Tensor):
+    def prefill(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ):
         """
         Starts a generation loop by passing key and value tensors coming from
         a prefill with embeddings coming from the prompts. The length must be
@@ -239,6 +251,8 @@ class KVCache(torch.nn.Module):
         Args:
             key: Prefill keys, `(eff_batch_size, n_query_groups, T, head_size)`
             value: Prefill values, `(eff_batch_size, n_query_groups, T, head_size)`
+            token_idx: Token indices of input sequence, `(eff_batch_size, T)`
+
         """
         raise NotImplementedError()
 
@@ -271,6 +285,7 @@ class KVCache(torch.nn.Module):
 
         Returns:
             num_bits_total, bits_by_part (unit is bit)
+
         """
         raise NotImplementedError()
 
@@ -287,6 +302,7 @@ class KVCache(torch.nn.Module):
 
         Returns:
             num_bits_total, bits_by_part (unit is bit)
+
         """
         raise NotImplementedError()
 
@@ -326,6 +342,7 @@ class DenseKVCache(KVCache):
 
     Note: If the cache is full, :meth:`forward` raises an exception. The cache
     buffers are allocated up front and are not enlarged later on.
+
     """
     def __init__(
         self,
@@ -344,7 +361,6 @@ class DenseKVCache(KVCache):
             dtype: Data type for buffers
             max_sequence_length: Cache length. If not given, we use
             `config.block_size`
-            max_tokens_forward: See parent class
             head_size: Size of final dimension of buffers. Defaults to head
                 size of model
 
@@ -380,7 +396,12 @@ class DenseKVCache(KVCache):
     def current_length(self) -> int:
         return self.next_position
 
-    def forward(self, key: torch.Tensor, value: torch.Tensor) -> KeysAndValues:
+    def forward(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ) -> KeysAndValues:
         if self.next_position is None:
             raise IndexError("Cache needs to be initialized with 'prefill' before being used")
         num = key.shape[2]
@@ -416,7 +437,12 @@ class DenseKVCache(KVCache):
     def update(self, *args, **kwargs):
         pass
 
-    def prefill(self, key: torch.Tensor, value: torch.Tensor):
+    def prefill(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ):
         if key.dim() != 4:
             raise ValueError("key must have 4 dimensions")
         init_length = key.shape[2]
@@ -517,7 +543,12 @@ class MostRecentKVCache(KVCache):
     def max_prefill_length(self) -> Optional[int]:
         return None
 
-    def forward(self, key: torch.Tensor, value: torch.Tensor) -> KeysAndValues:
+    def forward(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ) -> KeysAndValues:
         if self.next_position is None:
             raise IndexError("Cache needs to be initialized with 'prefill' before being used")
         if key.ndim != 4:
@@ -563,7 +594,12 @@ class MostRecentKVCache(KVCache):
     def update(self, *args, **kwargs):
         pass
 
-    def prefill(self, key: torch.Tensor, value: torch.Tensor):
+    def prefill(
+        self,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        token_idx: torch.Tensor,
+    ):
         if key.dim() != 4:
             raise ValueError("key must have 4 dimensions")
         init_length = key.shape[2]

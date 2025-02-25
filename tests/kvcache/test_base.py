@@ -15,6 +15,7 @@ def test_most_recent():
     seed = 31415927
     random.seed(seed)
     torch.random.manual_seed(seed)
+    vocab_size = 128
 
     params = KVCacheParams(
         batch_size=3,
@@ -34,9 +35,22 @@ def test_most_recent():
         num_prefill = max_prefill_length
 
     keys, values = random_keys_values(params, num=num_insert)
-    kv_cache.prefill(keys[:, :, :num_prefill, :], values[:, :, :num_prefill, :])
+    token_idx = torch.randint(
+        low=0,
+        high=vocab_size,
+        size=(params.batch_size, num_insert),
+    )
+    kv_cache.prefill(
+        key=keys[:, :, :num_prefill, :],
+        value=values[:, :, :num_prefill, :],
+        token_idx=token_idx[:, :num_prefill],
+    )
     for pos in range(num_prefill, num_insert):
-        kv_cache(keys[:, :, pos:(pos + 1), :], values[:, :, pos:(pos + 1), :])
+        kv_cache(
+            keys[:, :, pos:(pos + 1), :],
+            values[:, :, pos:(pos + 1), :],
+            token_idx=token_idx[:, pos:(pos + 1)],
+        )
         if kv_cache.update_requires_attn_weights():
             attn_weights = random_attn_weights(params, num=kv_cache.current_length)
             kv_cache.update(attn_weights=attn_weights)
