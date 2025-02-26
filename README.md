@@ -3,6 +3,8 @@
 
 # ⚡ LitGPT
 
+Canary CI test
+
 **20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
 
 <pre>
