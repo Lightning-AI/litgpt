@@ -33,7 +33,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     copy_weights_qwen_2_5,
     qkv_reassemble,
 )
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 @pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
@@ -392,7 +392,7 @@ def test_against_original_stablelm_zephyr_3b():
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -452,7 +452,7 @@ def test_against_original_gemma(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -540,7 +540,7 @@ def test_check_conversion_supported_lora():
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],

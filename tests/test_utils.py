@@ -12,7 +12,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
@@ -57,7 +57,7 @@ def test_find_multiple():
 
 
 # match fails on windows. why did they have to use backslashes?
-@RunIf(skip_windows=True)
+@_RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
     os.chdir(tmp_path)
 
@@ -122,6 +122,12 @@ def test_incremental_write(tmp_path):
     for k, v_expected in sd_expected.items():
         v_actual = sd_actual[k]
         torch.testing.assert_close(v_expected, v_actual)
+    sd_actual = torch.load(fn, weights_only=True)
+    assert sd_actual.keys() == sd_expected.keys()
+    assert sd_actual["0"].someattr == 1  # requires PyTorch 2.0+
+    for k, v_expected in sd_expected.items():
+        v_actual = sd_actual[k]
+        torch.testing.assert_close(v_expected, v_actual)
 
 
 @pytest.mark.parametrize("B", (1, 2))
@@ -175,7 +181,7 @@ def test_num_parameters():
     assert num_parameters(model, requires_grad=False) == 2
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
 def test_num_parameters_bitsandbytes(mode):
     plugin = BitsandbytesPrecision(mode=mode)

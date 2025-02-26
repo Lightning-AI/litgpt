@@ -37,7 +37,7 @@ from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 def test_lora_layer_replacement():
@@ -393,7 +393,7 @@ def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merge
     assert layer.merged == expected_merged
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_lora_merge_with_bitsandbytes():
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -495,7 +495,7 @@ def test_base_model_can_be_lora_loaded(name):
         assert lora_filter(k, None)
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_lora_compile():
     model = LoRAGPT.from_name(
@@ -687,7 +687,7 @@ def test_against_original_gemma_2(model_name):
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -809,7 +809,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     assert "of non-trainable parameters: 1,888" in logs
 
 
-@RunIf(standalone=True, min_cuda_gpus=2)
+@_RunIf(standalone=True, min_cuda_gpus=2)
 def test_lora_model_fsdp_init():
     config = Config(
         n_layer=1,
