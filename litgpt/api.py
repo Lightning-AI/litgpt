@@ -504,7 +504,6 @@ class LLM(torch.nn.Module):
             tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
             self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
-
         else:
             for block in self.model.transformer.h:
                 block.attn.kv_cache.reset_parameters()
