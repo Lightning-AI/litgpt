@@ -635,7 +635,7 @@ def test_against_olmo(model_name, device, dtype):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -661,6 +661,7 @@ def test_against_olmo2(model_name, device, dtype):
         num_attention_heads=ours_config.n_head,
         num_key_value_heads=ours_config.n_query_groups,
         max_positional_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
         attention_bias=ours_config.bias,
         rope_theta=ours_config.rope_base,
     )
