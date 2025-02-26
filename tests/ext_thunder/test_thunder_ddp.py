@@ -3,24 +3,23 @@ from pathlib import Path
 
 import pytest
 import torch
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 from lightning import Fabric
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
+from litgpt.utils import _THUNDER_AVAILABLE
 
-from extensions.thunder.strategies.thunder_ddp import ThunderDDPStrategy
-from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
+if _THUNDER_AVAILABLE:
+    from extensions.thunder.strategies.thunder_ddp import ThunderDDPStrategy
+    from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 
-@RunIf(thunder=True)
+@_RunIf(thunder=True)
 def test_thunder_strategy_input_parsing():
     with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
         ThunderDDPStrategy(jit=False, executors=("python",))
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("choice", ["ddp", "thunder_ddp", "fsdp", "thunder_fsdp"])
 def test_no_backward_sync(choice):
     if choice == "thunder_ddp":
@@ -68,7 +67,7 @@ def test_no_backward_sync(choice):
             assert model.weight.grad is None
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("jit", (False, True))
 def test_jit_before_setup(jit):
     import thunder
@@ -86,7 +85,7 @@ def test_jit_before_setup(jit):
     assert "all_reduce" in thunder.last_backward_traces(tmodel)[-1].python()
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 def test_setup_already_traced():
     import thunder
 

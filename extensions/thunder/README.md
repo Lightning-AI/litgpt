@@ -460,7 +460,7 @@ After applying the DDP transformation, the backward trace will include the expec
 With `L.Fabric`, this is how to use them:
 
 ```python
-from extensions.thunder.strategies import ThunderFSDPStrategy, ThunderDDPStrategy
+from extensions.extensions.thunder.strategies import ThunderFSDPStrategy, ThunderDDPStrategy
 
 # fully-sharded data parallel
 strategy = ThunderFSDPStrategy(

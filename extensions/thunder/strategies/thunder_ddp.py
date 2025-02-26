@@ -22,17 +22,16 @@ from lightning.fabric.utilities.distributed import (
     _sync_ddp_if_available,
 )
 from lightning.fabric.utilities.rank_zero import rank_zero_only
-from lightning_utilities.core.imports import RequirementCache
 from lightning_utilities.core.rank_zero import rank_zero_only as utils_rank_zero_only
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
+from litgpt.utils import _THUNDER_AVAILABLE
+
 if TYPE_CHECKING:
     from thunder import Executor
 
-
-_THUNDER_AVAILABLE = RequirementCache("lightning-thunder", "thunder")
 
 
 class ThunderDDPStrategy(ParallelStrategy):
