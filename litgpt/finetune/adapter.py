@@ -138,12 +138,13 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, num_nodes, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
+    num_nodes: int,
     seed: int,
     config: Config,
     data: DataModule,
@@ -157,7 +158,7 @@ def main(
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
-    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
+    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices, num_nodes)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
@@ -201,6 +202,7 @@ def main(
         train_dataloader,
         val_dataloader,
         devices,
+        num_nodes,
         checkpoint_dir,
         out_dir,
         train,
@@ -237,6 +239,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
+    num_nodes: int,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -261,7 +264,7 @@ def fit(
 
     train_iterator = CycleIterator(train_dataloader)
     throughput = ThroughputMonitor(fabric, window_size=50)
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     max_steps = train.max_steps or float("inf")
@@ -284,13 +287,13 @@ def fit(
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
-        is_accumulating = iter_num % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = iter_num % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 

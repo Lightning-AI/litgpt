@@ -50,24 +50,24 @@ class TrainArgs:
                 "`--train.lr_warmup_steps` should be less than `--train.max_steps`."
                 f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.", UserWarning)
 
-    def gradient_accumulation_iters(self, devices: int) -> int:
+    def gradient_accumulation_iters(self, devices: int, num_nodes: int) -> int:
         """Number of iterations between gradient synchronizations"""
-        gradient_accumulation_iters = self.batch_size(devices) // self.micro_batch_size
+        gradient_accumulation_iters = self.batch_size(devices, num_nodes) // self.micro_batch_size
         assert gradient_accumulation_iters > 0
         return gradient_accumulation_iters
 
-    def batch_size(self, devices: int) -> int:
+    def batch_size(self, devices: int, num_nodes: int) -> int:
         """Number of samples between optimizer steps per data-parallel rank"""
-        batch_size = self.global_batch_size // devices
+        batch_size = self.global_batch_size // (devices * num_nodes)
         assert batch_size > 0
         return batch_size
 
-    def warmup_iters(self, devices: int, max_iters: int, train_dataloader) -> int:
+    def warmup_iters(self, devices: int, num_nodes: int, max_iters: int, train_dataloader) -> int:
         """Number of iterations to warm up the learning rate."""
         if self.lr_warmup_fraction:
             return min(max_iters, math.ceil(self.lr_warmup_fraction * len(train_dataloader)))
         if self.lr_warmup_steps:
-            return min(max_iters, self.lr_warmup_steps * self.gradient_accumulation_iters(devices))
+            return min(max_iters, self.lr_warmup_steps * self.gradient_accumulation_iters(devices, num_nodes))
         return 0
 
 
