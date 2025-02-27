@@ -216,7 +216,7 @@ def run_server(
     openai_spec: bool = False,
     access_token: Optional[str] = None,
 ) -> None:
-    """Serve a LitGPT model using LitServe .
+    """Serve a LitGPT model using LitServe.
 
     Evaluate a model with the LM Evaluation Harness.
 
