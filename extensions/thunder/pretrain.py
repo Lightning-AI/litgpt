@@ -150,6 +150,7 @@ def setup(
     main(
         fabric,
         devices,
+        num_nodes,
         seed,
         initial_checkpoint_dir,
         resume,
@@ -168,6 +169,7 @@ def setup(
 def main(
     fabric: L.Fabric,
     devices: int,
+    num_nodes: int,
     seed: int,
     initial_checkpoint_dir: Optional[Path],
     resume: Union[bool, Literal["auto"], Path],
@@ -229,7 +231,7 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optimizer)
+    fit(fabric, devices, num_nodes, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optimizer)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
     # Save final checkpoint
@@ -242,6 +244,7 @@ def main(
 def fit(
     fabric: L.Fabric,
     devices: int,
+    num_nodes: int,
     state: dict,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
@@ -269,18 +272,18 @@ def fit(
     max_tokens_per_device = train.max_tokens // fabric.world_size
     tokens_per_iter = train.micro_batch_size * model.max_seq_length
     max_iters = max_tokens_per_device // tokens_per_iter
-    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
+    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices, num_nodes)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
     val_loss = "n/a"
 
-    warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+    warmup_iters = train.warmup_iters(devices, num_nodes, max_iters, train_dataloader)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -297,10 +300,10 @@ def fit(
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             loss = forward_and_loss(model, input_ids, targets)
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 
