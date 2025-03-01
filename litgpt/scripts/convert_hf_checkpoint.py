@@ -323,7 +323,7 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
-    if config.name.startswith(("Phi-3", "phi-4")):
+    if config.name.startswith(("Phi-3", "phi-4", "Phi-4")):
         weight_map.update(
             {
                 "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.qkv.weight",
@@ -360,6 +360,9 @@ def copy_weights_phi(
 
         if progress_per_file is not None:
             pbar.update(progress_per_file)
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
     for i in list(qkv_weights):
         for weight_type in list(qkv_weights[i]):
