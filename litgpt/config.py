@@ -2247,7 +2247,7 @@ for c in qwen_2_5:
         configs.append(copy)
 
 qwq = [
-    # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
+    # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
     dict(
         name="QwQ-32B",
         hf_config=dict(org="Qwen", name="QwQ-32B"),
