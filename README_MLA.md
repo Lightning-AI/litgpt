@@ -31,12 +31,12 @@ The results highlight that MQA and GQA considerably reduce memory usage and incr
 
 The MLA block demonstrates a better trade-off between memory usage, speed, and performance. It shows a slight drop in performance compared to the baseline model, while also reducing memory usage. This also comes with a slight increase in training and inference speed. Smaller projection dimensions have been tested for the MLA block, showing a consistent reduction of memory usage but with a significant drop in performance.
 
-Overall, results are not as significant as expected due to the small scale of the model (limited by the GPU memory) and the short training time (1 epoch). Further experiments on larger models, bigger datasets, and longer training are expected to highlight the benefits of the MLA block. Also, further experiments with layer normalization and other hyperparameters are expected to improve the performance of the MLA block.
+Overall, results are not as significant as expected due to the small scale of the model (limited by the GPU memory) and the short training time (~10k steps). Further experiments on larger models, bigger datasets, and longer training are expected to highlight the benefits of the MLA block. Also, further experiments with layer normalization and other hyperparameters are expected to improve the performance of the MLA block.
 
 ## Notes
 - Pythia was used as model for the experiments because it comes with many versions at different scales.
 - `pythia-160m` (160M parameters) was the largest model that could be trained on a single GPU with 16GB memory. 
-- For the same reason, the `tinystories` dataset (100M tokens) was used for the experiments and the models were trained for only 1 epoch.
+- For the same reason, the `tinystories` dataset was used for the experiments and the models were trained for only 100M tokens (~10k steps).
 - Experiments on larger models, bigger datasets, and longer training are expected to further highlight the benefits of the MLA block.
 - All the tested implementations use FlashAttention (as implemented in torch) by default.
 - The resulting implementation of MLA depends on the `litgpt` codebase (especially the `CausalSelfAttention` class).
