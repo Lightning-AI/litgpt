@@ -45,3 +45,8 @@ Overall, results are not as significant as expected due to the small scale of th
     > Fortunately, due to the associative law of matrix multiplication, we can absorb $𝑊^{𝑈𝐾}$ into $𝑊^{𝑈𝑄}$ , and $𝑊^{𝑈𝑉}$ into $𝑊^{𝑂}$. Therefore, we do not need to compute keys and values out for each query. Through this optimization, we avoid the computational overhead for recomputing $k^C_t$ and $v^𝐶_𝑡$ during inference.
 
     Unfortunately, this was not implemented due to time constraints.
+
+## Visual Representation
+The visual representation of the MLA block with my implementation notes is as follows:
+
+![MLA Block](./mla.png)
