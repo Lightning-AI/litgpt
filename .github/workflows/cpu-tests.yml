@@ -15,10 +15,10 @@ defaults:
     shell: bash
 
 env:
-  HF_HOME: ~/.cache/huggingface  # Define HF_HOME for caching
-  TRANSFORMERS_CACHE: ~/.cache/huggingface/transformers
-  DATASETS_CACHE: ~/.cache/huggingface/datasets
-  HF_DATASETS_CACHE: ~/.cache/huggingface/datasets
+  HF_HOME: .cache-HF  # Define HF_HOME for caching
+  TRANSFORMERS_CACHE: .cache-HF/transformers
+  DATASETS_CACHE: .cache-HF/datasets
+  HF_DATASETS_CACHE: .cache-HF/datasets
 
 jobs:
   testing-imports:
@@ -45,7 +45,7 @@ jobs:
       - name: Cache HF files
         uses: actions/cache@v3
         with:
-          path: ~/.cache/huggingface
+          path: .cache-HF
           key: ${{ runner.os }}-huggingface-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-huggingface-
