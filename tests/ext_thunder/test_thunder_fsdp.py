@@ -5,22 +5,26 @@ from typing import Optional, Tuple, Union
 
 import pytest
 import torch
-from tests.conftest import RunIf
+
+from litgpt.utils import _THUNDER_AVAILABLE
+from litgpt.utils import _RunIf
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
+
+if _THUNDER_AVAILABLE:
+    from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 
-from extensions.thunder.strategies.thunder_fsdp import ThunderFSDPStrategy
 
-
-@RunIf(thunder=True)
+@_RunIf(thunder=True)
 def test_thunder_strategy_input_parsing():
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
     strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
+
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.sharding_strategy is FSDPType.ZERO3
 
@@ -28,7 +32,7 @@ def test_thunder_strategy_input_parsing():
         ThunderFSDPStrategy(jit=False, executors=("python",))
 
 
-@RunIf(thunder=True)
+@_RunIf(thunder=True)
 def test_save_checkpoint_invalid_settings_raise(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="full")
     with pytest.raises(TypeError, match="not supported"):
@@ -87,7 +91,7 @@ class MyModel(torch.nn.Module):
         self.buf = torch.empty_like(self.buf)
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_materialize_meta_tensors():
     strategy = ThunderFSDPStrategy()
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
@@ -125,7 +129,7 @@ class TensorLike:
         )
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_full_checkpoint(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="full", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
@@ -176,7 +180,7 @@ def test_save_load_full_checkpoint(tmp_path):
     assert state["primitive"] == 123
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_load_full_checkpoint_only_model(tmp_path):
     strategy = ThunderFSDPStrategy()
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
@@ -245,7 +249,7 @@ def distributed_ckpt_to_regular(path):
     return state_dict
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 def test_save_load_sharded_checkpoint(tmp_path):
     strategy = ThunderFSDPStrategy(state_dict_type="sharded", broadcast_from=0)
     fabric = Fabric(accelerator="cuda", devices=2, strategy=strategy)
@@ -298,7 +302,7 @@ def test_save_load_sharded_checkpoint(tmp_path):
     assert state["primitive"] == 123
 
 
-@RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
+@_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("jit", (False, True))
 def test_jit_before_setup(jit):
     import thunder
@@ -316,7 +320,7 @@ def test_jit_before_setup(jit):
     assert "all_gather" in thunder.last_traces(tmodel)[-1].python()
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
+@_RunIf(min_cuda_gpus=1, thunder=True)
 def test_setup_already_traced():
     import thunder
 

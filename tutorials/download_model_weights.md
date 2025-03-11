@@ -41,6 +41,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Qwen2.5 Coder | 0.5B, 1.5B, 3B, 7B, 14B, 32B | Alibaba Group | [Hui, Binyuan et al. 2024](https://arxiv.org/abs/2409.12186)                                          |
 | Qwen2.5 Math | 1.5B, 7B, 72B | Alibaba Group | [An, Yang et al. 2024](https://arxiv.org/abs/2409.12122)                                          |
 | QwQ | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
+| R1 Distll Llama | 8B, 70B | DeepSeek AI | [DeepSeek AI 2025](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf)                                                                         |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
 | SmolLM2 | 135M, 360M, 1.7B | Hugging Face | [Hugging Face 2024](https://github.com/huggingface/smollm)                                                               |
 | StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
@@ -87,6 +88,8 @@ codellama/CodeLlama-7b-Python-hf
 databricks/dolly-v2-12b
 databricks/dolly-v2-3b
 databricks/dolly-v2-7b
+deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+deepseek-ai/DeepSeek-R1-Distill-Llama-70B
 EleutherAI/pythia-1.4b
 EleutherAI/pythia-1.4b-deduped
 EleutherAI/pythia-12b

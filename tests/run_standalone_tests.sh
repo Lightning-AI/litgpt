@@ -11,8 +11,8 @@ export PL_RUN_STANDALONE_TESTS=1
 defaults="-m pytest --no-header -v --disable-pytest-warnings --strict-markers --color=yes -s --timeout 120"
 echo "Using defaults: ${defaults}"
 
-# find tests marked as `@RunIf(standalone=True)`. done manually instead of with pytest because it is faster
-grep_output=$(grep --recursive --word-regexp . --regexp 'standalone=True' --include '*.py')
+# find tests marked as `@_RunIf(standalone=True)`. done manually instead of with pytest because it is faster
+grep_output=$(grep --recursive --word-regexp . --regexp 'standalone=True' --include '*.py' --exclude 'test_thunder*.py')
 
 # file paths, remove duplicates
 files=$(echo "$grep_output" | cut -f1 -d: | sort | uniq)

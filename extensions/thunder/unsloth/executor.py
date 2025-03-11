@@ -1,11 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import sys
+import torch
 from pathlib import Path
 from typing import Optional, Tuple
-
-import thunder
-import thunder.torch as ltorch
-import torch
 from thunder.core.proxies import TensorProxy
 from thunder.core.transforms import get_grad, mean_backward, put_grads
 from thunder.extend import OperatorExecutor, register_executor
@@ -13,6 +10,11 @@ from thunder.torch import ne, sum, true_divide
 from torch import Tensor
 
 import litgpt.model
+from litgpt.utils import _THUNDER_AVAILABLE
+
+if _THUNDER_AVAILABLE:
+    import thunder
+    import thunder.torch as ltorch
 
 sys.path.append(str(Path(__file__).parent))
 

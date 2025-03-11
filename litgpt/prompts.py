@@ -215,6 +215,55 @@ class Llama3(PromptStyle):
             [tokenizer.token_to_id("<|eot_id|>")],
         )
 
+class R1Base(PromptStyle):
+    def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
+        default_system_prompt = ""
+
+        bos_token = "<｜begin▁of▁sentence｜>"
+        eos_token = ""
+
+        if isinstance(prompt, str):
+            return (
+                f"{default_system_prompt}"
+                f"<｜User｜>{prompt}"
+                f"<｜Assistant｜>"  # Prepares for assistant response
+            )
+        elif isinstance(prompt, list):
+
+            def encode_message(message: Dict[str, str]) -> str:
+                role = message["role"]
+                content = message["content"].strip()
+                
+                if role == "system":
+                    return content  # System prompt is prepended at the start
+                elif role == "user":
+                    return f"<｜User｜>{content}"
+                elif role == "assistant":
+                    return f"<｜Assistant｜>{content}{eos_token}"
+                else:
+                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'.")
+
+            # Extract system prompt (if any)
+            system_prompt = ""
+            if prompt[0].get("role") == "system":
+                system_prompt = prompt[0]["content"]
+                prompt = prompt[1:]  # Remove system message from the list
+
+            # Construct the formatted prompt
+            formatted_prompt = system_prompt
+            for message in prompt:
+                formatted_prompt += encode_message(message)
+
+            formatted_prompt += "<｜Assistant｜>"  # Prepares for assistant response
+            return formatted_prompt
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<｜end▁of▁sentence｜>")],
+        )
 
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -372,6 +421,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama3()
     if re.search("Llama-3.*-Instruct-*", model_name):
         return Llama3()
+    if re.search("R1", model_name):
+        return R1Base()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):
