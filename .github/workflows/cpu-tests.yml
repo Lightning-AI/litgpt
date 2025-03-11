@@ -15,7 +15,10 @@ defaults:
     shell: bash
 
 env:
-  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_HOME: ~/.cache/huggingface  # Define HF_HOME for caching
+  TRANSFORMERS_CACHE: ~/.cache/huggingface/transformers
+  DATASETS_CACHE: ~/.cache/huggingface/datasets
+  HF_DATASETS_CACHE: ~/.cache/huggingface/datasets
 
 jobs:
   testing-imports:
@@ -37,6 +40,15 @@ jobs:
         run: |
           pip install .
           pip list
+
+      # Add caching for HF models and datasets
+      - name: Cache HF files
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/huggingface
+          key: ${{ runner.os }}-huggingface-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-huggingface-
 
       - name: Testing package imports
         # make sure all modules are still importable with only the minimal dependencies available
