@@ -87,8 +87,13 @@ jobs:
     - name: Run tests
       run: pytest -v litgpt/ tests/ --timeout 120
 
+    - name: Show cache
+      run: |
+        pip install -q py-tree
+        tree -L 2 .cache-HF
+
     - name: Dump HF cache
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+      if: github.event_name != 'pull_request'
       continue-on-error: true
       uses: actions/cache/save@v3
       with:
