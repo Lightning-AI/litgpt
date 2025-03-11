@@ -5,7 +5,7 @@ from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 
 
@@ -31,6 +31,7 @@ class TinyLlama(DataModule):
     seq_length: int = field(init=False, repr=False, default=2048)
 
     def __post_init__(self):
+        super().__init__()
         # Could be a remote path (s3://) or a local path
         self.slimpajama_train = str(self.data_path).rstrip("/") + "/slimpajama/train"
         self.slimpajama_val = str(self.data_path).rstrip("/") + "/slimpajama/val"
@@ -89,16 +90,14 @@ class TinyLlama(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=self.slimpajama_val,
             item_loader=TokensLoader(block_size=self.seq_length),
             shuffle=True,
-            # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-            drop_last=True,
         )
-        val_dataloader = DataLoader(
+        val_dataloader = StreamingDataLoader(
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader

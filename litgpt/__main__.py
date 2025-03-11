@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import warnings
 import torch
 
 from litgpt.chat.base import main as chat_fn
@@ -52,6 +53,19 @@ def main() -> None:
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
+
+    # PyTorch bug that raises a false-positive warning
+    # More info: https://github.com/Lightning-AI/litgpt/issues/1561
+    warning_message = (
+        r"The epoch parameter in `scheduler.step\(\)` was not necessary and is being deprecated.*"
+    )
+
+    warnings.filterwarnings(
+        action="ignore",
+        message=warning_message,
+        category=UserWarning,
+        module=r'.*torch\.optim\.lr_scheduler.*'
+    )
 
     torch.set_float32_matmul_precision("high")
     CLI(parser_data)

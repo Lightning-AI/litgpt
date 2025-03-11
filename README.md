@@ -3,7 +3,7 @@
 
 # ⚡ LitGPT
 
-**20+ high-performance LLM implementations with recipes to pretrain, finetune, deploy at scale.**
+**20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
 
 <pre>
 ✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly   
@@ -19,7 +19,6 @@
 ![cpu-tests](https://github.com/lightning-AI/lit-stablelm/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/lit-stablelm/blob/master/LICENSE) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
-  <a href="https://lightning.ai/">Lightning AI</a> •
   <a href="#quick-start">Quick start</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#finetune-an-llm">Finetune</a> • 
@@ -27,6 +26,7 @@
   <a href="#all-workflows">All workflows</a> • 
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Recipes (YAML)</a> •
+  <a href="https://lightning.ai/">Lightning AI</a> •
     <a href="#tutorials">Tutorials</a>
 </p>
 
@@ -40,7 +40,7 @@
 
 </div>
 
-# Use, finetune, pretrain, deploy LLMs Lightning fast ⚡⚡
+# Use, finetune, pretrain, and deploy LLMs Lightning fast ⚡⚡
 Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
 
 ✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
@@ -96,12 +96,14 @@ Every model is written from scratch to maximize performance and remove layers of
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
-| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3) |
-| Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288) |
-| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950) |
-| Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                      |
-| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                         |
-| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma) |
+| Llama 3, 3.1, 3.2, 3.3 | 1B, 3B, 8B, 70B, 405B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                           |
+| Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                       |
+| CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                     |
+| Gemma 2 | 2B, 9B, 27B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf)  |
+| Phi 4 | 14B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2412.08905)                                                                            |
+| Qwen2.5 | 0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwen2.5/)                                               |
+| Qwen2.5 Coder | 0.5B, 1.5B, 3B, 7B, 14B, 32B | Alibaba Group | [Hui, Binyuan et al. 2024](https://arxiv.org/abs/2409.12186)                                          |
+| R1 Distill Llama | 8B, 70B | DeepSeek AI | [DeepSeek AI 2025](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf)                                                                                 |
 | ... | ... | ... | ...   |
 
 <details>
@@ -115,30 +117,40 @@ Every model is written from scratch to maximize performance and remove layers of
 |----|----|----|----|
 | CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                 |
 | Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                   |
-| Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)                                                                                             |
-| Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)      |
 | Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                              |
+| Falcon 3 | 1B, 3B, 7B, 10B | TII UAE | [TII 2024](https://huggingface.co/blog/falcon3)                                                                                              |
 | FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                 |
 | Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                  |
 | Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                                       |
+| Gemma 2 | 9B, 27B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf)                                  |
 | Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                           |
-| Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                   |
-| LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                                       |
-| MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)
+| Llama 3.1 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                 |
+| Llama 3.2 | 1B, 3B | Meta AI | [Meta AI 2024](https://ai.meta.com/blog/llama-3-2-connect-2024-vision-edge-mobile-devices/)                                           |
+| Llama 3.3 | 70B | Meta AI | [Meta AI 2024](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)                                                                                 |
+| Mathstral | 7B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mathstral/)                                                                                  |
+| MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)                                                                             |
 | Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                     |
-| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
-| Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
+| Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                  |
+| Mixtral MoE | 8x22B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mixtral-8x22b/)                                                                         |
+| OLMo | 1B, 7B | Allen Institute for AI (AI2) | [Groeneveld et al. 2024](https://aclanthology.org/2024.acl-long.841/)    |
 | OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
-| Phi 1.5 & 2 | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
-| Phi 3 | 3.8B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)
+| Phi 1.5 & 2 | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                  |
+| Phi 3 | 3.8B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)                                                                            |
+| Phi 4 | 14B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2412.08905)                                                                            |
 | Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
 | Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                            |
-| RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
+| Qwen2.5 | 0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwen2.5/)                                               |
+| Qwen2.5 Coder | 0.5B, 1.5B, 3B, 7B, 14B, 32B | Alibaba Group | [Hui, Binyuan et al. 2024](https://arxiv.org/abs/2409.12186)                                          |
+| Qwen2.5 Math | 1.5B, 7B, 72B | Alibaba Group | [An, Yang et al. 2024](https://arxiv.org/abs/2409.12122)                                          |
+| QwQ | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
+| R1 Distill Llama | 8B, 70B | DeepSeek AI | [DeepSeek AI 2025](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf)                                                                                 |
+| SmolLM2 | 135M, 360M, 1.7B | Hugging Face | [Hugging Face 2024](https://github.com/huggingface/smollm)                                                               |
+| Salamandra | 2B, 7B | Barcelona Supercomputing Centre | [BSC-LTC 2024](https://github.com/BSC-LTC/salamandra)                                                                         |
 | StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
 | StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                    |
 | StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                             |
 | TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                         |
-| Vicuna | 7B, 13B, 33B | LMSYS | [Li et al. 2023](https://lmsys.org/blog/2023-03-30-vicuna/)                                                                          |
+
 
 **Tip**: You can list all available models by running the `litgpt download list` command.
 
@@ -170,12 +182,11 @@ After installing LitGPT, select the model and workflow to run (finetune, pretrai
 
 ```bash
 # ligpt [action] [model]
-litgpt  download  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  chat      meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  evaluate  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  finetune  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  pretrain  meta-llama/Meta-Llama-3-8B-Instruct
-litgpt  serve     meta-llama/Meta-Llama-3-8B-Instruct
+litgpt  serve     meta-llama/Llama-3.2-3B-Instruct
+litgpt  finetune  meta-llama/Llama-3.2-3B-Instruct
+litgpt  pretrain  meta-llama/Llama-3.2-3B-Instruct
+litgpt  chat      meta-llama/Llama-3.2-3B-Instruct
+litgpt  evaluate  meta-llama/Llama-3.2-3B-Instruct
 ```
 
 &nbsp;
@@ -201,20 +212,17 @@ Finetuning is the process of taking a pretrained AI model and further training i
 # 0) setup your dataset
 curl -L https://huggingface.co/datasets/ksaw008/finance_alpaca/resolve/main/finance_alpaca.json -o my_custom_dataset.json
 
-# 1) Download a pretrained model
-litgpt download microsoft/phi-2
-
-# 2) Finetune the model
+# 1) Finetune a model (auto downloads weights)
 litgpt finetune microsoft/phi-2 \
   --data JSON \
   --data.json_path my_custom_dataset.json \
   --data.val_split_fraction 0.1 \
   --out_dir out/custom-model
 
-# 3) Test the model
+# 2) Test the model
 litgpt chat out/custom-model/final
 
-# 4) Deploy the model
+# 3) Deploy the model
 litgpt serve out/custom-model/final
 ```
 
@@ -238,7 +246,6 @@ Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy
 
 ```bash
 # deploy an out-of-the-box LLM
-litgpt download microsoft/phi-2
 litgpt serve microsoft/phi-2
 
 # deploy your own trained model
@@ -306,11 +313,10 @@ litgpt chat microsoft/phi-2
 &nbsp;
 
 ```bash
-# 1) Download the LLM
+# 1) List all supported LLMs
 litgpt download list
-litgpt download microsoft/phi-2
 
-# 2) Test the model
+# 2) Use a model (auto downloads weights)
 litgpt chat microsoft/phi-2
 
 >> Prompt: What do Llamas eat?
@@ -393,10 +399,7 @@ mkdir -p custom_texts
 curl https://www.gutenberg.org/cache/epub/24440/pg24440.txt --output custom_texts/book1.txt
 curl https://www.gutenberg.org/cache/epub/26393/pg26393.txt --output custom_texts/book2.txt
 
-# 1) Download a pretrained model
-litgpt download EleutherAI/pythia-160m
-
-# 2) Continue pretraining the model
+# 1) Continue pretraining a model (auto downloads weights)
 litgpt pretrain EleutherAI/pythia-160m \
   --tokenizer_dir EleutherAI/pythia-160m \
   --initial_checkpoint_dir EleutherAI/pythia-160m \
@@ -405,7 +408,7 @@ litgpt pretrain EleutherAI/pythia-160m \
   --train.max_tokens 10_000_000 \
   --out_dir out/custom-model
 
-# 3) Test the model
+# 2) Test the model
 litgpt chat out/custom-model/final
 ```
 
@@ -492,6 +495,9 @@ quantize: bnb.nf4
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
 devices: 1
+
+# How many nodes to use. (type: int, default: 1)
+num_nodes: 1
 
 # The LoRA rank. (type: int, default: 8)
 lora_r: 32
@@ -685,7 +691,7 @@ We welcome all individual contributors, regardless of their level of experience 
 
 ----
 
-### Acknowledgements
+### Acknowledgments
 
 This implementation extends on [Lit-LLaMA](https://github.com/lightning-AI/lit-llama) and [nanoGPT](https://github.com/karpathy/nanoGPT), and it's **powered by [Lightning Fabric](https://lightning.ai/docs/fabric/stable/) ⚡**.
 

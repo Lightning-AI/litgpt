@@ -5,6 +5,7 @@ from typing import Union
 
 from litgpt.data import TinyLlama
 
+
 @dataclass
 class MicroLlama(TinyLlama):
     """The MicroLlama data module is composed of only SlimPajama data."""

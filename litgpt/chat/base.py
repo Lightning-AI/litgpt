@@ -14,15 +14,14 @@ from litgpt.model import GPT
 from litgpt.config import Config
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
-from litgpt.generate.base import next_token
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.utils import (
+    auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
-    check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
-    load_checkpoint
+    load_checkpoint,
 )
 
 
@@ -61,75 +60,49 @@ def generate(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
-    T = prompt.size(0)
-    assert max_returned_tokens > T
-    if model.max_seq_length < max_returned_tokens - 1:
-        # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
-        # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
-        # not support it to avoid negatively impacting the overall speed
-        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
-
-    device = prompt.device
-    buffer_length = max((len(tokens) for tokens in stop_tokens), default=1)
-    yield_i = 0
-    input_pos = torch.arange(0, T, device=device)
-    tokens = []
-    token = prompt
-    for t in range(1, max_returned_tokens - T + 1):
-        token = next_token(model, input_pos, token.view(1, -1), temperature=temperature, top_k=top_k, top_p=top_p)
-        tokens.append(token)
-        # check the stop condition
-        if any((l := len(st)) <= len(tokens) and all(a == b for a, b in zip(tokens[-l:], st)) for st in stop_tokens):
-            return
-        # if the buffer is full
-        if t - yield_i >= buffer_length:
-            # we know this idx is not part of stop tokens, safe to yield
-            yield from tokens[yield_i:t]
-            yield_i = t
-        input_pos = input_pos[-1:].add_(1)
+    from litgpt.generate.base import generate_fn
+    return generate_fn(
+        include_prompt=False,
+        include_eos=False,
+        model=model,
+        prompt=prompt,
+        max_returned_tokens=max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens
+    )
 
 
-def decode(fabric: L.Fabric, tokenizer: Tokenizer, token_stream: Iterator[torch.Tensor]) -> int:
-    tokens_generated = 0
-    if tokenizer.backend == "huggingface":
-        try:
-            for token in token_stream:
-                fabric.print(tokenizer.decode(token), end="", flush=True)
-                tokens_generated += 1
-        except KeyboardInterrupt:
-            # support stopping generation
-            return tokens_generated
-    elif tokenizer.backend == "sentencepiece":
-        # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
-        # meaning that we need to decode everything each time
-        so_far = torch.tensor([], dtype=torch.long, device=fabric.device)
-        decoded_so_far = ""
-        try:
-            for token in token_stream:
-                so_far = so_far.to(device=token.device)
-                so_far = torch.cat((so_far, token.view(-1)))
-                decoded_new = tokenizer.decode(so_far)
-                fabric.print(decoded_new[len(decoded_so_far) :], end="", flush=True)
-                decoded_so_far = decoded_new
-                tokens_generated += 1
-        except KeyboardInterrupt:
-            # support stopping generation
-            return tokens_generated
-    else:
-        raise NotImplementedError(tokenizer.backend)
-    return tokens_generated
-
-
-def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
     prompt = prompt_style.apply(prompt=prompt)
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
-    y = generate(
-        model, encoded_prompt, model.max_seq_length, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+
+    if max_new_tokens is None:
+        max_returned_tokens = model.max_seq_length
+    else:
+        first_turn = model.mask_cache is None
+        max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
+        if first_turn or max_returned_tokens > model.max_seq_length:
+            model.max_seq_length = max_returned_tokens
+            model.set_kv_cache(batch_size=1, device=fabric.device)
+
+    y: Iterator[torch.Tensor] = generate(
+        model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
     )
+    token_generator: Iterator[str] = tokenizer.decode_stream(y, device=fabric.device)
+
     fabric.print(">> Reply: ", end="")
+
     t0 = time.perf_counter()
-    tokens_generated = decode(fabric, tokenizer, y)
+
+    tokens_generated = 0
+    for tok in token_generator:
+        tokens_generated += 1
+        fabric.print(tok, end="", flush=True)
+
     t = time.perf_counter() - t0
+
     for block in model.transformer.h:
         block.attn.kv_cache.reset_parameters()
     fabric.print(
@@ -140,7 +113,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
     fabric.print()
 
 
-def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens):
+def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
     while True:
         try:
             if not multiline:
@@ -162,25 +135,29 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, top
         if not prompt or prompt in ("!quit", "!exit"):
             break
 
-        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, top_k, top_p, stop_tokens)
+        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens)
 
 
 @torch.inference_mode()
 def main(
     checkpoint_dir: Path,
     *,
-    top_k: Optional[int] = 200,
+    max_new_tokens: int = 50,
+    top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
     multiline: bool = False,
+    access_token: Optional[str] = None,
 ) -> None:
     """Chat with a model.
 
     Args:
-        checkpoint_dir: The checkpoint directory to load.
+        checkpoint_dir: A local path to a directory containing the model weights or a valid model name.
+            You can get a list of valid model names via the `litgpt download list` command line argument.
+        max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
         top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
             In top-p sampling, the next token is sampled from the highest probability tokens
@@ -205,6 +182,7 @@ def main(
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to use compilation to speed up token generation. Will increase startup time.
         multiline: Whether to support multiline input prompts.
+        access_token: Optional API token to access models with restrictions.
     """
     checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
     pprint(locals())
@@ -221,21 +199,27 @@ def main(
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
 
-    checkpoint_path = checkpoint_dir / "lit_model.pth"
-    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
-
     # Merge if this is a raw LoRA checkpoint
+    checkpoint_path = checkpoint_dir / "lit_model.pth"
     if (checkpoint_dir / "lit_model.pth.lora").is_file() and not checkpoint_path.is_file():
         print("Merging LoRA weights with the base model. This won't take long and is a one-time-only thing.")
         merge_lora(checkpoint_dir)
 
-    check_valid_checkpoint_dir(checkpoint_dir)
+    if not checkpoint_path.is_file():
+        checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+        checkpoint_path = checkpoint_dir / "lit_model.pth"
+
+    check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-        # enable the kv cache
-        model.set_kv_cache(batch_size=1)
+        if compile:
+            print(
+                "IMPORTANT: with enabled compilation the KV-cache size is determined by model's maximum context size, which leads to "
+                "a higher memory consumption. In case of an OOM error, try to set `--compile=False`."
+            )
+            model.set_kv_cache(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 
@@ -269,7 +253,11 @@ def main(
         prompt_style=prompt_style,
         fabric=fabric,
         temperature=temperature,
+        max_new_tokens=(None if compile else max_new_tokens),
         top_k=top_k,
         top_p=top_p,
         stop_tokens=stop_tokens
     )
+
+    if fabric.device.type == "cuda":
+        fabric.print(f"\nMemory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)

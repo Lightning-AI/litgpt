@@ -15,10 +15,31 @@ from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
 from litgpt.pretrain import initialize_weights
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=1, standalone=True)
+@mock.patch("litgpt.pretrain.save_hyperparameters")
+def test_optimizer_args(_, tmp_path):
+    model_config = Config(block_size=2, n_layer=2, n_embd=4, n_head=2, padded_vocab_size=8)
+
+    dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
+    dataloader = DataLoader(dataset)
+    pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
+
+    for i in ("AdamW", "SGD", "RMSprop"):
+        pretrain.setup(
+            "pythia-14m",
+            devices=1,
+            optimizer="RMSprop",
+            model_config=model_config,
+            out_dir=tmp_path,
+            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
+        )
+
+
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
@@ -65,7 +86,7 @@ def test_pretrain(_, tmp_path):
     torch.distributed.barrier()
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 @mock.patch("litgpt.pretrain.L.Fabric.load_raw")

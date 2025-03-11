@@ -12,23 +12,40 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)                                                                                             |
 | Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)      |
 | Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                              |
+| Falcon 3 | 1B, 3B, 7B, 10B | TII UAE | [TII 2024](https://huggingface.co/blog/falcon3)                                                                                              |
 | FreeWilly2 (Stable Beluga 2) | 70B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models)                 |
 | Function Calling Llama 2 | 7B | Trelis | [Trelis et al. 2023](https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2)                                  |
 | Gemma | 2B, 7B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf)                                       |
+| Gemma 2 | 2B, 9B, 27B | Google | [Google Team, Google Deepmind](https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf)                              |
 | Llama 2 | 7B, 13B, 70B | Meta AI | [Touvron et al. 2023](https://arxiv.org/abs/2307.09288)                                                                           |
 | Llama 3 | 8B, 70B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                                   |
+| Llama 3.1 | 8B, 70B, 405B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama3)                                                                           |
+| Llama 3.2 | 1B, 3B | Meta AI | [Meta AI 2024](https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/MODEL_CARD.md)                                    |
+| Llama 3.3 | 70B | Meta AI | [Meta AI 2024](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)                                                                                 |
+| Llama 3.1 Nemotron | 70B | NVIDIA | [NVIDIA AI 2024](https://build.nvidia.com/nvidia/llama-3_1-nemotron-70b-instruct/modelcard) |
 | LongChat | 7B, 13B | LMSYS | [LongChat Team 2023](https://lmsys.org/blog/2023-06-29-longchat/)                                                                       |
+| Mathstral | 7B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mathstral/)                                                                        |
 | MicroLlama | 300M | Ken Wang | [MicroLlama repo](https://github.com/keeeeenw/MicroLlama)
 | Mixtral MoE | 8x7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/mixtral-of-experts/)                                                                     |
-| Mistral | 7B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
+| Mistral | 7B, 123B | Mistral AI | [Mistral AI 2023](https://mistral.ai/news/announcing-mistral-7b/)                                                                        |
+| Mixtral MoE | 8x22B | Mistral AI | [Mistral AI 2024](https://mistral.ai/news/mixtral-8x22b/)                                                                         |
 | Nous-Hermes | 7B, 13B, 70B | NousResearch | [Org page](https://huggingface.co/NousResearch)                                                                          |
+| OLMo | 1B, 7B | Allen Institute for AI (AI2) | [Groeneveld et al. 2024](https://aclanthology.org/2024.acl-long.841/)     |
 | OpenLLaMA | 3B, 7B, 13B | OpenLM Research | [Geng & Liu 2023](https://github.com/openlm-research/open_llama)                                                         |
 | Phi 1.5 & 2 | 1.3B, 2.7B | Microsoft Research  | [Li et al. 2023](https://arxiv.org/abs/2309.05463)                                                                          |
-| Phi 3 | 3.8B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)
+| Phi 3 & 3.5 | 3.8B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2404.14219)
+| Phi 4 | 14B | Microsoft Research | [Abdin et al. 2024](https://arxiv.org/abs/2412.08905)                                                                            |
 | Platypus | 7B, 13B, 70B |  Lee et al. | [Lee, Hunter, and Ruiz 2023](https://arxiv.org/abs/2308.07317)                                                               |
 | Pythia | {14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B | EleutherAI | [Biderman et al. 2023](https://arxiv.org/abs/2304.01373)                                            |
+| Qwen2.5 | 0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwen2.5/)                                               |
+| Qwen2.5 Coder | 0.5B, 1.5B, 3B, 7B, 14B, 32B | Alibaba Group | [Hui, Binyuan et al. 2024](https://arxiv.org/abs/2409.12186)                                          |
+| Qwen2.5 Math | 1.5B, 7B, 72B | Alibaba Group | [An, Yang et al. 2024](https://arxiv.org/abs/2409.12122)                                          |
+| QwQ | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
+| R1 Distll Llama | 8B, 70B | DeepSeek AI | [DeepSeek AI 2025](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf)                                                                         |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
+| SmolLM2 | 135M, 360M, 1.7B | Hugging Face | [Hugging Face 2024](https://github.com/huggingface/smollm)                                                               |
 | StableCode | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                                  |
+| Salamandra | 2B, 7B | Barcelona Supercomputing Centre | [BSC-LTC 2024](https://github.com/BSC-LTC/salamandra)                                                                         |
 | StableLM  | 3B, 7B | Stability AI | [Stability AI 2023](https://github.com/Stability-AI/StableLM)                                                                    |
 | StableLM Zephyr | 3B | Stability AI | [Stability AI 2023](https://stability.ai/blog/stablecode-llm-generative-ai-coding)                                             |
 | TinyLlama | 1.1B | Zhang et al. | [Zhang et al. 2023](https://github.com/jzhang38/TinyLlama)                                                                         |
@@ -49,6 +66,13 @@ litgpt download list
 The output is shown below:
 
 ```
+allenai/OLMo-1B-hf
+allenai/OLMo-7B-hf
+allenai/OLMo-7B-Instruct-hf
+bsc-lt/salamandra-2b
+bsc-lt/salamandra-2b-instruct
+bsc-lt/salamandra-7b
+bsc-lt/salamandra-7b-instruct
 codellama/CodeLlama-13b-hf
 codellama/CodeLlama-13b-Instruct-hf
 codellama/CodeLlama-13b-Python-hf
@@ -64,6 +88,8 @@ codellama/CodeLlama-7b-Python-hf
 databricks/dolly-v2-12b
 databricks/dolly-v2-3b
 databricks/dolly-v2-7b
+deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+deepseek-ai/DeepSeek-R1-Distill-Llama-70B
 EleutherAI/pythia-1.4b
 EleutherAI/pythia-1.4b-deduped
 EleutherAI/pythia-12b
@@ -91,11 +117,23 @@ garage-bAInd/Platypus2-70B-instruct
 garage-bAInd/Platypus2-7B
 garage-bAInd/Stable-Platypus2-13B
 google/codegemma-7b-it
+google/gemma-2-27b
+google/gemma-2-27b-it
+google/gemma-2-2b
+google/gemma-2-2b-it
+google/gemma-2-9b
+google/gemma-2-9b-it
 google/gemma-2b
 google/gemma-2b-it
 google/gemma-7b
 google/gemma-7b-it
 h2oai/h2o-danube2-1.8b-chat
+HuggingFaceTB/SmolLM2-135M
+HuggingFaceTB/SmolLM2-135M-Instruct
+HuggingFaceTB/SmolLM2-360M
+HuggingFaceTB/SmolLM2-360M-Instruct
+HuggingFaceTB/SmolLM2-1.7B
+HuggingFaceTB/SmolLM2-1.7B-Instruct
 lmsys/longchat-13b-16k
 lmsys/longchat-7b-16k
 lmsys/vicuna-13b-v1.3
@@ -111,24 +149,79 @@ meta-llama/Llama-2-70b-chat-hf
 meta-llama/Llama-2-70b-hf
 meta-llama/Llama-2-7b-chat-hf
 meta-llama/Llama-2-7b-hf
+meta-llama/Llama-3.2-1B
+meta-llama/Llama-3.2-1B-Instruct
+meta-llama/Llama-3.2-3B
+meta-llama/Llama-3.2-3B-Instruct
+meta-llama/Llama-3.3-70B-Instruct
 meta-llama/Meta-Llama-3-70B
 meta-llama/Meta-Llama-3-70B-Instruct
 meta-llama/Meta-Llama-3-8B
 meta-llama/Meta-Llama-3-8B-Instruct
+meta-llama/Meta-Llama-3.1-405B
+meta-llama/Meta-Llama-3.1-405B-Instruct
+meta-llama/Meta-Llama-3.1-70B
+meta-llama/Meta-Llama-3.1-70B-Instruct
+meta-llama/Meta-Llama-3.1-8B
+meta-llama/Meta-Llama-3.1-8B-Instruct
 microsoft/phi-1_5
 microsoft/phi-2
+microsoft/Phi-3-mini-128k-instruct
 microsoft/Phi-3-mini-4k-instruct
+microsoft/Phi-3.5-mini-instruct
+microsoft/phi-4
+mistralai/mathstral-7B-v0.1
 mistralai/Mistral-7B-Instruct-v0.1
 mistralai/Mistral-7B-Instruct-v0.2
+mistralai/Mistral-7B-Instruct-v0.3
 mistralai/Mistral-7B-v0.1
+mistralai/Mistral-7B-v0.3
+mistralai/Mistral-Large-Instruct-2407
+mistralai/Mistral-Large-Instruct-2411
 mistralai/Mixtral-8x7B-Instruct-v0.1
 mistralai/Mixtral-8x7B-v0.1
+mistralai/Mixtral-8x22B-Instruct-v0.1
+mistralai/Mixtral-8x22B-v0.1
 NousResearch/Nous-Hermes-13b
 NousResearch/Nous-Hermes-llama-2-7b
 NousResearch/Nous-Hermes-Llama2-13b
+nvidia/Llama-3.1-Nemotron-70B-Instruct-HF
 openlm-research/open_llama_13b
 openlm-research/open_llama_3b
 openlm-research/open_llama_7b
+Qwen/Qwen2.5-0.5B
+Qwen/Qwen2.5-0.5B-Instruct
+Qwen/Qwen2.5-1.5B
+Qwen/Qwen2.5-1.5B-Instruct
+Qwen/Qwen2.5-3B
+Qwen/Qwen2.5-3B-Instruct
+Qwen/Qwen2.5-7B
+Qwen/Qwen2.5-7B-Instruct
+Qwen/Qwen2.5-14B
+Qwen/Qwen2.5-14B-Instruct
+Qwen/Qwen2.5-32B
+Qwen/Qwen2.5-32B-Instruct
+Qwen/Qwen2.5-72B
+Qwen/Qwen2.5-72B-Instruct
+Qwen/Qwen2.5-Coder-0.5B
+Qwen/Qwen2.5-Coder-0.5B-Instruct
+Qwen/Qwen2.5-Coder-1.5B
+Qwen/Qwen2.5-Coder-1.5B-Instruct
+Qwen/Qwen2.5-Coder-3B
+Qwen/Qwen2.5-Coder-3B-Instruct
+Qwen/Qwen2.5-Coder-7B
+Qwen/Qwen2.5-Coder-7B-Instruct
+Qwen/Qwen2.5-Coder-14B
+Qwen/Qwen2.5-Coder-14B-Instruct
+Qwen/Qwen2.5-Coder-32B
+Qwen/Qwen2.5-Coder-32B-Instruct
+Qwen/Qwen2.5-Math-1.5B
+Qwen/Qwen2.5-Math-1.5B-Instruct
+Qwen/Qwen2.5-Math-7B
+Qwen/Qwen2.5-Math-7B-Instruct
+Qwen/Qwen2.5-Math-72B
+Qwen/Qwen2.5-Math-72B-Instruct
+Qwen/QwQ-32B-Preview
 stabilityai/FreeWilly2
 stabilityai/stable-code-3b
 stabilityai/stablecode-completion-alpha-3b
@@ -146,6 +239,14 @@ tiiuae/falcon-40b
 tiiuae/falcon-40b-instruct
 tiiuae/falcon-7b
 tiiuae/falcon-7b-instruct
+tiiuae/Falcon3-1B-Base
+tiiuae/Falcon3-1B-Instruct
+tiiuae/Falcon3-3B-Base
+tiiuae/Falcon3-3B-Instruct
+tiiuae/Falcon3-7B-Base
+tiiuae/Falcon3-7B-Instruct
+tiiuae/Falcon3-10B-Base
+tiiuae/Falcon3-10B-Instruct
 TinyLlama/TinyLlama-1.1B-Chat-v1.0
 TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
 togethercomputer/LLaMA-2-7B-32K
@@ -293,7 +394,7 @@ litgpt download <repo_id> \
 and then calling the `convert_hf_checkpoint` command:
 
 ```bash
-litgpt convert to_litgpt <repo_id>
+litgpt convert_to_litgpt <repo_id>
 ```
 
 &nbsp;

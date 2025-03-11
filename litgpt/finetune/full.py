@@ -20,12 +20,14 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    auto_download_checkpoint,
     CycleIterator,
+    check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
-    extend_checkpoint_dir,
+    create_finetuning_performance_report,
     find_resume_path,
     get_default_supported_precision,
     load_checkpoint,
@@ -34,6 +36,7 @@ from litgpt.utils import (
     num_parameters,
     parse_devices,
     save_hyperparameters,
+    select_sft_generate_example,
 )
 
 
@@ -42,6 +45,7 @@ def setup(
     out_dir: Path = Path("out/finetune/full"),
     precision: Optional[str] = None,
     devices: Union[int, str] = 1,
+    num_nodes: int = 1,
     resume: Union[bool, Literal["auto"], Path] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
@@ -57,6 +61,7 @@ def setup(
     optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
     seed: int = 1337,
+    access_token: Optional[str] = None,
 ) -> None:
     """Finetune a model.
 
@@ -66,6 +71,7 @@ def setup(
             /teamspace/jobs/<job-name>/share.
         precision: The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true".
         devices: How many devices/GPUs to use
+        num_nodes: How many nodes the code is being run on.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
             from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
             ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
@@ -75,8 +81,9 @@ def setup(
         optimizer: An optimizer name (such as "AdamW") or config.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
+        access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
     data = Alpaca() if data is None else data
     devices = parse_devices(devices)
@@ -90,7 +97,7 @@ def setup(
         logger_name, out_dir, name=f"finetune-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         strategy = FSDPStrategy(
             auto_wrap_policy={Block},
             activation_checkpointing_policy={Block},
@@ -101,7 +108,17 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=logger
+    )
+
+    if torch.cuda.is_available() and devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
@@ -131,7 +148,7 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    with fabric.init_module(empty_init=(devices > 1)):
+    with fabric.init_module(empty_init=(fabric.world_size > 1)):
         model = GPT(config)
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
@@ -151,10 +168,10 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval, data)
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
-    if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+    token_counts = fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval, data)
+    training_time = time.perf_counter() - train_time
+    output = create_finetuning_performance_report(training_time, token_counts, fabric.device.type)
+    fabric.print(output)
 
     # Final evaluation
     if eval.final_validation:
@@ -198,6 +215,12 @@ def fit(
         f" {model.max_seq_length} and context length is {model.config.block_size}"
     )
 
+    token_counts = {
+        "raw_tokens": torch.tensor(0, device=fabric.device, dtype=torch.long),
+        "raw_tokens_plus_prompt_template": torch.tensor(0, device=fabric.device, dtype=torch.long),
+        "raw_tokens_plus_prompt_template_and_padding": torch.tensor(0, device=fabric.device, dtype=torch.long),
+    }
+
     if eval.initial_validation:
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
         val_loss = f"{val_loss:.3f}"
@@ -228,10 +251,12 @@ def fit(
     )
     fabric.barrier()
 
-    while state["step_count"] < max_steps and train_iterator.epoch < train.epochs:
+    while state["step_count"] < max_steps:
         state["iter_num"] += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
+        if train_iterator.epoch >= train.epochs:
+            break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
@@ -249,6 +274,10 @@ def fit(
             scheduler.step()
             state["step_count"] += 1
 
+        token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
+
         if state["iter_num"] % train.log_interval == 0:
             loss = running_loss.compute().item()  # expensive device-to-host synchronization
             t1 = time.perf_counter()
@@ -258,10 +287,8 @@ def fit(
                 "step": state["step_count"],
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
-                "tokens": state["iter_num"] * train.micro_batch_size * model.config.block_size,
-                "total_tokens": (
-                    state["iter_num"] * train.micro_batch_size * model.config.block_size * fabric.world_size
-                ),
+                "tokens": token_counts["raw_tokens_plus_prompt_template"],
+                "total_tokens": token_counts["raw_tokens_plus_prompt_template"] * fabric.world_size,
                 "learning_rate": scheduler.get_last_lr()[0],
             }
             if isinstance(val_loss, torch.Tensor):
@@ -294,6 +321,12 @@ def fit(
                 save_hyperparameters(setup, checkpoint_file.parent)
                 save_prompt_style(data.prompt_style, checkpoint_file.parent)
 
+    total_token_counts = {}
+    for key in token_counts:
+        total = fabric.all_reduce(token_counts[key], reduce_op="sum")
+        total_token_counts[key] = total.item()
+
+    return total_token_counts
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
@@ -316,7 +349,7 @@ def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: Eva
 
 @torch.no_grad()
 def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: EvalArgs, data: DataModule):
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+    instruction = select_sft_generate_example(eval, data)
     fabric.print(instruction)
     prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
@@ -325,13 +358,26 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
-    output = generate(
-        model, encoded, max_returned_tokens=len(encoded) + eval.max_new_tokens, temperature=0.8, eos_id=tokenizer.eos_id
-    )
-    model.clear_kv_cache()
-    model.train()
-    output = tokenizer.decode(output)
-    fabric.print(output)
+
+    max_returned_tokens = len(encoded) + eval.max_new_tokens
+
+    if max_returned_tokens < model.max_seq_length:
+        with fabric.init_tensor():
+            # do not set `max_seq_length=max_returned_token` because memory is not a concern here
+            model.set_kv_cache(batch_size=1)
+        output = generate(
+            model, encoded, max_returned_tokens=max_returned_tokens, temperature=0.8, eos_id=tokenizer.eos_id
+        )
+        model.clear_kv_cache()
+        model.train()
+        output = tokenizer.decode(output)
+        fabric.print(f"{output}\n")
+    else:
+        print(
+            f"Length of encoded instruction ({len(encoded)}) and eval.max_new_tokens ({eval.max_new_tokens}) "
+            f"exceeds model.max_seq_length ({model.max_seq_length}) used for training. Skipping example generation for efficiency. "
+            f"The model's supported context size (post-training) is {model.config.block_size}."
+        )
 
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):

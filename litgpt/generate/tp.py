@@ -3,28 +3,30 @@
 import logging
 import sys
 import time
+import warnings
 from functools import partial
 from pathlib import Path
 from pprint import pprint
 from typing import Literal, Optional, Union
-import warnings
 
 import lightning as L
-from lightning_utilities.core.imports import RequirementCache
 import torch
 import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
-from torch.distributed._functional_collectives import all_reduce
+from lightning_utilities.core.imports import RequirementCache
 
 import litgpt.generate.base as generate_base
-from litgpt import GPT, Config, Tokenizer
-from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.config import Config
+from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
-    get_default_supported_precision
+    get_default_supported_precision,
 )
 
 
@@ -68,12 +70,14 @@ def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMA
 
 
 def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    tensor_parallel_linear(fabric, attn.attn, "colwise")
+    tensor_parallel_linear(fabric, attn.qkv, "colwise")
     tensor_parallel_linear(fabric, attn.proj, "rowwise")
     attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
 
 
 def all_reduce_output(world_size: int, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+    from torch.distributed._functional_collectives import all_reduce
+
     return all_reduce(outs, "sum", list(range(world_size)))
 
 
@@ -166,6 +170,8 @@ def main(
 
     # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
     fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision, plugins=plugins)
+    if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
+        check_nvlink_connectivity(fabric)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -175,6 +181,10 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
+    prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens

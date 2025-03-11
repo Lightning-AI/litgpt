@@ -5,7 +5,7 @@ import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from pathlib import Path
+import os
 from unittest import mock
 from unittest.mock import ANY, Mock, call
 
@@ -18,12 +18,21 @@ from litgpt import GPT, Config
 from litgpt.generate.base import sample
 
 
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+)
+
+
 @pytest.mark.parametrize(
     "max_seq_length", (pytest.param(10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)), 20 + 5)
 )
 def test_generate(max_seq_length):
+    import lightning as L
+    L.seed_everything(1234)
+
     T = 5
-    input_idx = torch.randint(10, size=(T,))
+    input_idx = torch.arange(0, T)
 
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = GPT(config)
@@ -39,15 +48,16 @@ def test_generate(max_seq_length):
         return out
 
     with mock.patch("litgpt.generate.base.multinomial_num_samples_1", multinomial):
-        out = generate.generate(model, input_idx, T + max_new_tokens, top_k=4)
+        out = generate.generate(model, input_idx, T + max_new_tokens, top_k=1)
 
-    assert out.size(0) == T + max_new_tokens
+    assert out.size(0) == T + max_new_tokens, (out.size(0), T + max_new_tokens)
     multinomial_results = torch.hstack(multinomial_results)
     expected = torch.cat((input_idx, multinomial_results))
-    assert out.shape == expected.shape
+    assert out.shape == expected.shape, (out.shape, expected.shape)
     torch.testing.assert_close(out, expected)
 
 
+@skip_in_ci_on_macos
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
@@ -83,7 +93,13 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     pattern = rf".*^{re.escape(expected_output.strip())}$.*"
     assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
 
-    assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4" in err.getvalue()
+    err_value = err.getvalue()
+    expected_parts = [
+        "'padded_vocab_size': 512",
+        "'n_layer': 2",
+        "'n_head': 4",
+    ]
+    assert all(part in err_value for part in expected_parts)
 
 
 def test_cli():

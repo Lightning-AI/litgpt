@@ -5,7 +5,7 @@ import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-from pathlib import Path
+import os
 from unittest.mock import ANY, Mock, call
 
 import pytest
@@ -13,6 +13,13 @@ import torch
 import yaml
 
 
+skip_in_ci_on_macos = pytest.mark.skipif(
+    sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+)
+
+
+@skip_in_ci_on_macos
 @pytest.mark.parametrize("version", ("v1", "v2"))
 def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     if version == "v1":
@@ -48,7 +55,15 @@ def test_main(fake_checkpoint_dir, monkeypatch, version, tensor_like):
     pattern = rf".*^{re.escape(expected_output.strip())}$.*"
     assert re.match(pattern, out.getvalue().strip(), re.DOTALL | re.MULTILINE)
 
-    assert "'padded_vocab_size': 512, 'n_layer': 2, 'n_head': 4, 'head_size': 2, 'n_embd': 8" in err.getvalue()
+    err_value = err.getvalue()
+    expected_parts = [
+        "'padded_vocab_size': 512",
+        "'n_layer': 2",
+        "'n_head': 4",
+        "'head_size': 2",
+        "'n_embd': 8",
+    ]
+    assert all(part in err_value for part in expected_parts)
 
 
 @pytest.mark.parametrize("version", ("", "_v2"))

@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+from litgpt.utils import _RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -31,6 +32,7 @@ def run_command(command):
 
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
     command = ["litgpt", "download", str(repo_id)]
@@ -40,8 +42,14 @@ def test_download_model():
     assert f"Saving converted checkpoint to {str(s)}" in output
     assert ("checkpoints" / REPO_ID).exists()
 
+    # Also test valid but unsupported repo IDs
+    command = ["litgpt", "download", "CohereForAI/aya-23-8B"]
+    output = run_command(command)
+    assert "Unsupported `repo_id`" in output
+
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_books():
     CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -64,13 +72,22 @@ def test_chat_with_model():
     assert "What food do llamas eat?" in result.stdout
 
 
+@_RunIf(min_cuda_gpus=1)
+@pytest.mark.dependency(depends=["test_download_model"])
+def test_chat_with_quantized_model():
+    command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
+    prompt = "What do Llamas eat?"
+    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    assert "What food do llamas eat?" in result.stdout, result.stdout
+
+
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
-def test_finetune_model():
+def test_finetune_model(tmp_path):
 
-    OUT_DIR = Path("out") / "lora"
-    DATASET_PATH = Path("custom_finetuning_dataset.json")
+    OUT_DIR = tmp_path / "out" / "lora"
+    DATASET_PATH = tmp_path / "custom_finetuning_dataset.json"
     CHECKPOINT_DIR = "checkpoints" / REPO_ID
 
     download_command = ["curl", "-L", "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json", "-o", str(DATASET_PATH)]
@@ -90,8 +107,10 @@ def test_finetune_model():
     ]
     run_command(finetune_command)
 
-    assert (OUT_DIR/"final").exists(), "Finetuning output directory was not created"
-    assert (OUT_DIR/"final"/"lit_model.pth").exists(), "Model file was not created"
+    generated_out_dir = OUT_DIR/"final"
+    assert generated_out_dir.exists(), f"Finetuning output directory ({generated_out_dir}) was not created"
+    model_file = OUT_DIR/"final"/"lit_model.pth"
+    assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.skipif(
@@ -101,8 +120,8 @@ def test_finetune_model():
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-def test_pretrain_model():
-    OUT_DIR = Path("out") / "custom_pretrained"
+def test_pretrain_model(tmp_path):
+    OUT_DIR = tmp_path / "out" / "custom_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
         "pythia-14m",
@@ -113,10 +132,17 @@ def test_pretrain_model():
         "--eval.max_iters", "1",         # to accelerate things for CI
         "--out_dir", str(OUT_DIR)
     ]
-    run_command(pretrain_command)
+    output = run_command(pretrain_command)
 
-    assert (OUT_DIR / "final").exists(), "Pretraining output directory was not created"
-    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    assert "Warning: Preprocessed training data found" not in output
+    out_dir_path = OUT_DIR / "final"
+    assert out_dir_path.exists(), f"Pretraining output directory ({out_dir_path}) was not created"
+    out_model_path = OUT_DIR / "final" / "lit_model.pth"
+    assert out_model_path.exists(), f"Model file ({out_model_path}) was not created"
+
+    # Test that warning is displayed when running it a second time
+    output = run_command(pretrain_command)
+    assert "Warning: Preprocessed training data found" in output
 
 
 @pytest.mark.skipif(
@@ -126,8 +152,8 @@ def test_pretrain_model():
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
-def test_continue_pretrain_model():
-    OUT_DIR = Path("out") / "custom_continue_pretrained"
+def test_continue_pretrain_model(tmp_path):
+    OUT_DIR = tmp_path / "out" / "custom_continue_pretrained"
     pretrain_command = [
         "litgpt", "pretrain",
         "pythia-14m",
@@ -141,8 +167,10 @@ def test_continue_pretrain_model():
     ]
     run_command(pretrain_command)
 
-    assert (OUT_DIR / "final").exists(), "Continued pretraining output directory was not created"
-    assert (OUT_DIR / "final" / "lit_model.pth").exists(), "Model file was not created"
+    generated_out_dir = OUT_DIR/"final"
+    assert generated_out_dir.exists(), f"Continued pretraining directory ({generated_out_dir}) was not created"
+    model_file = OUT_DIR/"final"/"lit_model.pth"
+    assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])

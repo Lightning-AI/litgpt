@@ -90,6 +90,7 @@ def main(
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
+
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
     fabric.launch()
 

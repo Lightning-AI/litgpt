@@ -7,7 +7,7 @@ from pathlib import Path
 
 from lightning_utilities.core.imports import RequirementCache
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import CLI, extend_checkpoint_dir
 
 _LITDATA_AVAILABLE = RequirementCache("litdata")

@@ -1,7 +1,3 @@
-import random
-import string
-import os
-
 import torch
 
 from litdata import optimize
@@ -30,7 +26,7 @@ def test_textfiles_datamodule(tmp_path):
     from litgpt.data.text_files import TextFiles
 
     data_dir = tmp_path / "textfiles"
-    datamodule = TextFiles(train_data_path=data_dir)
+    datamodule = TextFiles(train_data_path=data_dir, num_workers=1)
     datamodule.connect(max_seq_length=2, tokenizer=Tokenizer())
 
     # simulate `datamodule.prepare_data`
@@ -57,5 +53,5 @@ def test_textfiles_datamodule(tmp_path):
         [[73, 5, 0]],
         [[12, 0, 23]],
         [[23, 15, 63]],
-        [[13, 12, 0]],
+        [[13, 12, 0]]
     ]

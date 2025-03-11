@@ -36,23 +36,12 @@ def test_prompt_style_from_config():
         "stablecode-instruct-alpha-3b",
         "falcon-7b-instruct",
         "falcon-40b-instruct",
-        "vicuna-7b-v1.3",
-        "vicuna-13b-v1.3",
-        "vicuna-33b-v1.3",
-        "vicuna-7b-v1.5",
-        "vicuna-7b-v1.5-16k",
-        "vicuna-13b-v1.5",
-        "vicuna-13b-v1.5-16k",
-        "longchat-7b-16k",
-        "longchat-13b-16k",
-        "Nous-Hermes-llama-2-7b",
-        "Nous-Hermes-13b",
-        "Nous-Hermes-Llama2-13b",
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
         "Llama-3-8B-Instruct",
         "Llama-3-70B-Instruct",
+        "Llama-3.1-405B-Instruct",
         "Gemma-2b-it",
         "Gemma-7b-it",
         "FreeWilly2",
@@ -68,9 +57,7 @@ def test_prompt_style_from_config():
         "tiny-llama-1.1b-chat",
         "Llama-2-7b-chat-hf-function-calling-v2",
     ]
-    for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
-        model_names.append(template.format("Chat"))
-        model_names.append(template.format("Instruct"))
+       
     for c in litgpt.config.platypus:
         model_names.append(c["name"])
 
@@ -114,7 +101,7 @@ def test_save_load_prompt_style(tmp_path):
     save_prompt_style(CustomPromptStyle(), checkpoint_dir)
     with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
-    assert contents == {"class_path": "tests.test_prompts.CustomPromptStyle"}
+    assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)
     assert isinstance(loaded, CustomPromptStyle)
 
@@ -153,8 +140,7 @@ def test_multiturn_prompt():
 
     assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-You are a helpful AI assistant for travel tips and recommendations<|eot_id|>
-<|start_header_id|>user<|end_header_id|>
+You are a helpful AI assistant for travel tips and recommendations<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
@@ -174,8 +160,7 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
     assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
-You are a helpful assistant.<|eot_id|>
-<|start_header_id|>user<|end_header_id|>
+You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
 
 What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 

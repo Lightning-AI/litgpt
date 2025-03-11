@@ -2,14 +2,21 @@
 
 """Utility functions for training and inference."""
 import inspect
+import json
 import math
 import os
 import pickle
+import random
+import re
 import shutil
 import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
+
+from lightning_utilities.core.imports import package_available
+from packaging import version
 from pathlib import Path
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 import warnings
 
@@ -26,11 +33,17 @@ from lightning.pytorch.cli import instantiate_class
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
+
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
+_THUNDER_AVAILABLE = package_available("thunder")
+_TRITON_AVAILABLE = package_available("triton")
+
 
 def init_out_dir(out_dir: Path) -> Path:
+    if not isinstance(out_dir, Path):
+        out_dir = Path(out_dir)
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
         return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
     return out_dir
@@ -76,14 +89,25 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth", verbose: bool = True, raise_error: bool = False) -> None:
+def check_valid_checkpoint_dir(
+        checkpoint_dir: Path,
+        model_filename: str = "lit_model.pth",
+        verbose: bool = True,
+        raise_error: bool = False,
+        ignore_tokenizer_files: bool = False
+    ) -> None:
+
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
-        or (checkpoint_dir / "tokenizer.model").is_file(),
-        "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
+    if not ignore_tokenizer_files:
+        files.update({
+            "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or
+                                                (checkpoint_dir / "tokenizer.model").is_file(),
+            "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+        })
+
     if checkpoint_dir.is_dir():
         if all(files.values()):
             # we're good
@@ -149,12 +173,12 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -226,13 +250,14 @@ class incremental_save:
         self.zipfile = torch._C.PyTorchFileWriter(str(name))
         self.has_saved = False
         self.next_key = 0
+        self.protocol_version = 2
 
     def __enter__(self):
         return self
 
     def store_early(self, tensor):
         if isinstance(tensor, torch.Tensor):
-            return SavingProxyForTensor(tensor, self)
+            return SavingProxyForTensor(tensor, self, protocol_version=self.protocol_version)
         raise TypeError(f"can only store tensors early, not {type(tensor)}")
 
     def save(self, obj):
@@ -240,7 +265,7 @@ class incremental_save:
             raise RuntimeError("have already saved")
         # Write the pickle data for `obj`
         data_buf = BytesIO()
-        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=5)
+        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=self.protocol_version)
         pickler.dump(obj)
         data_value = data_buf.getvalue()
         self.zipfile.write_record("data.pkl", data_value, len(data_value))
@@ -255,7 +280,14 @@ class incremental_save:
         if storage.device.type != "cpu":
             storage = storage.cpu()
         num_bytes = storage.nbytes()
-        self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+
+        current_version = version.parse(torch.__version__)
+        threshold_version = version.parse("2.2.2")
+        if current_version <= threshold_version:
+            self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+        else:
+            self.zipfile.write_record(name, storage, num_bytes)
+
         return key
 
     def __exit__(self, type, value, traceback):
@@ -327,18 +359,22 @@ def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) 
 
 
 def get_default_supported_precision(training: bool) -> str:
-    """Return default precision that is supported by the hardware: either `bf16` or `16`.
+    """
+    Return the default precision that is supported by the hardware: either `bf16` or `16`.
 
     Args:
-        training: `-mixed` or `-true` version of the precision to use
+        training: If True, returns '-mixed' version of the precision; if False, returns '-true' version.
 
     Returns:
-        default precision that is suitable for the task and is supported by the hardware
+        The default precision that is suitable for the task and is supported by the hardware.
     """
-    from lightning.fabric.accelerators import MPSAccelerator
+    import torch
 
-    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
-        return "16-mixed" if training else "16-true"
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            return "bf16-mixed" if training else "bf16-true"
+        else:
+            return "16-mixed" if training else "16-true"
     return "bf16-mixed" if training else "bf16-true"
 
 
@@ -528,13 +564,37 @@ def instantiate_bnb_optimizer(optimizer, model_parameters):
 
 
 def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
+    # Special care taken where some optimizers do not have some parameters referenced in some of the code, for example "fused" in the pretrain.py script:
+    #   bnb.optim.AdamW8bit
+    #   grokadamw.GrokAdamW
+    #   torch.optim.RMSprop
+
     if isinstance(optimizer, str):
-        optimizer_cls = getattr(torch.optim, optimizer)
+        if "." in optimizer:
+            class_module, class_name = optimizer.rsplit(".", 1)
+        else:
+            class_module, class_name = "torch.optim", optimizer
+
+        module = __import__(class_module, fromlist=[class_name])
+        optimizer_cls = getattr(module, class_name)
+
+        valid_params = set(inspect.signature(optimizer_cls).parameters)
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
         optimizer = optimizer_cls(model_parameters, **kwargs)
-    else:
-        optimizer = dict(optimizer)  # copy
+    elif isinstance(optimizer, dict):
+        optimizer = dict(optimizer)
+        class_module, class_name = optimizer["class_path"].rsplit(".", 1)
+        module = __import__(class_module, fromlist=[class_name])
+        optimizer_cls = getattr(module, class_name)
+
+        valid_params = set(inspect.signature(optimizer_cls).parameters)
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
+
         optimizer["init_args"].update(kwargs)
         optimizer = instantiate_class(model_parameters, optimizer)
+    else:
+        raise ValueError(f'Unrecognized "optimizer" value: {optimizer}')
+
     return optimizer
 
 
@@ -561,3 +621,216 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
                 "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
             )
     return size
+
+
+def auto_download_checkpoint(model_name, access_token=None, ignore_tokenizer_files=False):
+    from litgpt.scripts.download import download_from_hub  # moved here due to circular import issue
+
+    checkpoint_dir = extend_checkpoint_dir(Path(model_name))
+    try:
+        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True, ignore_tokenizer_files=ignore_tokenizer_files)
+    except FileNotFoundError as e:
+        if access_token is None:
+            access_token = os.getenv("HF_TOKEN")
+
+        if checkpoint_dir.parts[0] != "checkpoints" and not checkpoint_dir.is_absolute():
+            download_from_hub(repo_id=str(model_name), access_token=access_token)
+            checkpoint_dir = Path("checkpoints") / checkpoint_dir
+        else:
+            raise e
+
+    return checkpoint_dir
+
+
+def check_nvlink_connectivity(fabric=None):
+    """Checks GPU connectivity for both NVIDIA and AMD GPUs.
+
+    This function delegates to vendor-specific implementations based on
+    the detected GPU vendor.
+    """
+    if fabric is not None:
+        custom_print = fabric.print
+    else:
+        custom_print = print
+
+    if os.getenv("RANK", "0") == "0":
+        try:
+            if torch.cuda.is_available():
+                device_properties = torch.cuda.get_device_properties(0)
+                gpu_name = device_properties.name.lower()
+                if "nvidia" in gpu_name:
+                    _check_nvidia_connectivity(custom_print)
+                elif "advanced micro devices" in gpu_name or "amd" in gpu_name:
+                    _check_amd_connectivity(custom_print)
+                else:
+                    custom_print(f"Unrecognized GPU vendor: {device_properties.name}")
+            else:
+                custom_print("No GPUs available")
+        except Exception as e:
+            custom_print(f"An error occurred while checking GPU connectivity: {e}")
+
+
+def _check_nvidia_connectivity(custom_print):
+    """Checks NVLink connectivity on NVIDIA GPUs."""
+    result = subprocess.run(["nvidia-smi", "topo", "-m"], stdout=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        custom_print("Failed to run nvidia-smi")
+        return
+
+    lines = result.stdout.strip().split("\n")
+    start_index = next((i for i, line in enumerate(lines) if "GPU0" in line), None)
+    if start_index is None:
+        custom_print("Failed to parse nvidia-smi output")
+        return
+
+    headers_line = lines[start_index]
+    headers = headers_line.split()
+    gpu_regex = re.compile(r"^GPU\d+$")
+    gpu_count = len([header for header in headers if gpu_regex.match(header)])
+
+    all_nvlink = True
+    for line in lines[start_index + 1 : start_index + 1 + gpu_count]:
+        columns = line.split()
+        connections = columns[1 : 1 + gpu_count]
+        if not all("NV" in conn for conn in connections if conn != "X"):
+            all_nvlink = False
+            break
+
+    if all_nvlink:
+        custom_print("All GPUs are fully connected via NVLink.")
+    else:
+        custom_print(
+            "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
+            "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+        )
+
+
+def _check_amd_connectivity(custom_print):
+    """Checks XGMI connectivity on AMD GPUs."""
+    result = subprocess.run(["rocm-smi", "--showtopotype"], stdout=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        custom_print("Failed to run rocm-smi")
+        return
+
+    lines = result.stdout.strip().split("\n")
+    gpu_header_index = next((i for i, line in enumerate(lines) if re.match(r"^\s*GPU0", line)), None)
+    if gpu_header_index is None or gpu_header_index == 0:
+        custom_print("Failed to parse rocm-smi output (no GPU headers found)")
+        return
+
+    header_line = lines[gpu_header_index - 1]
+    headers = header_line.strip().split()
+    gpu_regex = re.compile(r"^GPU\d+$")
+    gpu_count = len([header for header in headers if gpu_regex.match(header)])
+
+    gpu_lines = []
+    for line in lines[gpu_header_index : gpu_header_index + gpu_count]:
+        if re.match(r"^\s*GPU\d+", line):
+            gpu_lines.append(line.strip())
+    if len(gpu_lines) != gpu_count:
+        custom_print("Mismatch in GPU count when parsing rocm-smi output")
+        return
+
+    all_xgmi = True
+    for line in gpu_lines:
+        columns = line.split()
+        connections = columns[1 : 1 + gpu_count]
+        for conn in connections:
+            if conn not in ("XGMI", "0"):
+                all_xgmi = False
+                break
+        if not all_xgmi:
+            break
+
+    if all_xgmi:
+        custom_print("All GPUs are fully connected via XGMI.")
+    else:
+        custom_print(
+            "Warning: Not all GPUs are fully connected via XGMI. Some GPUs are connected via slower interfaces. "
+            "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+        )
+
+
+def fix_and_load_json(s):
+    # Remove trailing commas before } or ]
+    s = re.sub(r',(\s*[}\]])', r'\1', s)
+
+    # Insert missing commas between properties
+    # Match positions where a value is followed by a newline and then a quote without a comma
+    pattern = r'(?<=[}\]0-9truefalsenull"])\s*(\n\s*)"'
+    replacement = r',\1"'
+    s = re.sub(pattern, replacement, s)
+
+    # Now try to parse the JSON
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON after fixing: {e}")
+
+
+def create_finetuning_performance_report(training_time, token_counts, device_type):
+    tok_sec = token_counts["raw_tokens_plus_prompt_template_and_padding"] / training_time
+    output = f"""
+| ------------------------------------------------------
+| Token Counts
+| - Input Tokens              :  {token_counts["raw_tokens"]:>5}
+| - Tokens w/ Prompt          :  {token_counts["raw_tokens_plus_prompt_template"]:>5}
+| - Total Tokens (w/ Padding) :  {token_counts["raw_tokens_plus_prompt_template_and_padding"]:>5}
+| -----------------------------------------------------
+| Performance
+| - Training Time             :  {training_time:.2f} s
+| - Tok/sec                   :  {tok_sec:.2f} tok/s
+| -----------------------------------------------------
+"""
+
+    if device_type == "cuda":
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        output += f"| Memory Usage                                                                 \n"
+        output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
+    output += "-------------------------------------------------------\n"
+
+    return output
+
+
+def select_sft_generate_example(eval, data):
+
+    if eval.evaluate_example == "first":
+        if len(data.test_dataset.data):
+            instruction = data.test_dataset.data[0]["instruction"]
+        else:
+            instruction = data.train_dataset.data[0]["instruction"]
+
+    elif eval.evaluate_example == "random":
+        if len(data.test_dataset.data):
+            random_idx = random.randint(0, len(data.test_dataset.data) - 1)
+            instruction = data.test_dataset.data[random_idx]["instruction"]
+        else:
+            random_idx = random.randint(0, len(data.train_dataset.data) - 1)
+            instruction = data.train_dataset.data[random_idx]["instruction"]
+
+    elif isinstance(eval.evaluate_example, int):
+        index = eval.evaluate_example
+        if len(data.test_dataset.data) > index:
+            instruction = data.test_dataset.data[index]["instruction"]
+        elif len(data.train_dataset.data) > index:
+            instruction = data.train_dataset.data[index]["instruction"]
+        else:
+            raise IndexError(f"Index {index} is out of range for both test and training datasets.")
+
+    else:
+        raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
+    return instruction
+
+
+
+def _RunIf(thunder: bool = False, **kwargs):
+    import pytest
+    from lightning.fabric.utilities.testing import _runif_reasons
+
+    reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder and not package_available("thunder"):
+        # if we require Thunder, but it's not available, we should skip
+        reasons.append("Thunder")
+
+    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)

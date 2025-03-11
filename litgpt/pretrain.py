@@ -25,6 +25,7 @@ from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CycleIterator,
     capture_hparams,
+    check_nvlink_connectivity,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -63,6 +64,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
     devices: Union[int, str] = "auto",
+    num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
@@ -87,6 +89,7 @@ def setup(
         optimizer: An optimizer name (such as "AdamW") or config.
 
         devices: How many devices/GPUs to use. Uses all GPUs by default.
+        num_nodes: How many nodes the code is being run on.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
@@ -127,11 +130,22 @@ def setup(
         logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger])
+
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=[logger]
+    )
+
+    if torch.cuda.is_available() and devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
@@ -223,9 +237,22 @@ def main(
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
 
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    total_tokens = state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
+
+    # Print formatted output
+    separator = "-" * 40
+    fabric.print(separator)
+    fabric.print("| Performance")
+    fabric.print(f"| - Total tokens  : {total_tokens:,}")
+    fabric.print(f"| - Training Time : {(time.perf_counter()-train_time):.2f} s")
+    fabric.print(f"| - Tok/sec       : {total_tokens / train_time:.2f} tok/s")
+    fabric.print("| " + "-" * 40)
+
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        fabric.print("| Memory Usage")
+        fabric.print(f"| - Memory Used   : {memory_used:.2f} GB")
+    fabric.print(separator)
 
 
 def fit(

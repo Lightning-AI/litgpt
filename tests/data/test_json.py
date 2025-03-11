@@ -61,6 +61,9 @@ def test_json(as_jsonl, tmp_path, mock_tokenizer):
     assert isinstance(train_dataloader.dataset.prompt_style, Style)
     assert isinstance(val_dataloader.dataset.prompt_style, Style)
 
+    # has attributes from super class `LightningDataModule`
+    assert data.prepare_data_per_node
+
 
 def test_json_input_validation(tmp_path):
     with pytest.raises(FileNotFoundError, match="The `json_path` must be a file or a directory"):

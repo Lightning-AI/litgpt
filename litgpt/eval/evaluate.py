@@ -8,7 +8,7 @@ from typing import Optional, Union
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import copy_config_files, extend_checkpoint_dir
+from litgpt.utils import copy_config_files, auto_download_checkpoint
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -37,6 +37,7 @@ def convert_and_evaluate(
     limit: Optional[float] = None,
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
+    access_token: Optional[str] = None,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
@@ -55,15 +56,8 @@ def convert_and_evaluate(
         seed: Random seed.
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
+        access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
-    pprint(locals())
-
-    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
-        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
-
-    from lm_eval import evaluator
-
     if tasks is None:
         from lm_eval.tasks import TaskManager
         taskm = TaskManager()
@@ -72,9 +66,17 @@ def convert_and_evaluate(
             "\n\nTo evaluate multiple tasks, you can chain the task names "
             "listed above via a comma-separated list."
             "\nFor example: `--tasks 'hellaswag,truthfulqa_mc2,mmlu'`. "
-            "\nTo search for a specific task, use `litgpt evaluate | grep task_name`."
+            "\nTo search for a specific task, use `litgpt evaluate list | grep task_name`."
         )
         return
+
+    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+    pprint(locals())
+
+    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
+        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
+
+    from lm_eval import evaluator
 
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
