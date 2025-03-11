@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import triton
+
+from litgpt.utils import _TRITON_AVAILABLE
+
+if _TRITON_AVAILABLE:
+    import triton
 
 MAX_FUSED_SIZE = 65536  # 2**16
 next_power_of_2 = triton.next_power_of_2

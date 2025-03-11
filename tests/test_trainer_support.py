@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 import pytest
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 import torch
 from litgpt.api import LLM
@@ -50,7 +50,7 @@ def test_download_model():
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_usecase1_pretraining_from_random_weights(tmp_path):
     llm = LLM.load("EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random")
     llm.save("pythia-14m-random-weights")
@@ -74,7 +74,7 @@ def test_usecase1_pretraining_from_random_weights(tmp_path):
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_usecase2_continued_pretraining_from_checkpoint(tmp_path):
     lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-14m")
     data = Alpaca2k()
@@ -94,7 +94,7 @@ def test_usecase2_continued_pretraining_from_checkpoint(tmp_path):
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_usecase2_continued_pretraining_from_checkpoint"])
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_usecase3_resume_from_trainer_checkpoint(tmp_path):
 
     def find_latest_checkpoint(directory):
@@ -130,7 +130,7 @@ def test_usecase3_resume_from_trainer_checkpoint(tmp_path):
 
 
 @pytest.mark.dependency(depends=["test_download_model", "test_usecase2_continued_pretraining_from_checkpoint"])
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_usecase4_manually_save_and_resume(tmp_path):
 
     lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-14m")

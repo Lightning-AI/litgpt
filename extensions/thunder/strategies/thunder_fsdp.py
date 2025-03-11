@@ -25,12 +25,12 @@ from lightning.fabric.utilities.load import _METADATA_FILENAME, _move_state_into
 from lightning.fabric.utilities.rank_zero import rank_zero_only
 from lightning.fabric.utilities.seed import reset_seed
 from lightning.fabric.utilities.types import _PATH, _Stateful
-from lightning_utilities.core.imports import RequirementCache
 from lightning_utilities.core.rank_zero import rank_zero_only as utils_rank_zero_only
 from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
+from litgpt.utils import _THUNDER_AVAILABLE
 from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
@@ -40,9 +40,6 @@ if TYPE_CHECKING:
 
     _FSDP_TYPE = Union[FSDPType, Literal["ZERO2", "ZERO3"]]
     _BUCKETING_STRATEGY = Union[FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]]
-
-
-_THUNDER_AVAILABLE = RequirementCache("lightning-thunder", "thunder")
 
 
 class ThunderFSDPStrategy(ParallelStrategy, _Sharded):

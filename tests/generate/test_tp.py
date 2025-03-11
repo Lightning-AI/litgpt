@@ -11,8 +11,8 @@ import yaml
 from litgpt import GPT, Config
 from litgpt.generate.tp import tensor_parallel, tensor_parallel_linear
 from litgpt.scripts.download import download_from_hub
-from tests.conftest import RunIf
-from tests.test_generate_sequentially import find_forward_hooks
+from litgpt.utils import _RunIf
+from .utils import find_forward_hooks
 
 
 def test_tensor_parallel_linear():
@@ -105,7 +105,7 @@ def test_tensor_parallel_llama(name, expected):
 root = Path(__file__).parent.parent.resolve()
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
