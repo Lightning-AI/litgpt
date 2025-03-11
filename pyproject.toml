@@ -9,14 +9,14 @@ readme = "README.md"
 license = { file = "LICENSE" }
 
 dependencies = [
-    "torch >=2.5.0,<2.6.0",
+    "torch >=2.5.0,<2.7.0",
     "numpy <2.0", # for older Torch versions
     "lightning >=2.5.0,<2.6.0",
     "jsonargparse[signatures] >=4.30.1,<=4.32.1; python_version<='3.9'", # 4.33 does not seem to be compatible with Python 3.9
     "jsonargparse[signatures] >=4.37.0; python_version>'3.9'", # required to work with python3.12+
     # download models:
     "huggingface_hub >=0.23.5",
-    "safetensors >=0.4.3",               # download models
+    "safetensors >=0.4.3",
     # tokenization in most models:
     "tokenizers >=0.15.2",
     # convert_hf_checkpoint
