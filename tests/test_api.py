@@ -9,7 +9,7 @@ import pytest
 import re
 import torch
 from unittest.mock import MagicMock, patch
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 from lightning.fabric.accelerators import CUDAAccelerator
 from litgpt.api import (
@@ -166,7 +166,7 @@ def test_model_not_initialized(tmp_path):
         llm.generate("text")
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_sequential_gpu(tmp_path):
 
     device_count = CUDAAccelerator.auto_device_count()
@@ -196,7 +196,7 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count-1}"
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
         llm = LLM.load(
@@ -209,7 +209,7 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
         assert isinstance(llm.generate("What do llamas eat?"), str)
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
 
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
@@ -255,7 +255,7 @@ def test_initialization_for_trainer(tmp_path):
     assert isinstance(llm.generate("hello world"), str)
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_quantization_is_applied(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
         llm = LLM.load(
@@ -266,7 +266,7 @@ def test_quantization_is_applied(tmp_path):
     assert "NF4Linear" in strtype, strtype
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_fixed_kv_cache(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
         llm = LLM.load(
