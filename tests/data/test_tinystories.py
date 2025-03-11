@@ -65,7 +65,7 @@ def test_tinystories_datamodule(tmp_path):
 
     data_dir = tmp_path / "tinystories"
 
-    datamodule = TinyStories(data_dir, seed=42)
+    datamodule = TinyStories(data_dir, seed=42, num_workers=1)
     datamodule.connect(max_seq_length=2)
 
     # simulate `datamodule.prepare_data`
@@ -92,5 +92,5 @@ def test_tinystories_datamodule(tmp_path):
         [[73, 5, 0]],
         [[12, 0, 23]],
         [[23, 15, 63]],
-        [[13, 12, 0]],
+        [[13, 12, 0]]
     ]

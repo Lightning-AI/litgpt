@@ -98,45 +98,9 @@ class StableLMZephyr(PromptStyle):
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
 
 
-class TogetherComputerChat(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"<human>: {prompt}\n<bot>:"
-
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        lt, gt = tokenizer.token_to_id("<"), tokenizer.token_to_id(">:")
-        return (
-            [tokenizer.eos_id],
-            # annoyingly, there's no single stop token for these
-            [lt, tokenizer.token_to_id("human"), gt],
-            [lt, tokenizer.token_to_id("bot"), gt],
-        )
-
-
-class TogetherComputerInstruct(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"Q: {prompt}\nA:"
-
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-        colon = tokenizer.token_to_id(":")
-        return (
-            [tokenizer.eos_id],
-            # annoyingly, there's no single stop token for these
-            [tokenizer.token_to_id("Q"), colon],
-            [tokenizer.token_to_id("Question")],
-            [tokenizer.token_to_id("A"), colon],
-            [tokenizer.token_to_id("Label"), colon],
-            [187, 187],  # '\n', '\n'
-            [535],  # '\n\n'
-            [2756],  # '\n\n\n'
-        )
-
-
 class Falcon(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        # First line could be modified. AFAIK Falcon doesn't impose a specific system prompt
-        # The instruction to not prefix its replies doesn't work always, but better than nothing
-        # I've also tried just "{prompt}\n" but the model seems to ramble more often
-        return f"Do not prefix your replies with 'Bot: '\nUser: {prompt}\n"
+        return f"{prompt}\nAnswer:"
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
@@ -148,12 +112,14 @@ class Falcon(PromptStyle):
         )
 
 
-class Vicuna(PromptStyle):
+class Falcon3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        # https://github.com/lm-sys/FastChat/blob/main/docs/vicuna_weights_version.md#prompt-template
+        return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
+    
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
-            "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, "
-            f"detailed, and polite answers to the user's questions. USER: {prompt} ASSISTANT:"
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|endoftext|>")],
         )
 
 
@@ -201,15 +167,47 @@ class Llama2(PromptStyle):
 
 
 class Llama3(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
+    def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
+
+        default_system_prompt = "You are a helpful assistant."
+
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
-        return (
-            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-            "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
-            "<|start_header_id|>user<|end_header_id|>\n\n"
-            f"{prompt}<|eot_id|>\n"
-            "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        )
+        if isinstance(prompt, str):
+            return (
+                "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+                f"{default_system_prompt}<|eot_id|>" # No newline
+                "<|start_header_id|>user<|end_header_id|>\n\n"
+                f"{prompt}<|eot_id|>" # No newline
+                "<|start_header_id|>assistant<|end_header_id|>\n\n"
+            )
+        elif isinstance(prompt, list):
+
+            def encode_header(role: str) -> List[str]:
+                return [f"<|start_header_id|>{role}<|end_header_id|>\n\n"]
+
+            def encode_message(message: Dict[str, str]) -> List[str]:
+                tokens = encode_header(message["role"])
+                # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
+                tokens.append(message["content"].strip())
+                tokens.append("<|eot_id|>")
+                return tokens
+
+            def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
+                return messages[0].get("role", "") == "system" if len(messages) else False
+
+            tokens = ["<|begin_of_text|>"]
+            if not has_system_prompt(prompt):
+                tokens.extend(encode_message({"role": "system", "content": default_system_prompt}))
+            for i, message in enumerate(prompt):
+                if i != 0 and message["role"] == "system":
+                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
+                if not message["role"] in ["assistant", "user", "system"]:
+                    raise ValueError(f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'.")
+                tokens.extend(encode_message(message))
+            tokens.extend(encode_header("assistant"))
+            return "".join(tokens)
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
         return (
@@ -217,6 +215,55 @@ class Llama3(PromptStyle):
             [tokenizer.token_to_id("<|eot_id|>")],
         )
 
+class R1Base(PromptStyle):
+    def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
+        default_system_prompt = ""
+
+        bos_token = "<｜begin▁of▁sentence｜>"
+        eos_token = ""
+
+        if isinstance(prompt, str):
+            return (
+                f"{default_system_prompt}"
+                f"<｜User｜>{prompt}"
+                f"<｜Assistant｜>"  # Prepares for assistant response
+            )
+        elif isinstance(prompt, list):
+
+            def encode_message(message: Dict[str, str]) -> str:
+                role = message["role"]
+                content = message["content"].strip()
+                
+                if role == "system":
+                    return content  # System prompt is prepended at the start
+                elif role == "user":
+                    return f"<｜User｜>{content}"
+                elif role == "assistant":
+                    return f"<｜Assistant｜>{content}{eos_token}"
+                else:
+                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'.")
+
+            # Extract system prompt (if any)
+            system_prompt = ""
+            if prompt[0].get("role") == "system":
+                system_prompt = prompt[0]["content"]
+                prompt = prompt[1:]  # Remove system message from the list
+
+            # Construct the formatted prompt
+            formatted_prompt = system_prompt
+            for message in prompt:
+                formatted_prompt += encode_message(message)
+
+            formatted_prompt += "<｜Assistant｜>"  # Prepares for assistant response
+            return formatted_prompt
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
+
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<｜end▁of▁sentence｜>")],
+        )
 
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -232,12 +279,6 @@ class Platypus(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"### Instruction:\n\n{prompt}\n\n### Response:\n"
 
-
-class NousResearch(PromptStyle):
-    def apply(self, prompt: str, **kwargs: str) -> str:
-        return f"### Instruction:\n{prompt}\n\n### Response:\n"
-
-
 class StableCode(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"###Instruction\n{prompt}###Response\n"
@@ -248,7 +289,7 @@ class CodeLlama(PromptStyle):
         # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
         # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
-        b_inst, e_inst = "<s>[INST]", "[/INST]"
+        b_inst, e_inst = "[INST]", "[/INST]"
         return f"{b_inst} {prompt} {e_inst}"
 
 
@@ -272,6 +313,14 @@ class Phi2(PromptStyle):
         return f"Instruct: {prompt}\nOutput:"
 
 
+class Phi3(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
+
+class Phi4(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f'<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>'
+
 class TinyLlama(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
@@ -288,6 +337,39 @@ class Gemma(PromptStyle):
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
+class OLMo(PromptStyle):
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
+    
+
+class ChatML(PromptStyle):
+    def __init__(self, system_message: str):
+        self.system_message = system_message
+
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        return f"<|im_start|>system\n{self.system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+
+class Qwen2_5(ChatML):
+    def __init__(self):
+        super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
+
+class Qwen2_5_Math(ChatML):
+    def __init__(self):
+        super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
+
+class QwQ(ChatML):
+    def __init__(self):
+        super().__init__("You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step.")
+
+class SmolLM2(ChatML):
+    def __init__(self):
+        super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
+
+class Salamandra(ChatML):
+    def __init__(self):
+        super().__init__("I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit.")
+
+
 # Maps prompt style names to PromptStyle classes
 prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Dataset-specific prompt styles
@@ -297,21 +379,26 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     # Model-specific prompt styles
     "stablelm-alpha": StableLMAlpha,
     "stablelm-zephyr": StableLMZephyr,
-    "togethercomputer-chat": TogetherComputerChat,
-    "togethercomputer-instruct": TogetherComputerInstruct,
     "falcon": Falcon,
-    "vicuna": Vicuna,
     "llama2-function-calling": Llama2FunctionCalling,
     "llama2": Llama2,
     "freewilly2": FreeWilly2,
     "platypus": Platypus,
-    "nous-research": NousResearch,
     "stablecode": StableCode,
     "codellama": CodeLlama,
     "phi-1": Phi1,
     "phi-2": Phi2,
+    "phi-3": Phi3,
+    "phi-4": Phi4,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
+    "llama3": Llama3,
+    "olmo": OLMo,
+    "qwen2.5": Qwen2_5,
+    "qwen2.5-math": Qwen2_5_Math,
+    "qwq": QwQ,
+    "smollm2": SmolLM2,
+    "salamandra": Salamandra,
 }
 
 
@@ -322,36 +409,50 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableLMZephyr()
     if re.search("stablecode-instruct", model_name):
         return StableCode()
-    if re.search(r"RedPajama-INCITE.*-Chat", model_name):
-        return TogetherComputerChat()
-    if re.search(r"RedPajama-INCITE.*-Instruct", model_name):
-        return TogetherComputerInstruct()
+    if re.search(r"Falcon3.*-Instruct", model_name):
+        return Falcon3()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
-    if re.search(r"vicuna|longchat", model_name):
-        return Vicuna()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
         return Llama2FunctionCalling()
     if re.search("Llama-2.*-chat", model_name):
         return Llama2()
     if re.search("Llama-3.*-Instruct", model_name):
         return Llama3()
+    if re.search("Llama-3.*-Instruct-*", model_name):
+        return Llama3()
+    if re.search("R1", model_name):
+        return R1Base()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
     if re.search("Platypus", model_name):
         return Platypus()
-    if re.search("Nous-Hermes", model_name):
-        return NousResearch()
-    if re.search("CodeLlama|Mistral.*Instruct", model_name):
+    if re.search("CodeLlama|Mi[sx]tral.*Instruct", model_name):
         return CodeLlama()
     if re.search("phi-1", model_name):
         return Phi1()
     if re.search("phi-2", model_name):
         return Phi2()
+    if re.search("Phi-3", model_name):
+        return Phi3()
+    if re.search("phi-4", model_name):
+        return Phi4()
     if re.search(r"tiny-llama.*chat", model_name):
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()
+    if re.search(r"OLMo.*-hf", model_name):
+        return OLMo()
+    if re.search(r"Qwen2\.5-Math-.*", model_name):
+        return Qwen2_5_Math()
+    if re.search(r"Qwen2\.5-.*", model_name):
+        return Qwen2_5()
+    if re.search(r"QwQ-.*", model_name):
+        return QwQ()
+    if re.search(r"SmolLM2.*-Instruct", model_name):
+        return SmolLM2()
+    if re.search(r"salamandra-.*-instruct", model_name):
+        return Salamandra()
     return Default()
 
 

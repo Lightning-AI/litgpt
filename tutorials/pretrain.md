@@ -6,10 +6,15 @@ This document explains how to pretrain LLMs using LitGPT.
 &nbsp;
 ## Using the `litgpt pretrain` command
 
-You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain` without any additional arguments:
+You can pretrain models in LitGPT using the `litgpt pretrain` API starting with any of the available architectures listed by calling `litgpt pretrain list` without any additional arguments:
+
+&nbsp;
+> [!TIP]
+> To install all required dependencies before pretraining, first run `pip install "litgpt[all]"`.
+&nbsp;
 
 ```bash
-litgpt pretrain
+litgpt pretrain list
 ```
 
 Shown below is an abbreviated list:
@@ -30,8 +35,7 @@ pythia-14m
 For demonstration purposes, we can pretrain a small 14 million-parameter Pythia model on the small TinyStories dataset using the [debug.yaml config file](https://github.com/Lightning-AI/litgpt/blob/main/config_hub/pretrain/debug.yaml) as follows:
 
 ```bash
-litgpt pretrain \
-   --model_name pythia-14m \
+litgpt pretrain pythia-14m \
    --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/debug.yaml
 ```
 
@@ -70,24 +74,33 @@ total 3225M
 You can then use the `TextFiles` API to pretrain a model (here a small `pythia-14m` model for illustration purposes) from scratch as follows:
 
 ```bash
-litgpt download \
-  --repo_id EleutherAI/pythia-14m \
+litgpt download EleutherAI/pythia-14m \
   --tokenizer_only true
 
-litgpt pretrain \
-   --model_name pythia-14m \
-   --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
+litgpt pretrain pythia-14m \
+   --tokenizer_dir EleutherAI/pythia-14m \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
-   --train.learning_rate 0.005 \
    --train.lr_warmup_steps=200
+   --optimizer.lr 0.005
 ```
+
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TextFiles` command to list additional dataset options.
+&nbsp;
 
 
 &nbsp;
 ## Continued pretraining on custom data
 
 Often, it makes sense to adopt an existing pretrained model and further pretrain it on our own custom data. The existing pretrained model can be either our own pretrained model or a model downloaded from a model hub. 
+
+The following subsections illustrate three typical scenarioes:
+
+1. Starting from a downloaded base model
+2. Continuing the pretraining after interruption
+3. Further pretraining on a different dataset
 
 &nbsp;
 
@@ -100,25 +113,68 @@ Often, it makes sense to adopt an existing pretrained model and further pretrain
 > Using this approach is only recommended for small datasets. Since text data is highly compressible, it is often stored in compressed format, and often in file formats where documents can be loaded row by row without having to load entire files at once. In other words, this `TextFiles` approach is only feasible to store the data in plain text files due to the limited size.
 > For datasets that take up multiple gigabytes, we recommend preprocessing it with [LitData](https://github.com/Lightning-AI/litdata) and then reading it from a local directory or S3 connection using `--data LitData --data.path path/to/your/data`.
 
+
 &nbsp;
+### 1) Continued pretraining when starting from a downloaded base model
+
 
 For instance, let's assume we download a Pythia model:
 
 ```bash
-litgpt download --repo_id EleutherAI/pythia-14m
+litgpt download EleutherAI/pythia-14m
 ```
 
 Next, assume we have a custom dataset stored in text files similar to the *Pretrain on custom data* above. We can further pretrain the Pythia model via the `--initial_checkpoint_dir` setting as follows:
 
 ```bash
-litgpt pretrain \
-   --model_name pythia-14m \
-   --initial_checkpoint_dir checkpoints/EleutherAI/pythia-14m \
-   --out_dir new_phi-2_checkpoint \
+litgpt pretrain pythia-160m \
+   --initial_checkpoint_dir EleutherAI/pythia-160m \
+   --tokenizer_dir EleutherAI/pythia-160m \
+   --out_dir ./new_pretrained_checkpoint \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
-   --train.learning_rate 0.005 \
-   --train.lr_warmup_steps=200
+   --train.max_tokens 1_000_000
+```
+
+&nbsp;
+> [!TIP]
+> Use the `litgpt pretrain --data.help TextFiles` command to list additional dataset options.
+
+
+&nbsp;
+### 2) Continued pretraining after interruption
+
+In case a you interrupted a training run, you can continue it with the `--resume` option, for example:
+
+```bash
+litgpt pretrain pythia-160m \
+   --resume "auto" \
+   --tokenizer_dir EleutherAI/pythia-160m \
+   --out_dir ./new_pretrained_checkpoint \
+   --data TextFiles \
+   --data.train_data_path custom_pretraining_data \
+   --train.max_tokens 1_000_000
+```
+
+&nbsp;
+### 3) Continued pretraining on a new dataset
+
+Suppose you pretrained a model using the examples above. To further pretrain the model on a new dataset, you first need to convert the pretrained checkpoint via the following command:
+
+```bash
+litgpt convert_pretrained_checkpoint ./new_pretrained_checkpoint/final ./new_pretrained_checkpoint_converted
+```
+
+Then, you can pretrain the converted model on the new dataset as follows:
+
+```bash
+litgpt pretrain pythia-160m \
+   --initial_checkpoint_dir ./new_pretrained_checkpoint_converted \
+   --tokenizer_dir EleutherAI/pythia-160m \
+   --out_dir ./new_pretrained_checkpoint_2 \
+   --data TextFiles \
+   --data.train_data_path custom_pretraining_data_2 \
+   --train.max_tokens 1_000_000
 ```
 
 

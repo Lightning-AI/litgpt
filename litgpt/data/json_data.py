@@ -8,7 +8,7 @@ from typing import Any, Optional, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from litgpt import PromptStyle
+from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 
@@ -42,6 +42,7 @@ class JSON(DataModule):
     val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        super().__init__()
         if self.json_path.is_file() and self.val_split_fraction is None:
             raise ValueError(
                 "If `json_path` is a file, you must set `val_split_fraction` to a value between 0 and 1 to split the"

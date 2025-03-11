@@ -7,6 +7,7 @@ from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
     Default,
+    Llama3,
     PromptStyle,
     has_prompt_style,
     load_prompt_style,
@@ -35,23 +36,12 @@ def test_prompt_style_from_config():
         "stablecode-instruct-alpha-3b",
         "falcon-7b-instruct",
         "falcon-40b-instruct",
-        "vicuna-7b-v1.3",
-        "vicuna-13b-v1.3",
-        "vicuna-33b-v1.3",
-        "vicuna-7b-v1.5",
-        "vicuna-7b-v1.5-16k",
-        "vicuna-13b-v1.5",
-        "vicuna-13b-v1.5-16k",
-        "longchat-7b-16k",
-        "longchat-13b-16k",
-        "Nous-Hermes-llama-2-7b",
-        "Nous-Hermes-13b",
-        "Nous-Hermes-Llama2-13b",
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
         "Llama-3-8B-Instruct",
         "Llama-3-70B-Instruct",
+        "Llama-3.1-405B-Instruct",
         "Gemma-2b-it",
         "Gemma-7b-it",
         "FreeWilly2",
@@ -61,14 +51,13 @@ def test_prompt_style_from_config():
         "CodeLlama-70b-Instruct-hf",
         "phi-1_5",
         "phi-2",
+        "Phi-3-mini-4k-instruct",
         "Mistral-7B-Instruct-v0.1",
         "Mistral-7B-Instruct-v0.2",
         "tiny-llama-1.1b-chat",
         "Llama-2-7b-chat-hf-function-calling-v2",
     ]
-    for template in ("RedPajama-INCITE-{}-3B-v1", "RedPajama-INCITE-7B-{}", "RedPajama-INCITE-{}-7B-v0.1"):
-        model_names.append(template.format("Chat"))
-        model_names.append(template.format("Instruct"))
+       
     for c in litgpt.config.platypus:
         model_names.append(c["name"])
 
@@ -115,3 +104,77 @@ def test_save_load_prompt_style(tmp_path):
     assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)
     assert isinstance(loaded, CustomPromptStyle)
+
+
+def test_multiturn_prompt():
+    prompt = "What is the capital of France?"
+    msgs = [{"role": "user", "content": prompt}]
+    style = Llama3()
+    simple_output = style.apply(prompt)
+    multiturn_output = style.apply(msgs)
+    assert simple_output == multiturn_output
+
+    # override system prompt
+    msgs = [
+        {"role": "system", "content": "You are not a helpful assistant."},
+        {"role": "user", "content": prompt}
+    ]
+    with_system_multiturn_output = style.apply(msgs)
+    assert "You are not a helpful assistant." in with_system_multiturn_output
+
+    # use default system prompt
+    msgs = [
+        {"role": "user", "content": prompt},
+    ]
+    wo_system_multiturn_output = style.apply(msgs)
+    assert "You are a helpful assistant." in wo_system_multiturn_output
+
+    # Longer turn
+    msgs = [
+        {"role": "system", "content": "You are a helpful AI assistant for travel tips and recommendations"},
+        {"role": "user", "content": "What is France's capital?"},
+        {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
+        {"role": "user", "content": "What can I do there?"},
+    ]
+    multiturn_output = style.apply(msgs)
+
+    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+You are a helpful AI assistant for travel tips and recommendations<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+"""
+
+    # Longer list without "system"
+    msgs = [
+        {"role": "user", "content": "What is France's capital?"},
+        {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
+        {"role": "user", "content": "What can I do there?"},
+    ]
+    multiturn_output = style.apply(msgs)
+
+    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+
+You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_header_id|>
+
+What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+"""
+
+    # {random} string format shouldn't lead to key error
+    content = "this is {random} {system} {user}"
+    msgs = [
+        {"role": "user", "content": content}
+    ]
+    output = style.apply(msgs)
+    simple_output = style.apply(content)
+    assert output == simple_output

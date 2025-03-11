@@ -25,14 +25,13 @@ from lightning.fabric.utilities.load import _METADATA_FILENAME, _move_state_into
 from lightning.fabric.utilities.rank_zero import rank_zero_only
 from lightning.fabric.utilities.seed import reset_seed
 from lightning.fabric.utilities.types import _PATH, _Stateful
-from lightning_utilities.core.imports import RequirementCache
 from lightning_utilities.core.rank_zero import rank_zero_only as utils_rank_zero_only
 from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
-
-from .utils import _validate_executors
+from litgpt.utils import _THUNDER_AVAILABLE
+from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
 
 if TYPE_CHECKING:
     from thunder import Executor
@@ -41,9 +40,6 @@ if TYPE_CHECKING:
 
     _FSDP_TYPE = Union[FSDPType, Literal["ZERO2", "ZERO3"]]
     _BUCKETING_STRATEGY = Union[FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]]
-
-
-_THUNDER_AVAILABLE = RequirementCache("lightning-thunder", "thunder")
 
 
 class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
@@ -122,8 +118,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         if not jit and executors is not None:
             raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
         self.jit = jit
-        self.executors = _validate_executors(executors)
+        self.executors = executors
         self._state_dict_type = state_dict_type
+        self._backward_sync_control = _ThunderDataParalellBackwardSyncControl()
         self._fsdp_kwargs = kwargs
 
     @property

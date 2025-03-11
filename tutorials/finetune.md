@@ -1,15 +1,21 @@
 # Finetuning
 
-We provide a simple finetuning commands (`litgpt finetune *`) that instruction-finetune a pretrained model on datasets such as [Alpaca](https://github.com/tatsu-lab/stanford_alpaca), [Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm), and others. For more information on the supported instruction datasets and how to prepare your own custom datasets, please see the [tutorials/prepare_dataset](prepare_dataset.md) tutorials.
+We provide a simple finetuning commands (`litgpt finetune_*`) that instruction-finetune a pretrained model on datasets such as [Alpaca](https://github.com/tatsu-lab/stanford_alpaca), [Dolly](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm), and others. For more information on the supported instruction datasets and how to prepare your own custom datasets, please see the [tutorials/prepare_dataset](prepare_dataset.md) tutorials.
 
 LitGPT currently supports the following finetuning methods:
 
 ```bash
-litgpt finetune full
-litgpt finetune lora
-litgpt finetune adapter
-litgpt finetune adapter_v2
+litgpt finetune_full
+litgpt finetune_lora
+litgpt finetune_adapter
+litgpt finetune_adapter_v2
 ```
+
+&nbsp;
+> [!TIP]
+> To install all required dependencies before finetuning, first run `pip install "litgpt[all]"`.
+&nbsp;
+
 
 The following section provides more details about these methods, including links for additional resources.
 
@@ -23,7 +29,7 @@ The section below provides additional information on the available and links to 
 ### Full finetuning
 
 ```bash
-litgpt finetune full
+litgpt finetune_full
 ```
 
 This method trains all model weight parameters and is the most memory-intensive finetuning technique in LitGPT.
@@ -37,7 +43,7 @@ This method trains all model weight parameters and is the most memory-intensive 
 ### LoRA and QLoRA finetuning
 
 ```bash
-litgpt finetune lora
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b
 ```
 
 LoRA and QLoRA are parameter-efficient finetuning technique that only require updating a small number of parameters, which makes this a more memory-efficienty alternative to full finetuning.
@@ -53,16 +59,16 @@ LoRA and QLoRA are parameter-efficient finetuning technique that only require up
 ### Adapter finetuning
 
 ```bash
-litgpt finetune adapter
+litgpt finetune_adapter stabilityai/stablelm-base-alpha-3b
 ```
 
 or
 
 ```bash
-litgpt finetune adapter_v2
+litgpt finetune_adapter_v2 stabilityai/stablelm-base-alpha-3b
 ```
 
-Simillar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
+Similar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
 
 **More information and resources:**
 

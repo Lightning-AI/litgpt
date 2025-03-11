@@ -4,12 +4,11 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from tqdm import tqdm
 from typing import Optional
 
 from torch.utils.data import DataLoader
 
-from litgpt import Tokenizer
+from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 
 
@@ -37,6 +36,7 @@ class TextFiles(DataModule):
     max_seq_length: int = field(default=-1, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        super().__init__()
         self.out_path_train = self.train_data_path / "train"
         if self.val_data_path is None:
             self.out_path_val = self.train_data_path / "val"
@@ -76,6 +76,13 @@ class TextFiles(DataModule):
                 num_workers=use_workers,
                 chunk_bytes="50MB",
             )
+        else:
+            print(
+                f"\nWarning: Preprocessed training data found in {self.out_path_train}."
+                " For efficiency, reprocessing is skipped. If your text input has changed since"
+                " the last `litgpt pretrain` command, remove the preprocessed file(s) to trigger"
+                f" reprocessing: `rm -rf {self.out_path_train}`\n"
+            )
         use_workers = min(num_workers, len(val_files))
         if not Path(self.out_path_val).is_dir():
             validate_tokenizer(self.tokenizer)
@@ -86,6 +93,13 @@ class TextFiles(DataModule):
                 num_workers=use_workers,
                 chunk_bytes="50MB",
             )
+        else:
+            print(
+                f"\nWarning: Preprocessed validation data found in {self.out_path_val}."
+                " For efficiency, reprocessing is skipped. If your text input has changed since"
+                " the last `litgpt pretrain` command, remove the preprocessed file(s) to trigger"
+                f" reprocessing: `rm -rf {self.out_path_val}`\n"
+            )
 
     def train_dataloader(self) -> DataLoader:
         from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
@@ -94,7 +108,6 @@ class TextFiles(DataModule):
             input_dir=str(self.out_path_train),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
-            drop_last=True,
         )
 
         train_dataloader = StreamingDataLoader(
@@ -103,16 +116,14 @@ class TextFiles(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, TokensLoader
+        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=str(self.out_path_val),
             item_loader=TokensLoader(block_size=self.max_seq_length),
             shuffle=True,
-            # Consider setting to False, but we would lose some samples due to truncation when world size > 1
-            drop_last=True,
         )
-        val_dataloader = DataLoader(
+        val_dataloader = StreamingDataLoader(
             val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
         )
         return val_dataloader

@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from dataclasses import asdict
 from io import StringIO
 from unittest import mock
@@ -9,20 +10,22 @@ from unittest.mock import Mock
 import pytest
 import torch
 import yaml
-from conftest import RunIf
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
+from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 
 import litgpt.adapter as gpt_adapter
 import litgpt.finetune.adapter as module
 import litgpt.model as gpt
-from litgpt.adapter import GPT, Config, adapter_filter
+from litgpt.adapter import GPT, CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
-from litgpt.scripts.convert_hf_checkpoint import copy_weights_hf_llama
+from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
+from litgpt.utils import _RunIf
 
 
 def test_config_identical():
@@ -69,12 +72,12 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=out_dir,
             precision="32-true",
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
@@ -98,7 +101,8 @@ def test_adapter_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path)
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
-    assert logs.count("val loss") == 3
+    assert logs.count("val loss") == 4  # 3 validations + 1 final validation
+    assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 168" in logs
 
 
@@ -114,7 +118,7 @@ def test_adapter_gpt_init_weights():
     assert (param == 0).all()
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_compile():
     model = GPT.from_name("pythia-14m", n_layer=3)
@@ -134,7 +138,7 @@ def test_adapter_compile():
     assert explanation.graph_break_count == 0
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -153,17 +157,22 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     train_mock = Mock()
+    train_mock.return_value = {
+        "raw_tokens": 1000,
+        "raw_tokens_plus_prompt_template": 1100,
+        "raw_tokens_plus_prompt_template_and_padding": 1200,
+    }
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py"]):
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter.py", str(fake_checkpoint_dir)]):
         module.setup(
+            fake_checkpoint_dir,
             data=Alpaca(
                 download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
-            checkpoint_dir=fake_checkpoint_dir,
             out_dir=tmp_path,
         )
 
@@ -180,10 +189,12 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
     assert dtype_to_name == {
         "torch.float16": {
             "transformer.wte.weight",
+            "transformer.wte.norm.weight",
+            "transformer.wte.norm.bias",
             "transformer.h.0.norm_1.weight",
             "transformer.h.0.norm_1.bias",
             "transformer.h.0.attn.gating_factor",
-            "transformer.h.0.attn.attn.bias",
+            "transformer.h.0.attn.qkv.bias",
             "transformer.h.0.attn.proj.bias",
             "transformer.h.0.attn.adapter_wte.weight",
             "transformer.h.0.norm_2.weight",
@@ -193,7 +204,7 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
             "transformer.h.1.norm_1.weight",
             "transformer.h.1.norm_1.bias",
             "transformer.h.1.attn.gating_factor",
-            "transformer.h.1.attn.attn.bias",
+            "transformer.h.1.attn.qkv.bias",
             "transformer.h.1.attn.proj.bias",
             "transformer.h.1.attn.adapter_wte.weight",
             "transformer.h.1.norm_2.weight",
@@ -205,11 +216,11 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
         },
         "torch.uint8": {
             "lm_head.weight",
-            "transformer.h.0.attn.attn.weight",
+            "transformer.h.0.attn.qkv.weight",
             "transformer.h.0.attn.proj.weight",
             "transformer.h.0.mlp.fc.weight",
             "transformer.h.0.mlp.proj.weight",
-            "transformer.h.1.attn.attn.weight",
+            "transformer.h.1.attn.qkv.weight",
             "transformer.h.1.attn.proj.weight",
             "transformer.h.1.mlp.fc.weight",
             "transformer.h.1.mlp.proj.weight",
@@ -275,3 +286,96 @@ def test_against_hf_gemma(model_name):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                _RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_gemma_2(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        sliding_window_size=T // 2,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Gemma2Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        sliding_window=ours_config.sliding_window_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
+        attn_logit_softcapping=ours_config.attention_logit_softcapping,
+        final_logit_softcapping=ours_config.final_logit_softcapping,
+        initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
+        attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
+    )
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    # Gemma weights are shipped without `lm_head.weight`
+    theirs_state_dict.pop("lm_head.weight")
+    state_dict = {}
+    copy_weights_gemma_2({}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.weight"] = make_qkv_interleaved(state_dict.pop("qkv.weight"), config)
+    state_dict["attn.bias"] = make_qkv_interleaved(state_dict.pop("qkv.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)
