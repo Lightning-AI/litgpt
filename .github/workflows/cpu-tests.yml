@@ -2,7 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main, wip]
+    branches: [main]
   pull_request: {}
   workflow_dispatch: {}
 
