@@ -13,7 +13,7 @@ from torch import nn
 
 import litgpt.generate.speculative_decoding as generate
 from litgpt import GPT, Config
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 def test_speculative_decoding_target_never_accepts_draft_tokens():
@@ -118,7 +118,7 @@ def test_generate(max_seq_length, speculative_k):
     assert 0.0 <= acceptance_rate <= 1.0
 
 
-@RunIf(min_cuda_gpus=1)  # speculative decoding makes sense only on a GPU
+@_RunIf(min_cuda_gpus=1)  # speculative decoding makes sense only on a GPU
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     # prepare configs for draft and target models
     draft_model_dir = fake_checkpoint_dir / "draft_model"
