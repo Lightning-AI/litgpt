@@ -100,8 +100,8 @@ Then in another Python session:
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict", 
-    json={"prompt": "Fix typos in the following sentence: Exampel input"}
+    "http://127.0.0.1:8000/predict",
+    json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 
 print(response.json()["output"])
