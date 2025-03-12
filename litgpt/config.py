@@ -164,7 +164,7 @@ class Config:
         from functools import partial
 
         if self.norm_class_name == "RMSNorm":
-            
+
             from litgpt.model import RMSNorm
 
             return partial(RMSNorm, add_unit_offset="Gemma" in self.name)
@@ -2273,7 +2273,7 @@ qwq = [
 configs.extend(qwq)
 
 
-#############    
+#############
 # Salamandra
 #############
 salamandra = [
