@@ -90,7 +90,7 @@ jobs:
     - name: Show cache
       run: |
         pip install -q py-tree
-        python -m py_tree -d 2 .cache-HF
+        python -m py_tree -d 1 .cache-HF
 
     - name: Dump HF cache
       if: github.event_name != 'pull_request'
