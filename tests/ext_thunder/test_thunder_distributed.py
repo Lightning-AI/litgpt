@@ -33,6 +33,8 @@ def test_no_backward_sync_thunder(choice):
         strategy = ThunderDDPStrategy()
     elif choice == "fsdp":
         strategy = ThunderFSDPStrategy()
+    else:
+        raise ValueError(f"Invalid choice: {choice}")
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=strategy)
     fabric.launch()
