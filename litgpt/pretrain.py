@@ -234,7 +234,11 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, num_nodes, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(
+        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
+        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval
+    )
 
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
