@@ -6,9 +6,9 @@
 **20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
 
 <pre>
-✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly   
-✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
-✅ Reduce GPU memory (fp4/8/16/32)  ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs            
+         ✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly
+            ✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
+✅ Reduce GPU memory (fp4/8/16/32)  ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs
 </pre>
 
 
@@ -21,9 +21,9 @@
 <p align="center">
   <a href="#quick-start">Quick start</a> •
   <a href="#choose-from-20-llms">Models</a> •
-  <a href="#finetune-an-llm">Finetune</a> • 
-  <a href="#deploy-an-llm">Deploy</a> •    
-  <a href="#all-workflows">All workflows</a> • 
+  <a href="#finetune-an-llm">Finetune</a> •
+  <a href="#deploy-an-llm">Deploy</a> •
+  <a href="#all-workflows">All workflows</a> •
   <a href="#state-of-the-art-features">Features</a> •
   <a href="#training-recipes">Recipes (YAML)</a> •
   <a href="https://lightning.ai/">Lightning AI</a> •
@@ -31,7 +31,7 @@
 </p>
 
 &nbsp;
-  
+
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/litgpt-quick-start">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/get-started-badge.svg" height="36px" alt="Get started"/>
 </a>
@@ -43,10 +43,10 @@
 # Use, finetune, pretrain, and deploy LLMs Lightning fast ⚡⚡
 Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
 
-✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.    
-✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.    
-✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.    
-✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.    
+✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.</br>
+✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.</br>
+✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.</br>
+✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.</br>
 
 &nbsp;
 
@@ -56,23 +56,23 @@ Install LitGPT
 pip install 'litgpt[all]'
 ```
 
-Load and use any of the [20+ LLMs](#choose-from-20-llms):   
+Load and use any of the [20+ LLMs](#choose-from-20-llms):
 ```python
 from litgpt import LLM
 
 llm = LLM.load("microsoft/phi-2")
 text = llm.generate("Fix the spelling: Every fall, the familly goes to the mountains.")
 print(text)
-# Corrected Sentence: Every fall, the family goes to the mountains.       
+# Corrected Sentence: Every fall, the family goes to the mountains.
 ```
 
 &nbsp;
 
-✅ Optimized for fast inference    
-✅ Quantization    
-✅ Runs on low-memory GPUs    
-✅ No layers of internal abstractions    
-✅ Optimized for production scale   
+✅ Optimized for fast inference</br>
+✅ Quantization</br>
+✅ Runs on low-memory GPUs</br>
+✅ No layers of internal abstractions</br>
+✅ Optimized for production scale</br>
 
 <details>
   <summary>Advanced install options</summary>
@@ -92,7 +92,7 @@ pip install -e '.[all]'
 
 ---
 # Choose from 20+ LLMs
-Every model is written from scratch to maximize performance and remove layers of abstraction:   
+Every model is written from scratch to maximize performance and remove layers of abstraction:
 
 | Model | Model size | Author | Reference |
 |----|----|----|----|
@@ -164,9 +164,9 @@ Every model is written from scratch to maximize performance and remove layers of
 # Workflows
 
 <p align="center">
-  <a href="#finetune-an-llm">Finetune</a> • 
-  <a href="#pretrain-an-llm">Pretrain</a> • 
-  <a href="#continue-pretraining-an-llm">Continued pretraining</a> •    
+  <a href="#finetune-an-llm">Finetune</a> •
+  <a href="#pretrain-an-llm">Pretrain</a> •
+  <a href="#continue-pretraining-an-llm">Continued pretraining</a> •
     <a href="#evaluate-an-llm">Evaluate</a> •
     <a href="#deploy-an-llm">Deploy</a> •
     <a href="#test-an-llm">Test</a>
@@ -174,10 +174,10 @@ Every model is written from scratch to maximize performance and remove layers of
 
 &nbsp;
 
-Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.   
+Use the command line interface to run advanced workflows such as pretraining or finetuning on your own data.
 
 
-## All workflows   
+## All workflows
 After installing LitGPT, select the model and workflow to run (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
@@ -191,7 +191,7 @@ litgpt  evaluate  meta-llama/Llama-3.2-3B-Instruct
 
 &nbsp;
 
----- 
+----
 
 ## Finetune an LLM
 
@@ -230,7 +230,7 @@ litgpt serve out/custom-model/final
 
 &nbsp;
 
----- 
+----
 
 ## Deploy an LLM
 
@@ -242,7 +242,7 @@ litgpt serve out/custom-model/final
 
 &nbsp;
 
-Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.   
+Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.
 
 ```bash
 # deploy an out-of-the-box LLM
@@ -286,7 +286,7 @@ litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 
 &nbsp;
 
----- 
+----
 
 ##  Test an LLM
 
@@ -297,7 +297,7 @@ litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
 </div>
 
 &nbsp;
-    
+
 Test how well the model works via an interactive chat. Use the `chat` command to chat, extract embeddings, etc...
 
 Here's an example showing how to use the Phi-2 LLM:
@@ -322,7 +322,7 @@ litgpt chat microsoft/phi-2
 >> Prompt: What do Llamas eat?
 ```
 
-The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation. 
+The download of certain models requires an additional access token. You can read more about this in the [download](tutorials/download_model_weights.md#specific-models-and-access-tokens) documentation.
 
 </details>
 
@@ -375,7 +375,7 @@ litgpt chat out/custom-model/final
 
 &nbsp;
 
----- 
+----
 
 ## Continue pretraining an LLM
 
@@ -418,27 +418,19 @@ litgpt chat out/custom-model/final
 
 &nbsp;
 
----- 
+----
 
 # State-of-the-art features
 
-✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
-
-✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
-
-✅ &nbsp;Reduce compute requirements with low-precision settings: FP16, BF16, and FP16/FP32 mixed.
-
-✅ &nbsp;Lower memory requirements with [quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
-
-✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
-
-✅ &nbsp;Parameter-efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).
-
-✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
-
-✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
-
-✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
+✅ State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).</br>
+✅ [Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)</br>
+✅ Reduce compute requirements with low-precision settings: FP16, BF16, and FP16/FP32 mixed.</br>
+✅ Lower memory requirements with [quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.</br>
+✅ [Configuration files](config_hub) for great out-of-the-box performance.</br>
+✅ Parameter-efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).</br>
+✅ [Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.</br>
+✅ Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).</br>
+✅ Readable and easy-to-modify code to experiment with the latest research ideas.</br>
 
 &nbsp;
 
@@ -458,7 +450,7 @@ litgpt finetune \
 ```
 <details>
   <summary>✅ Use configs to customize training</summary>
-  
+
 Configs let you customize training for all granular parameters like:
 
 ```yaml
@@ -625,7 +617,7 @@ litgpt finetune \
 
 # Project highlights
 
-LitGPT powers many great AI projects, initiatives, challenges and of course enterprises. Please submit a pull request to be considered for a feature.   
+LitGPT powers many great AI projects, initiatives, challenges and of course enterprises. Please submit a pull request to be considered for a feature.
 
 <details>
   <summary>📊 SAMBA: Simple Hybrid State Space Models for Efficient Unlimited Context Language Modeling</summary>
@@ -670,22 +662,22 @@ The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arx
 
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
-- [Request a feature](https://github.com/Lightning-AI/litgpt/issues)    
-- [Submit your first contribution](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/)    
-- [Join our Discord](https://discord.gg/VptPCZkGNa)    
+- [Request a feature](https://github.com/Lightning-AI/litgpt/issues)
+- [Submit your first contribution](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/)
+- [Join our Discord](https://discord.gg/VptPCZkGNa)
 
 &nbsp;
 
-# Tutorials   
+# Tutorials
 
-🚀 [Get started](tutorials/0_to_litgpt.md)    
-⚡️  [Finetuning, incl. LoRA, QLoRA, and Adapters](tutorials/finetune.md)    
-🤖 [Pretraining](tutorials/pretrain.md)    
-💬 [Model evaluation](tutorials/evaluation.md)    
-📘 [Supported and custom datasets](tutorials/prepare_dataset.md)    
-🧹 [Quantization](tutorials/quantize.md)    
-🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)   
-🧑🏽‍💻 [Using cloud TPUs](extensions/xla)
+🚀 [Get started](tutorials/0_to_litgpt.md)</br>
+⚡️ [Finetuning, incl. LoRA, QLoRA, and Adapters](tutorials/finetune.md)</br>
+🤖 [Pretraining](tutorials/pretrain.md)</br>
+💬 [Model evaluation](tutorials/evaluation.md)</br>
+📘 [Supported and custom datasets](tutorials/prepare_dataset.md)</br>
+🧹 [Quantization](tutorials/quantize.md)</br>
+🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)</br>
+🧑🏽‍💻 [Using cloud TPUs](extensions/xla)</br>
 
 &nbsp;
 

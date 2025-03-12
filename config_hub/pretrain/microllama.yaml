@@ -38,7 +38,7 @@ train:
 
   # Number of samples between optimizer steps across data-parallel ranks (type: int, default: 48)
   # Scale this number according to the number of GPU and memory size per GPU
-  # For example, we used 48 for 4 x 24G 4090 
+  # For example, we used 48 for 4 x 24G 4090
   global_batch_size: 48
 
   # Number of samples per data-parallel rank (type: int, default: 12)
@@ -89,15 +89,15 @@ eval:
 optimizer:
 
   class_path: torch.optim.AdamW
-  
+
   init_args:
-    
+
     #   (type: float, default: 0.001)
     lr: 4e-4
-    
+
     #   (type: float, default: 0.01)
     weight_decay: 0.1
-    
+
     #   (type: tuple, default: (0.9,0.999))
     betas:
       - 0.9

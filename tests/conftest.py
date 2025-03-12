@@ -68,7 +68,7 @@ def destroy_process_group():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
-    
+
     bos_id = 0
     eos_id = 1
 
