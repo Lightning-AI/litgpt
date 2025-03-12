@@ -81,7 +81,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install '.[extra,all,test]'
+        pip install '.[extra,compiler,test]'
         pip list
 
     - name: Run tests
