@@ -6,8 +6,8 @@
 **20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
 
 <pre>
-✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly
-✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
+         ✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly
+            ✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
 ✅ Reduce GPU memory (fp4/8/16/32)  ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs
 </pre>
 
@@ -43,10 +43,10 @@
 # Use, finetune, pretrain, and deploy LLMs Lightning fast ⚡⚡
 Every LLM is implemented from scratch with **no abstractions** and **full control**, making them blazing fast, minimal, and performant at enterprise scale.
 
-✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.
-✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.
-✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.
-✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.
+✅ **Enterprise ready -** Apache 2.0 for unlimited enterprise use.</br>
+✅ **Developer friendly -** Easy debugging with no abstraction layers and single file implementations.</br>
+✅ **Optimized performance -** Models designed to maximize performance, reduce costs, and speed up training.</br>
+✅ **Proven recipes -** Highly-optimized training/finetuning recipes tested at enterprise scale.</br>
 
 &nbsp;
 
@@ -68,11 +68,11 @@ print(text)
 
 &nbsp;
 
-✅ Optimized for fast inference
-✅ Quantization
-✅ Runs on low-memory GPUs
-✅ No layers of internal abstractions
-✅ Optimized for production scale
+✅ Optimized for fast inference</br>
+✅ Quantization</br>
+✅ Runs on low-memory GPUs</br>
+✅ No layers of internal abstractions</br>
+✅ Optimized for production scale</br>
 
 <details>
   <summary>Advanced install options</summary>
@@ -422,23 +422,15 @@ litgpt chat out/custom-model/final
 
 # State-of-the-art features
 
-✅ &nbsp;State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).
-
-✅ &nbsp;[Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)
-
-✅ &nbsp;Reduce compute requirements with low-precision settings: FP16, BF16, and FP16/FP32 mixed.
-
-✅ &nbsp;Lower memory requirements with [quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.
-
-✅ &nbsp;[Configuration files](config_hub) for great out-of-the-box performance.
-
-✅ &nbsp;Parameter-efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).
-
-✅ &nbsp;[Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.
-
-✅ &nbsp;Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).
-
-✅ &nbsp;Readable and easy-to-modify code to experiment with the latest research ideas.
+✅ State-of-the-art optimizations: Flash Attention v2, multi-GPU support via fully-sharded data parallelism, [optional CPU offloading](tutorials/oom.md#do-sharding-across-multiple-gpus), and [TPU and XLA support](extensions/xla).</br>
+✅ [Pretrain](tutorials/pretrain.md), [finetune](tutorials/finetune.md), and [deploy](tutorials/inference.md)</br>
+✅ Reduce compute requirements with low-precision settings: FP16, BF16, and FP16/FP32 mixed.</br>
+✅ Lower memory requirements with [quantization](tutorials/quantize.md): 4-bit floats, 8-bit integers, and double quantization.</br>
+✅ [Configuration files](config_hub) for great out-of-the-box performance.</br>
+✅ Parameter-efficient finetuning: [LoRA](tutorials/finetune_lora.md), [QLoRA](tutorials/finetune_lora.md), [Adapter](tutorials/finetune_adapter.md), and [Adapter v2](tutorials/finetune_adapter.md).</br>
+✅ [Exporting](tutorials/convert_lit_models.md) to other popular model weight formats.</br>
+✅ Many popular datasets for [pretraining](tutorials/pretrain.md) and [finetuning](tutorials/prepare_dataset.md), and [support for custom datasets](tutorials/prepare_dataset.md#preparing-custom-datasets-for-instruction-finetuning).</br>
+✅ Readable and easy-to-modify code to experiment with the latest research ideas.</br>
 
 &nbsp;
 
@@ -678,14 +670,14 @@ We welcome all individual contributors, regardless of their level of experience 
 
 # Tutorials
 
-🚀 [Get started](tutorials/0_to_litgpt.md)
-⚡️  [Finetuning, incl. LoRA, QLoRA, and Adapters](tutorials/finetune.md)
-🤖 [Pretraining](tutorials/pretrain.md)
-💬 [Model evaluation](tutorials/evaluation.md)
-📘 [Supported and custom datasets](tutorials/prepare_dataset.md)
-🧹 [Quantization](tutorials/quantize.md)
-🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)
-🧑🏽‍💻 [Using cloud TPUs](extensions/xla)
+🚀 [Get started](tutorials/0_to_litgpt.md)</br>
+⚡️ [Finetuning, incl. LoRA, QLoRA, and Adapters](tutorials/finetune.md)</br>
+🤖 [Pretraining](tutorials/pretrain.md)</br>
+💬 [Model evaluation](tutorials/evaluation.md)</br>
+📘 [Supported and custom datasets](tutorials/prepare_dataset.md)</br>
+🧹 [Quantization](tutorials/quantize.md)</br>
+🤯 [Tips for dealing with out-of-memory (OOM) errors](tutorials/oom.md)</br>
+🧑🏽‍💻 [Using cloud TPUs](extensions/xla)</br>
 
 &nbsp;
 
