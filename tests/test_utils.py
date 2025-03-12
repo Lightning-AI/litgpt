@@ -341,9 +341,9 @@ def test_find_resume_path(tmp_path):
     assert find_resume_path(resume="auto", out_dir=Path("does/not/exist")) is None
 
     # `resume=True` requires a checkpoint to exist
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
         find_resume_path(resume=True, out_dir=Path("does/not/exist"))
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
         find_resume_path(resume=True, out_dir=tmp_path)
 
     (tmp_path / "step-001").mkdir()

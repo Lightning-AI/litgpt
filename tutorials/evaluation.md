@@ -55,7 +55,7 @@ The resulting output is as follows:
 
 Please note that the `litgpt evaluate` command run an internal model conversion.
 This is only necessary the first time you want to evaluate a model, and it will skip the
-conversion steps if you run the `litgpt evaluate` on the same checkpint directory again.
+conversion steps if you run the `litgpt evaluate` on the same checkpoint directory again.
 
 In some cases, for example, if you modified the model in the `checkpoint_dir` since the first `litgpt evaluate`
 call, you need to use the `--force_conversion` flag to to update the files used by litgpt evaluate accordingly:

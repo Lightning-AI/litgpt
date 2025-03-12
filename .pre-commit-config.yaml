@@ -36,13 +36,13 @@ repos:
         args: ["--maxkb=250", "--enforce-all"]
       - id: detect-private-key
 
-  #- repo: https://github.com/codespell-project/codespell
-  #  rev: v2.3.0
-  #  hooks:
-  #    - id: codespell
-  #      additional_dependencies: [tomli]
-  #      args: ["--write-changes"]
-  #      exclude: pyproject.toml
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        additional_dependencies: [tomli]
+        args: ["--write-changes"]
+        exclude: pyproject.toml
 
   #- repo: https://github.com/crate-ci/typos
   #  rev: dictgen-v0.3.1

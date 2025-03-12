@@ -97,6 +97,14 @@ litgpt = [
   "README.md",
 ]
 
+[tool.codespell]
+#skip = '*.py'
+quiet-level = 3
+ignore-words-list = """
+  tral, \
+  Rockerfeller
+"""
+
 [tool.pytest.ini_options]
 addopts = [
   "--strict-markers",

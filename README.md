@@ -61,7 +61,7 @@ Load and use any of the [20+ LLMs](#choose-from-20-llms):
 from litgpt import LLM
 
 llm = LLM.load("microsoft/phi-2")
-text = llm.generate("Fix the spelling: Every fall, the familly goes to the mountains.")
+text = llm.generate("Fix the spelling: Every fall, the family goes to the mountains.")
 print(text)
 # Corrected Sentence: Every fall, the family goes to the mountains.
 ```
@@ -263,7 +263,7 @@ Test the server in a separate terminal and integrate the model API into your AI 
 import requests, json
 response = requests.post(
     "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Exampel input"}
+    json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 print(response.json()["output"])
 ```
