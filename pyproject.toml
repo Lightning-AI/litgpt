@@ -101,7 +101,8 @@ litgpt = [
 #skip = '*.py'
 quiet-level = 3
 ignore-words-list = """
-  tral,
+  tral, \
+  Rockerfeller
 """
 
 [tool.pytest.ini_options]
