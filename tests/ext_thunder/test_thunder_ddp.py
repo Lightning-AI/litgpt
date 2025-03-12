@@ -34,7 +34,7 @@ def test_no_backward_sync(choice):
 
     # account for sharding in the case of FSDP
     out_features = 1 if "ddp" in choice else fabric.world_size
-    
+
     model = torch.nn.Linear(1, out_features, bias=False, device=fabric.device)
     x = torch.randn(1, 1, device=fabric.device)
     model = fabric.setup(model)

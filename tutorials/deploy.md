@@ -1,6 +1,6 @@
 # Serve and Deploy LLMs
 
-This document shows how you can serve a LitGPT for deployment. 
+This document shows how you can serve a LitGPT for deployment.
 
 
 &nbsp;
@@ -35,7 +35,7 @@ You can now send requests to the inference server you started in step 2. For exa
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict", 
+    "http://127.0.0.1:8000/predict",
     json={"prompt": "Fix typos in the following sentence: Exampel input"}
 )
 
@@ -63,7 +63,7 @@ Then, use the following updated code to query the inference server:
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict", 
+    "http://127.0.0.1:8000/predict",
     json={"prompt": "Fix typos in the following sentence: Exampel input"},
     stream=True
 )
@@ -88,6 +88,3 @@ If you are interested in developing a simple ChatGPT-like UI prototype, see the 
 <a target="_blank" href="https://lightning.ai/lightning-ai/studios/chatgpt-like-llm-uis-via-chainlit">
   <img src="https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" alt="Open In Studio"/>
 </a>
-
-
-
