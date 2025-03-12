@@ -266,7 +266,7 @@ def test_save_load_full_checkpoint(tmp_path):
     # we loaded rank 0's weights, so this would fail in the other ranks
     if fabric.global_rank == 0:
         actual = model.state_dict()
-        # `_unshard_params` doesnt offload buffers at the moment
+        # `_unshard_params` doesn't offload buffers at the moment
         assert actual["buf"].device.type == "cuda"
         actual["buf"] = actual["buf"].to(device="cpu")
         torch.testing.assert_close(actual, expected)
@@ -303,7 +303,7 @@ def test_load_full_checkpoint_only_model(tmp_path):
     # unshard this model's parameters to compare with the original state dict before sharding
     _unshard_params(model, model.process_group_for_ddp, True)
     actual = model.state_dict()
-    # `_unshard_params` doesnt offload buffers at the moment
+    # `_unshard_params` doesn't offload buffers at the moment
     assert actual["buf"].device.type == "cuda"
     actual["buf"] = actual["buf"].to(device="cpu")
     torch.testing.assert_close(actual, expected)
@@ -390,7 +390,7 @@ def test_save_load_sharded_checkpoint(tmp_path):
     # we loaded rank 0's weights, so this would fail in the other ranks
     if fabric.global_rank == 0:
         actual = model.state_dict()
-        # `_unshard_params` doesnt offload buffers at the moment
+        # `_unshard_params` doesn't offload buffers at the moment
         assert actual["buf"].device.type == "cuda"
         actual["buf"] = actual["buf"].to(device="cpu")
         torch.testing.assert_close(actual, expected)

@@ -58,7 +58,7 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
         return resume_path
     if resume is True and resume_path is None:
         raise FileNotFoundError(
-            f"You passed `--resume=True`, but no checkpont file was found in `--out_dir={out_dir}`."
+            f"You passed `--resume=True`, but no checkpoint file was found in `--out_dir={out_dir}`."
         )
     return resume_path
 
