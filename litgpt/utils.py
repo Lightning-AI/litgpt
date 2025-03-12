@@ -13,7 +13,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 
-from lightning_utilities.core.imports import package_available
+from lightning_utilities.core.imports import module_available
 from packaging import version
 from pathlib import Path
 import subprocess
@@ -37,8 +37,8 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
-_THUNDER_AVAILABLE = package_available("thunder")
-_TRITON_AVAILABLE = package_available("triton")
+_THUNDER_AVAILABLE = module_available("thunder")
+_TRITON_AVAILABLE = module_available("triton")
 
 
 def init_out_dir(out_dir: Path) -> Path:
@@ -829,7 +829,7 @@ def _RunIf(thunder: bool = False, **kwargs):
 
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
-    if thunder and not package_available("thunder"):
+    if thunder and not module_available("thunder"):
         # if we require Thunder, but it's not available, we should skip
         reasons.append("Thunder")
 
