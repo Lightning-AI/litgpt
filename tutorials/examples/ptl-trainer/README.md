@@ -25,7 +25,3 @@ litgpt download meta-llama/Meta-Llama-3.1-8B --access_token hf_...
 
 python litgpt_ptl_medium.py
 ```
-
-
-
-

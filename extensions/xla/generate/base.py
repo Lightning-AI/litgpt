@@ -95,7 +95,7 @@ def generate(
 
 
 def setup(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,
