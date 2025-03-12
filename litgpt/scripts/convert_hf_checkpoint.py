@@ -204,7 +204,7 @@ def copy_weights_hf_llama(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # qkv is splitted across different .bin files
+                # qkv is split across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
@@ -272,7 +272,7 @@ def copy_weights_gemma_2(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # qkv is splitted across different .bin files
+                # qkv is split across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
@@ -323,7 +323,7 @@ def copy_weights_phi(
         "lm_head.bias": "lm_head.bias",
     }
 
-    if config.name.startswith("Phi-3"):
+    if config.name.startswith(("Phi-3", "phi-4")):
         weight_map.update(
             {
                 "model.layers.{}.self_attn.qkv_proj.weight": "transformer.h.{}.attn.qkv.weight",
@@ -365,7 +365,7 @@ def copy_weights_phi(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # qkv is splitted across different .bin files
+                # qkv is split across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
@@ -434,7 +434,7 @@ def copy_weights_qwen_2_5(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # qkv is splitted across different .bin files
+                # qkv is split across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
