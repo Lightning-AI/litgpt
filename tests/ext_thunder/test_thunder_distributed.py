@@ -399,6 +399,7 @@ def test_save_load_sharded_checkpoint(tmp_path):
 
 @_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("jit", (False, True))
+@pytest.mark.xfail(TypeError, reason="temporally disabled until resolved with Thunder")
 def test_jit_before_setup(jit):
     import thunder
 
