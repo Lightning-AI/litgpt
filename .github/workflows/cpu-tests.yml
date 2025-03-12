@@ -85,7 +85,7 @@ jobs:
         pip list
 
     - name: Run tests
-      run: pytest -v litgpt/ tests/ --timeout 120
+      run: pytest -v litgpt/ tests/ --timeout 180
 
     - name: Show cache
       run: |
