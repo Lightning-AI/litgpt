@@ -208,7 +208,7 @@ If the
 litgpt generate meta-llama/Meta-Llama-3-70B
 ```
 
-command from the previous section produces incoherent text, this function can be a helpful guide for debugging. For this, modify the implemenation in `transformers` and `litgpt` packages (on your local installation), to inspect or print out the intermediate values at a layer. It's recommend starting with the embedding layers and then go through one layer at the time, to find out where the values differ to get pointers for debugging.
+command from the previous section produces incoherent text, this function can be a helpful guide for debugging. For this, modify the implementation in `transformers` and `litgpt` packages (on your local installation), to inspect or print out the intermediate values at a layer. It's recommend starting with the embedding layers and then go through one layer at the time, to find out where the values differ to get pointers for debugging.
 
 Test the unit test via
 
