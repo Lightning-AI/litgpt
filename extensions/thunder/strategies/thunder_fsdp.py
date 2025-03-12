@@ -166,7 +166,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 )
             assert cd.is_module  # sanity check
             fsdp_module = thunder.distributed.fsdp(
-                cd._thunder_module_map[id(cd.fn)],
+                cd.fn,
                 device=self.root_device,
                 sharding_strategy=self.sharding_strategy,
                 bucketing_strategy=self.bucketing_strategy,
