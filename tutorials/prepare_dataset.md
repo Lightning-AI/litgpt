@@ -319,7 +319,7 @@ litgpt finetune_lora tiiuae/falcon-7b \
 
 ### FLAN
 
-FLAN is a collection of several datset subsets by Google. In particular, the provided script in LitGPT loads the subsets from
+FLAN is a collection of several dataset subsets by Google. In particular, the provided script in LitGPT loads the subsets from
 [here](https://huggingface.co/datasets/Muennighoff/flan).
 
 By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:

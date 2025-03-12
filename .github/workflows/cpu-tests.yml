@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request: {}
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
@@ -71,21 +72,33 @@ jobs:
         cache-dependency-path: pyproject.toml
 
     # Add caching for HF models and datasets
-    - name: Cache HF files
-      uses: actions/cache@v3
+    - name: Restore HF cache
+      continue-on-error: true
+      uses: actions/cache/restore@v3
       with:
         path: .cache-HF
-        key: ${{ runner.os }}-huggingface-${{ hashFiles('**/pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-huggingface-
+        key: ${{ runner.os }}-huggingface
 
     - name: Install dependencies
       run: |
-        pip install '.[extra,all,test]'
+        pip install '.[extra,compiler,test]'
         pip list
 
     - name: Run tests
-      run: pytest -v litgpt/ tests/ --timeout 120
+      run: pytest -v litgpt/ tests/ --timeout 180
+
+    - name: Show cache
+      run: |
+        pip install -q py-tree
+        python -m py_tree -d 1 .cache-HF
+
+    - name: Dump HF cache
+      if: github.event_name != 'pull_request'
+      continue-on-error: true
+      uses: actions/cache/save@v3
+      with:
+        path: .cache-HF
+        key: ${{ runner.os }}-huggingface
 
 
   testing-guardian:

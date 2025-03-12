@@ -41,7 +41,7 @@
     },
     {
         "instruction": "Evaluate this sentence for spelling and grammar mistakes",
-        "input": "He finnished his meal and left the resturant",
+        "input": "He finished his meal and left the restaurant",
         "output": "He finished his meal and left the restaurant."
     },
     {
@@ -66,8 +66,8 @@
     },
     {
         "instruction": "Classify the following into animals, plants, and minerals",
-        "input": "Oak tree, copper ore, elephant",
-        "output": "Oak tree: Plant\n Copper ore: Mineral\n Elephant: Animal"
+        "input": "Oak tree, copper or, elephant",
+        "output": "Oak tree: Plant\n Copper or: Mineral\n Elephant: Animal"
     },
     {
         "instruction": "Explain the use of word embeddings in Natural Language Processing",

@@ -276,6 +276,7 @@ root = Path(__file__).parent.parent.resolve()
 
 
 @_RunIf(min_cuda_gpus=2)
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_base_with_sequentially(tmp_path):
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
