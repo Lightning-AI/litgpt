@@ -239,12 +239,12 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
+    num_nodes: int,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
-    num_nodes: int = 1,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
