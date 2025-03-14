@@ -138,12 +138,13 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
+    fabric.launch(main, devices, num_nodes, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
+    num_nodes: int,
     seed: int,
     config: Config,
     data: DataModule,
@@ -152,7 +153,6 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
-    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
 
