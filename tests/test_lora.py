@@ -740,7 +740,7 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     _, kwargs = train_mock.call_args
     fabric = kwargs["fabric"]
     model = kwargs["model"]
-    optimizer = kwargs["model"]
+    optimizer = kwargs["optimizer"]
     model.transformer.wte = model.transformer.wte.half()
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)

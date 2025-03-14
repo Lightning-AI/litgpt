@@ -355,7 +355,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     _, kwargs = train_mock.call_args
     fabric = kwargs["fabric"]
     model = kwargs["model"]
-    optimizer = kwargs["model"]
+    optimizer = kwargs["optimizer"]
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)
     assert isinstance(optimizer._optimizer, PagedAdamW)
