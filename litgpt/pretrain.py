@@ -153,27 +153,26 @@ def setup(
         fabric.logger.log_hyperparams(hparams)
 
     main(
-        fabric,
-        devices,
-        num_nodes,
-        seed,
-        initial_checkpoint_dir,
-        resume,
-        config,
-        data,
-        out_dir,
-        tokenizer_dir,
-        tokenizer,
-        train,
-        eval,
-        optimizer,
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        seed=seed,
+        initial_checkpoint_dir=initial_checkpoint_dir,
+        resume=resume,
+        config=config,
+        data=data,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        tokenizer=tokenizer,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
     )
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
-    num_nodes: int,
     seed: int,
     initial_checkpoint_dir: Optional[Path],
     resume: Union[bool, Literal["auto"], Path],
@@ -185,6 +184,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -264,7 +264,6 @@ def main(
 def fit(
     fabric: L.Fabric,
     devices: int,
-    num_nodes: int,
     state: dict,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
@@ -272,6 +271,7 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]

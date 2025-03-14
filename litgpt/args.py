@@ -50,13 +50,13 @@ class TrainArgs:
                 "`--train.lr_warmup_steps` should be less than `--train.max_steps`."
                 f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.", UserWarning)
 
-    def gradient_accumulation_iters(self, devices: int, num_nodes: int) -> int:
+    def gradient_accumulation_iters(self, devices: int, num_nodes: int = 1) -> int:
         """Number of iterations between gradient synchronizations"""
         gradient_accumulation_iters = self.batch_size(devices, num_nodes) // self.micro_batch_size
         assert gradient_accumulation_iters > 0
         return gradient_accumulation_iters
 
-    def batch_size(self, devices: int, num_nodes: int) -> int:
+    def batch_size(self, devices: int, num_nodes: int = 1) -> int:
         """Number of samples between optimizer steps per data-parallel rank"""
         batch_size = self.global_batch_size // (devices * num_nodes)
         assert batch_size > 0
