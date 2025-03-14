@@ -168,13 +168,12 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, num_nodes, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
-    num_nodes: int,
     seed: int,
     config: Config,
     data: DataModule,
@@ -183,6 +182,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
 
@@ -225,19 +225,19 @@ def main(
 
     train_time = time.perf_counter()
     token_counts = fit(
-        fabric,
-        model,
-        optimizer,
-        scheduler,
-        train_dataloader,
-        val_dataloader,
-        devices,
-        num_nodes,
-        checkpoint_dir,
-        out_dir,
-        train,
-        eval,
-        data,
+        fabric=fabric,
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        devices=devices,
+        num_nodes=num_nodes,
+        checkpoint_dir=checkpoint_dir,
+        out_dir=out_dir,
+        train=train,
+        eval=eval,
+        data=data,
     )
 
     training_time = time.perf_counter() - train_time
@@ -271,12 +271,12 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
-    num_nodes: int,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
+    num_nodes: int = 1,
 ) -> dict:
     tokenizer = Tokenizer(checkpoint_dir)
     longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))

@@ -119,13 +119,12 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, num_nodes, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
     fabric: L.Fabric,
     devices: int,
-    num_nodes: int,
     resume: Union[bool, Literal["auto"], Path],
     seed: int,
     config: Config,
@@ -135,6 +134,7 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
 
@@ -169,7 +169,20 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    token_counts = fit(fabric, state, train_dataloader, val_dataloader, devices, num_nodes, resume, checkpoint_dir, out_dir, train, eval, data)
+    token_counts = fit(
+        fabric=fabric,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        devices=devices,
+        num_nodes=num_nodes,
+        resume=resume,
+        checkpoint_dir=checkpoint_dir,
+        out_dir=out_dir,
+        train=train,
+        eval=eval,
+        data=data,
+    )
     training_time = time.perf_counter() - train_time
     output = create_finetuning_performance_report(training_time, token_counts, fabric.device.type)
     fabric.print(output)
@@ -198,13 +211,13 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
-    num_nodes: int,
     resume: Union[bool, Literal["auto"], Path],
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
