@@ -40,7 +40,7 @@ def test_rope_llama_2():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, scaling_factor=None, base=rope_theta)
+    rot_emb = LlamaRotaryEmbedding(head_dim, scaling_factor=None)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -81,7 +81,7 @@ def test_rope_llama_3():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, scaling_factor=None, base=rope_theta)
+    rot_emb = LlamaRotaryEmbedding(head_dim, scaling_factor=None)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -143,7 +143,7 @@ def test_rope_llama_3_1():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, base=rope_theta, config=config, rope_type="llama3")
+    rot_emb = LlamaRotaryEmbedding(head_dim, config=config, rope_type="llama3")
     batch_size, seq_len = 1, 131_072
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -205,7 +205,7 @@ def test_rope_llama_3_2():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, base=rope_theta, config=config, rope_type="llama3")
+    rot_emb = LlamaRotaryEmbedding(head_dim, config=config, rope_type="llama3")
     batch_size, seq_len = 1, 131_072
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
