@@ -544,7 +544,7 @@ def choose_logger(
         run = log_args.pop("wandb_run", os.environ.get("WANDB_RUN_NAME"))
         group = log_args.pop("wandb_group", os.environ.get("WANDB_RUN_GROUP"))
         return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
-
+    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 def get_argument_names(cls):
     sig = inspect.signature(cls.__init__)
