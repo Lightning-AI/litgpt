@@ -33,6 +33,7 @@ class Config:
     # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
+    latent_attention: Optional[bool] = False
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -64,7 +65,7 @@ class Config:
     attention_logit_softcapping: Optional[float] = None
     # Rotary position embedding (RoPE)
     rope_base: int = 10000
-    rotary_percentage: float = 0.25
+    rotary_percentage: float = 0.5
     rope_condense_ratio: int = 1
     rope_adjustments: Optional[dict] = None
     # Transformer block (MLP)
@@ -289,6 +290,7 @@ pythia = [
         n_layer=6,
         n_embd=128,
         n_head=4,
+        latent_attention=True,
         padding_multiple=128,
     ),
     # https://huggingface.co/EleutherAI/pythia-31m/blob/main/config.json
@@ -299,6 +301,7 @@ pythia = [
         n_layer=6,
         n_embd=256,
         n_head=8,
+        latent_attention=True,
         padding_multiple=128,
     ),
     # https://huggingface.co/EleutherAI/pythia-70m/blob/main/config.json
@@ -309,6 +312,7 @@ pythia = [
         n_layer=6,
         n_embd=512,
         n_head=8,
+        latent_attention=True,
         padding_multiple=128,
     ),
     # https://huggingface.co/EleutherAI/pythia-160m/blob/main/config.json
@@ -319,6 +323,7 @@ pythia = [
         n_layer=12,
         n_embd=768,
         n_head=12,
+        latent_attention=True,
         padding_multiple=128,
     ),
     # https://huggingface.co/EleutherAI/pythia-410m/blob/main/config.json
@@ -329,6 +334,7 @@ pythia = [
         n_layer=24,
         n_embd=1024,
         n_head=16,
+        latent_attention=True,
         padding_multiple=128,
     ),
     # https://huggingface.co/EleutherAI/pythia-1b/blob/main/config.json
