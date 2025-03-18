@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Callable, Literal, Optional, Type, Union
 
 import torch
 import yaml
@@ -58,6 +58,8 @@ class Config:
     attention_scores_scalar: Optional[int] = None
     sliding_window_size: Optional[int] = None
     sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
+    sliding_window_layer_stride: Optional[int] = None
+    sliding_window_block_idx_map_fn: Optional[Callable[[int]]] = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -111,7 +113,10 @@ class Config:
         if self.sliding_window_size is not None:
             self.sliding_window_layer_stride = (
                 1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
-            )
+            ) if self.sliding_window_layer_stride is None else self.sliding_window_layer_stride
+        
+        if self.sliding_window_block_idx_map_fn is None:
+            self.sliding_window_block_idx_map_fn = lambda x: x
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
