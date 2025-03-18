@@ -96,7 +96,7 @@ litgpt download \
    --tokenizer_only true
 ```
 
-(when specif)
+(when specified)
 
 &nbsp;
 
@@ -517,7 +517,7 @@ litgpt serve microsoft/phi-2
 import requests, json
  response = requests.post(
      "http://127.0.0.1:8000/predict",
-     json={"prompt": "Fix typos in the following sentence: Exampel input"}
+     json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 print(response.json()["output"])
 ```
@@ -525,7 +525,7 @@ print(response.json()["output"])
 This prints:
 
 ```
-Instruct: Fix typos in the following sentence: Exampel input
+Instruct: Fix typos in the following sentence: Example input
 Output: Example input.
 ```
 

@@ -57,7 +57,7 @@ def test_prompt_style_from_config():
         "tiny-llama-1.1b-chat",
         "Llama-2-7b-chat-hf-function-calling-v2",
     ]
-       
+
     for c in litgpt.config.platypus:
         model_names.append(c["name"])
 

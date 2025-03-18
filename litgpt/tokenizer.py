@@ -87,7 +87,7 @@ class Tokenizer:
             raise ValueError(f"token {token!r} not found in the collection.")
         return id_
 
-    def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:     
+    def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:
         if not (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             return False
         with open(tokenizer_config_path, encoding="utf-8") as fp:
@@ -135,7 +135,7 @@ class Tokenizer:
         # if the processor misbehaves and adds `eos` token no matter what
         elif tokens and tokens[-1] == self.eos_id:
             tokens = tokens[:-1]
-            
+
         if max_length > 0:
             tokens = tokens[:max_length]
         return torch.tensor(tokens, dtype=torch.int, device=device)

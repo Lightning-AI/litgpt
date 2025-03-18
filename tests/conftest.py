@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-# support running without installing as a package, adding extensions to the Pyton path
+# support running without installing as a package, adding extensions to the Python path
 wd = Path(__file__).parent.parent.resolve()
 if wd.is_dir():
     sys.path.append(str(wd))
@@ -68,7 +68,7 @@ def destroy_process_group():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
-    
+
     bos_id = 0
     eos_id = 1
 

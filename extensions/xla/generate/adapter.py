@@ -23,7 +23,7 @@ from xla.utils import rank_print
 
 
 def setup(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     *,
     input: str = "",
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),

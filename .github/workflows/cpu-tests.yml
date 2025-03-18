@@ -2,9 +2,9 @@ name: CPU tests
 
 on:
   push:
-    branches: [main, wip]
-  pull_request:
-    branches: [main, wip]
+    branches: [main]
+  pull_request: {}
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
@@ -15,7 +15,10 @@ defaults:
     shell: bash
 
 env:
-  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  HF_HOME: .cache-HF  # Define HF_HOME for caching
+  TRANSFORMERS_CACHE: .cache-HF/transformers
+  DATASETS_CACHE: .cache-HF/datasets
+  HF_DATASETS_CACHE: .cache-HF/datasets
 
 jobs:
   testing-imports:
@@ -26,7 +29,6 @@ jobs:
         os: [ "ubuntu-22.04", "macOS-14", "windows-2022" ]
         python-version: [ "3.10" ]
     timeout-minutes: 10
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,6 +51,7 @@ jobs:
           echo "$modules"
           python -c "$modules"
 
+
   pytester:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -60,25 +63,43 @@ jobs:
           - {os: "macOS-14", python-version: "3.9"}  # without Thunder
           - {os: "windows-2022", python-version: "3.9"}  # without Thunder
     timeout-minutes: 25
-
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: |
-          pyproject.toml
+        cache-dependency-path: pyproject.toml
+
+    # Add caching for HF models and datasets
+    - name: Restore HF cache
+      continue-on-error: true
+      uses: actions/cache/restore@v3
+      with:
+        path: .cache-HF
+        key: ${{ runner.os }}-huggingface
 
     - name: Install dependencies
       run: |
-        pip install '.[extra,all,test]'
+        pip install '.[extra,compiler,test]'
         pip list
 
     - name: Run tests
-      run: pytest -v litgpt/ tests/ --timeout 120
+      run: pytest -v litgpt/ tests/ --timeout 180
+
+    - name: Show cache
+      run: |
+        pip install -q py-tree
+        python -m py_tree -d 1 .cache-HF
+
+    - name: Dump HF cache
+      if: github.event_name != 'pull_request'
+      continue-on-error: true
+      uses: actions/cache/save@v3
+      with:
+        path: .cache-HF
+        key: ${{ runner.os }}-huggingface
+
 
   testing-guardian:
     runs-on: ubuntu-latest

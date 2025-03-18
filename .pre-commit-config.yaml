@@ -1,0 +1,87 @@
+# Copyright The Lightning team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+default_language_version:
+  python: python3
+
+ci:
+  autofix_prs: true
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit suggestions"
+  autoupdate_schedule: quarterly
+  # submodules: true
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      #- id: check-docstring-first
+      #- id: check-executables-have-shebangs
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=250", "--enforce-all"]
+      - id: detect-private-key
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        additional_dependencies: [tomli]
+        args: ["--write-changes"]
+        exclude: pyproject.toml
+
+  #- repo: https://github.com/crate-ci/typos
+  #  rev: dictgen-v0.3.1
+  #  hooks:
+  #    - id: typos
+  #      args: [] # empty to do not write fixes
+  #      exclude: pyproject.toml
+
+  #- repo: https://github.com/executablebooks/mdformat
+  #  rev: 0.7.21
+  #  hooks:
+  #    - id: mdformat
+  #      args: ["--number"]
+  #      additional_dependencies:
+  #        - mdformat-gfm
+  #        - mdformat-black
+  #        - mdformat_frontmatter
+
+  #- repo: https://github.com/pre-commit/mirrors-prettier
+  #  rev: v3.1.0
+  #  hooks:
+  #    - id: prettier
+  #      files: \.(json|yml|yaml|toml)
+  #      # https://prettier.io/docs/en/options.html#print-width
+  #      args: ["--print-width=120"]
+
+  #- repo: https://github.com/astral-sh/ruff-pre-commit
+  #  rev: v0.8.6
+  #  hooks:
+  #    # try to fix what is possible
+  #    - id: ruff
+  #      args: ["--fix"]
+
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.5.0
+    hooks:
+      - id: pyproject-fmt
+        additional_dependencies: [tox]
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.23
+    hooks:
+      - id: validate-pyproject
