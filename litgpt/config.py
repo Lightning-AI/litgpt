@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union, Callable
 
 import torch
 import yaml
@@ -78,6 +78,9 @@ class Config:
     scale_embeddings: bool = False
     lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
+    # This hook is called in `GPT.forward` at the start of each layer,
+    # passing the (detached) layer input and the layer index
+    start_of_layer_hook: Optional[Callable[[torch.Tensor, int], None]] = None
 
     def __post_init__(self):
         if not self.name:

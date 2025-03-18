@@ -9,7 +9,7 @@ Port for LitGPT
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Type, Optional
+from typing import Any, Dict, Type, Optional, List
 
 import torch
 import torch.nn as nn
@@ -22,6 +22,7 @@ from litgpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.adapter import Config as BaseConfig
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
+from litgpt.kvcache.base import KVCache
 
 
 @dataclass
@@ -84,6 +85,7 @@ class GPT(BaseModel):
         )
         self.mask_cache: Optional[torch.Tensor] = None
         self.max_seq_length = self.config.block_size
+        self._default_kv_cache = False
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
@@ -103,9 +105,14 @@ class GPT(BaseModel):
 
 
 class Block(BaseBlock):
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
-        self.attn = CausalSelfAttention(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
+        self.attn = CausalSelfAttention(config, block_idx, kv_cache=kv_cache)
         self.mlp = config.mlp_class(config)
 
 
@@ -113,8 +120,13 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     """A modification of `litgpt.adapter.CausalSelfAttention` that uses the Adapter V2 Linear class"""
 
     # Copy&paste from :class:`model.CausalSelfAttention`
-    def __init__(self, config: Config, block_idx: int) -> None:
-        super().__init__(config, block_idx)
+    def __init__(
+        self,
+        config: Config,
+        block_idx: int,
+        kv_cache: Optional[KVCache] = None,
+    ) -> None:
+        super().__init__(config, block_idx, kv_cache)
         # key, query, value projections for all heads, but in a batch
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         self.qkv = AdapterV2Linear(
