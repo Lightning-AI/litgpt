@@ -59,7 +59,7 @@ class Config:
     sliding_window_size: Optional[int] = None
     sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
     sliding_window_layer_stride: Optional[int] = None
-    sliding_window_block_idx_map_fn: Optional[Callable[[int]]] = None
+    sliding_window_block_idx_map_fn: Optional[Callable[[int], int]] = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
