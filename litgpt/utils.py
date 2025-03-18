@@ -539,8 +539,10 @@ def choose_logger(
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project=name, resume=resume, **kwargs)
-    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+        project = kwargs.pop("wandb_project", name)
+        run = kwargs.pop("wandb_run", os.environ.get("WANDB_RUN_NAME"))
+        group = kwargs.pop("wandb_group", os.environ.get("WANDB_RUN_GROUP"))
+        return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
 
 
 def get_argument_names(cls):

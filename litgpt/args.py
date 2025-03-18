@@ -88,3 +88,15 @@ class EvalArgs:
     evaluate_example: Union[str, int] = "first"
     """How to pick an example instruction to evaluate periodically during training.
        Can be "first", "random", or an integer index to pick a specific example."""
+
+@dataclass
+class LoggerArgs:
+    """Logging-related arguments"""
+
+    wandb_project: Optional[str] = None
+    """Wandb project name"""
+    wandb_run: Optional[str] = None
+    """Wandb run name"""
+    wandb_group: Optional[str] = None
+    """Wandb group name"""
+    
