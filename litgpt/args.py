@@ -90,7 +90,7 @@ class EvalArgs:
        Can be "first", "random", or an integer index to pick a specific example."""
 
 @dataclass
-class LoggerArgs:
+class LogArgs:
     """Logging-related arguments"""
 
     wandb_project: Optional[str] = None
