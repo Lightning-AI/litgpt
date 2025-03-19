@@ -13,6 +13,7 @@ from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
 from litgpt.generate.base import main as generate_base_fn
 from litgpt.generate.full import main as generate_full_fn
 from litgpt.generate.sequentially import main as generate_sequentially_fn
+from litgpt.generate.speculative_decoding import main as generate_speculatively_fn
 from litgpt.generate.tp import main as generate_tp_fn
 from litgpt.pretrain import setup as pretrain_fn
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
@@ -42,6 +43,7 @@ def main() -> None:
         "generate_adapter": generate_adapter_fn,
         "generate_adapter_v2": generate_adapter_v2_fn,
         "generate_sequentially": generate_sequentially_fn,
+        "generate_speculatively": generate_speculatively_fn,
         "generate_tp": generate_tp_fn,
         "convert_to_litgpt": convert_hf_checkpoint_fn,
         "convert_from_litgpt": convert_lit_checkpoint_fn,
