@@ -284,7 +284,7 @@ def copy_weights_phi(
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
-    if config.name.startswith(("Phi-3", "phi-4", "Phi-4")):
+    if config.name.lower().startswith(("phi-3", "phi-4")):
         for layer_idx in list(gate_up_proj_weights):
             fc_1_weight = gate_up_proj_weights[layer_idx]["fc_1"]
             fc_2_weight = gate_up_proj_weights[layer_idx]["fc_2"]
