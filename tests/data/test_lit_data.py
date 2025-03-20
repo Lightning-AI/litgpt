@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import sys
 from unittest import mock
+from unittest.mock import ANY
 
 import pytest
 
@@ -34,3 +35,24 @@ def test_input_dir_and_splits(dl_mock, tmp_path):
     dl_mock.assert_called_with(input_dir=str("s3://mydataset/data/train"), train=True)
     data.val_dataloader()
     dl_mock.assert_called_with(input_dir=str("s3://mydataset/data/val"), train=False)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
+@mock.patch("litdata.streaming.StreamingDataset")
+@mock.patch("litdata.streaming.StreamingDataLoader")
+def test_dataset_args(streaming_dataloader_mock, streaming_dataset_mock, tmp_path):
+    data = LitData(data_path=tmp_path, seed=1000)
+    data.train_dataloader()
+    streaming_dataset_mock.assert_called_with(
+        input_dir=str(tmp_path),
+        item_loader=ANY,
+        shuffle=True,
+        seed=1000,
+    )
+    streaming_dataloader_mock.assert_called_with(
+        streaming_dataset_mock(),
+        batch_size=1,
+        pin_memory=True,
+        num_workers=8,
+        drop_last=True,
+    )

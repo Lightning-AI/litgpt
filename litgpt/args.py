@@ -1,7 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
+import warnings
 
 
 @dataclass
@@ -33,10 +34,6 @@ class TrainArgs:
     """Whether to tie the embedding weights with the language modeling head weights"""
 
     # Optimization args
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.02
-    beta1: float = 0.9
-    beta2: float = 0.95
     max_norm: Optional[float] = None
     min_lr: float = 6e-5
 
@@ -48,24 +45,29 @@ class TrainArgs:
         if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
 
-    def gradient_accumulation_iters(self, devices: int) -> int:
+        if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
+            warnings.warn(
+                "`--train.lr_warmup_steps` should be less than `--train.max_steps`."
+                f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.", UserWarning)
+
+    def gradient_accumulation_iters(self, devices: int, num_nodes: int = 1) -> int:
         """Number of iterations between gradient synchronizations"""
-        gradient_accumulation_iters = self.batch_size(devices) // self.micro_batch_size
+        gradient_accumulation_iters = self.batch_size(devices, num_nodes) // self.micro_batch_size
         assert gradient_accumulation_iters > 0
         return gradient_accumulation_iters
 
-    def batch_size(self, devices: int) -> int:
+    def batch_size(self, devices: int, num_nodes: int = 1) -> int:
         """Number of samples between optimizer steps per data-parallel rank"""
-        batch_size = self.global_batch_size // devices
+        batch_size = self.global_batch_size // (devices * num_nodes)
         assert batch_size > 0
         return batch_size
 
-    def warmup_iters(self, devices: int, max_iters: int, train_dataloader) -> int:
+    def warmup_iters(self, devices: int, num_nodes: int, max_iters: int, train_dataloader) -> int:
         """Number of iterations to warm up the learning rate."""
         if self.lr_warmup_fraction:
             return min(max_iters, math.ceil(self.lr_warmup_fraction * len(train_dataloader)))
         if self.lr_warmup_steps:
-            return min(max_iters, self.lr_warmup_steps * self.gradient_accumulation_iters(devices))
+            return min(max_iters, self.lr_warmup_steps * self.gradient_accumulation_iters(devices, num_nodes))
         return 0
 
 
@@ -79,3 +81,10 @@ class EvalArgs:
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
+    initial_validation: bool = False
+    """Whether to evaluate on the validation set at the beginning of the training"""
+    final_validation: bool = True
+    """Whether to evaluate on the validation set at the end of the training"""
+    evaluate_example: Union[str, int] = "first"
+    """How to pick an example instruction to evaluate periodically during training.
+       Can be "first", "random", or an integer index to pick a specific example."""

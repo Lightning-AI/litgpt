@@ -2,15 +2,23 @@
 
 """Utility functions for training and inference."""
 import inspect
+import json
 import math
 import os
 import pickle
+import random
+import re
 import shutil
 import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
+
+from lightning_utilities.core.imports import module_available
+from packaging import version
 from pathlib import Path
+import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
+import warnings
 
 import lightning as L
 import torch
@@ -21,17 +29,38 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.cli import instantiate_class
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
+
 
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
+_THUNDER_AVAILABLE = module_available("thunder")
+_TRITON_AVAILABLE = module_available("triton")
+
 
 def init_out_dir(out_dir: Path) -> Path:
+    if not isinstance(out_dir, Path):
+        out_dir = Path(out_dir)
     if not out_dir.is_absolute() and "LIGHTNING_ARTIFACTS_DIR" in os.environ:
         return Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / out_dir
     return out_dir
+
+
+def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) -> Optional[Path]:
+    if not resume or isinstance(resume, Path):
+        return resume
+
+    resume_path = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])), default=None)
+    if resume == "auto":
+        return resume_path
+    if resume is True and resume_path is None:
+        raise FileNotFoundError(
+            f"You passed `--resume=True`, but no checkpoint file was found in `--out_dir={out_dir}`."
+        )
+    return resume_path
 
 
 def find_multiple(n: int, k: int) -> int:
@@ -60,14 +89,25 @@ def reset_parameters(module: nn.Module) -> None:
             mod.reset_parameters()
 
 
-def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_model.pth") -> None:
+def check_valid_checkpoint_dir(
+        checkpoint_dir: Path,
+        model_filename: str = "lit_model.pth",
+        verbose: bool = True,
+        raise_error: bool = False,
+        ignore_tokenizer_files: bool = False
+    ) -> None:
+
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
-        "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
-        or (checkpoint_dir / "tokenizer.model").is_file(),
-        "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
     }
+    if not ignore_tokenizer_files:
+        files.update({
+            "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or
+                                                (checkpoint_dir / "tokenizer.model").is_file(),
+            "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+        })
+
     if checkpoint_dir.is_dir():
         if all(files.values()):
             # we're good
@@ -79,18 +119,23 @@ def check_valid_checkpoint_dir(checkpoint_dir: Path, model_filename: str = "lit_
     # list locally available checkpoints
     available = list(Path("checkpoints").glob("*/*"))
     if available:
-        options = "\n --checkpoint_dir ".join([""] + [repr(str(p.resolve())) for p in available])
+        options = "\n".join([""] + [repr(str(p.resolve())) for p in available])
         extra = f"\nYou have downloaded locally:{options}\n"
     else:
         extra = ""
 
-    error_message = (
-        f"--checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
-        "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
-        f"{extra}\nSee all download options by running:\n litgpt download"
-    )
-    print(error_message, file=sys.stderr)
-    raise SystemExit(1)
+    if verbose:
+        error_message = (
+            f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}."
+            "\nFind download instructions at https://github.com/Lightning-AI/litgpt/blob/main/tutorials\n"
+            f"{extra}\nSee all download options by running:\n litgpt download"
+        )
+        print(error_message, file=sys.stderr)
+
+    if raise_error:
+        raise FileNotFoundError(f"checkpoint_dir {str(checkpoint_dir.absolute())!r}{problem}.")
+    else:
+        raise SystemExit(1)
 
 
 class SavingProxyForStorage:
@@ -128,12 +173,12 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -205,13 +250,14 @@ class incremental_save:
         self.zipfile = torch._C.PyTorchFileWriter(str(name))
         self.has_saved = False
         self.next_key = 0
+        self.protocol_version = 2
 
     def __enter__(self):
         return self
 
     def store_early(self, tensor):
         if isinstance(tensor, torch.Tensor):
-            return SavingProxyForTensor(tensor, self)
+            return SavingProxyForTensor(tensor, self, protocol_version=self.protocol_version)
         raise TypeError(f"can only store tensors early, not {type(tensor)}")
 
     def save(self, obj):
@@ -219,7 +265,7 @@ class incremental_save:
             raise RuntimeError("have already saved")
         # Write the pickle data for `obj`
         data_buf = BytesIO()
-        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=5)
+        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=self.protocol_version)
         pickler.dump(obj)
         data_value = data_buf.getvalue()
         self.zipfile.write_record("data.pkl", data_value, len(data_value))
@@ -234,7 +280,14 @@ class incremental_save:
         if storage.device.type != "cpu":
             storage = storage.cpu()
         num_bytes = storage.nbytes()
-        self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+
+        current_version = version.parse(torch.__version__)
+        threshold_version = version.parse("2.2.2")
+        if current_version <= threshold_version:
+            self.zipfile.write_record(name, storage.data_ptr(), num_bytes)
+        else:
+            self.zipfile.write_record(name, storage, num_bytes)
+
         return key
 
     def __exit__(self, type, value, traceback):
@@ -272,7 +325,8 @@ def chunked_cross_entropy(
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
         ]
         non_masked_elems = (targets != ignore_index).sum()
-        return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+        # See [non_masked_elems div note]
+        return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
     # no chunking at all
     logits = logits.reshape(-1, logits.size(-1))
@@ -288,7 +342,11 @@ def chunked_cross_entropy(
         for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)
     ]
     non_masked_elems = (targets != ignore_index).sum()
-    return torch.cat(loss_chunks).sum() / max(1, non_masked_elems)
+    # [non_masked_elems div note]:
+    #   max(1, non_masked_elems) would be more ergonomic to avoid a division by zero. However that
+    #   results in a python int which is then passed back to torch division. By using the
+    #   `x.maximum(torch.ones_like(x))` pattern we avoid a cudaStreamSynchronize.
+    return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
@@ -301,18 +359,22 @@ def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) 
 
 
 def get_default_supported_precision(training: bool) -> str:
-    """Return default precision that is supported by the hardware: either `bf16` or `16`.
+    """
+    Return the default precision that is supported by the hardware: either `bf16` or `16`.
 
     Args:
-        training: `-mixed` or `-true` version of the precision to use
+        training: If True, returns '-mixed' version of the precision; if False, returns '-true' version.
 
     Returns:
-        default precision that is suitable for the task and is supported by the hardware
+        The default precision that is suitable for the task and is supported by the hardware.
     """
-    from lightning.fabric.accelerators import MPSAccelerator
+    import torch
 
-    if MPSAccelerator.is_available() or (torch.cuda.is_available() and not torch.cuda.is_bf16_supported()):
-        return "16-mixed" if training else "16-true"
+    if torch.cuda.is_available():
+        if torch.cuda.is_bf16_supported():
+            return "bf16-mixed" if training else "bf16-true"
+        else:
+            return "16-mixed" if training else "16-true"
     return "bf16-mixed" if training else "bf16-true"
 
 
@@ -402,7 +464,7 @@ class CycleIterator:
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 
-    config_files = ["generation_config.json", "model_config.yaml"]
+    config_files = ["config.json", "generation_config.json", "model_config.yaml"]
     tokenizer_files = ["tokenizer.json", "tokenizer.model", "tokenizer_config.json"]
 
     for file_name in config_files + tokenizer_files:
@@ -416,8 +478,6 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
 
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
-
-    kwargs.setdefault("as_positional", False)
 
     return CLI(*args, **kwargs)
 
@@ -445,10 +505,11 @@ def save_hyperparameters(function: callable, checkpoint_dir: Path) -> None:
     # This hack strips away the subcommands from the top-level CLI
     # to parse the file as if it was called as a script
     known_commands = [
-        ("finetune", "full"),
-        ("finetune", "lora"),
-        ("finetune", "adapter"),
-        ("finetune", "adapter_v2"),
+        ("finetune_full",),  # For subcommands, use `("finetune", "full")` etc
+        ("finetune_lora",),
+        ("finetune_adapter",),
+        ("finetune_adapter_v2",),
+        ("finetune",),
         ("pretrain",),
     ]
     for known_command in known_commands:
@@ -490,3 +551,296 @@ def choose_logger(
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+
+
+def get_argument_names(cls):
+    sig = inspect.signature(cls.__init__)
+    return {name for name, param in sig.parameters.items()
+            if param.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]}
+
+
+def instantiate_bnb_optimizer(optimizer, model_parameters):
+    if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")):
+        raise ValueError("The chosen quantization format only supports the AdamW optimizer.")
+
+    import bitsandbytes as bnb
+    if isinstance(optimizer, str):
+        optimizer = bnb.optim.PagedAdamW(model_parameters)
+    else:
+        optim_args = get_argument_names(bnb.optim.PagedAdamW)
+        allowed_kwargs = {key: optimizer["init_args"][key] for key in optim_args & optimizer["init_args"].keys()}
+        optimizer = bnb.optim.PagedAdamW(model_parameters, **allowed_kwargs)
+    return optimizer
+
+
+def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
+    # Special care taken where some optimizers do not have some parameters referenced in some of the code, for example "fused" in the pretrain.py script:
+    #   bnb.optim.AdamW8bit
+    #   grokadamw.GrokAdamW
+    #   torch.optim.RMSprop
+
+    if isinstance(optimizer, str):
+        if "." in optimizer:
+            class_module, class_name = optimizer.rsplit(".", 1)
+        else:
+            class_module, class_name = "torch.optim", optimizer
+
+        module = __import__(class_module, fromlist=[class_name])
+        optimizer_cls = getattr(module, class_name)
+
+        valid_params = set(inspect.signature(optimizer_cls).parameters)
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
+        optimizer = optimizer_cls(model_parameters, **kwargs)
+    elif isinstance(optimizer, dict):
+        optimizer = dict(optimizer)
+        class_module, class_name = optimizer["class_path"].rsplit(".", 1)
+        module = __import__(class_module, fromlist=[class_name])
+        optimizer_cls = getattr(module, class_name)
+
+        valid_params = set(inspect.signature(optimizer_cls).parameters)
+        kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
+
+        optimizer["init_args"].update(kwargs)
+        optimizer = instantiate_class(model_parameters, optimizer)
+    else:
+        raise ValueError(f'Unrecognized "optimizer" value: {optimizer}')
+
+    return optimizer
+
+
+def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
+    new_checkpoint_dir = "checkpoints" / checkpoint_dir
+    should_return_new_dir = (not checkpoint_dir.is_dir() and
+                             checkpoint_dir.parts[0] != "checkpoints" and
+                             not checkpoint_dir.is_absolute() and
+                             new_checkpoint_dir.exists())
+    return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
+
+
+def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_715_660):
+    """
+    Checks the file size and raises a warning if it exceeds the size_limit.
+    The default size limit is 4.2 GB, the size of TinyLlama 1.1B: 4.2 * 1024 * 1024 * 1024 = 4_509_715_660
+    """
+    size = 0.0
+    if os.path.exists(checkpoint_path):
+        size = os.path.getsize(checkpoint_path)
+        if size > size_limit and str(device) == "cpu":
+            warnings.warn(
+                f"The file size of {checkpoint_path} is over {size_limit/1024/1024/1024:.1f} GB. Using a model "
+                "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
+            )
+    return size
+
+
+def auto_download_checkpoint(model_name, access_token=None, ignore_tokenizer_files=False):
+    from litgpt.scripts.download import download_from_hub  # moved here due to circular import issue
+
+    checkpoint_dir = extend_checkpoint_dir(Path(model_name))
+    try:
+        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True, ignore_tokenizer_files=ignore_tokenizer_files)
+    except FileNotFoundError as e:
+        if access_token is None:
+            access_token = os.getenv("HF_TOKEN")
+
+        if checkpoint_dir.parts[0] != "checkpoints" and not checkpoint_dir.is_absolute():
+            download_from_hub(repo_id=str(model_name), access_token=access_token)
+            checkpoint_dir = Path("checkpoints") / checkpoint_dir
+        else:
+            raise e
+
+    return checkpoint_dir
+
+
+def check_nvlink_connectivity(fabric=None):
+    """Checks GPU connectivity for both NVIDIA and AMD GPUs.
+
+    This function delegates to vendor-specific implementations based on
+    the detected GPU vendor.
+    """
+    if fabric is not None:
+        custom_print = fabric.print
+    else:
+        custom_print = print
+
+    if os.getenv("RANK", "0") == "0":
+        try:
+            if torch.cuda.is_available():
+                device_properties = torch.cuda.get_device_properties(0)
+                gpu_name = device_properties.name.lower()
+                if "nvidia" in gpu_name:
+                    _check_nvidia_connectivity(custom_print)
+                elif "advanced micro devices" in gpu_name or "amd" in gpu_name:
+                    _check_amd_connectivity(custom_print)
+                else:
+                    custom_print(f"Unrecognized GPU vendor: {device_properties.name}")
+            else:
+                custom_print("No GPUs available")
+        except Exception as e:
+            custom_print(f"An error occurred while checking GPU connectivity: {e}")
+
+
+def _check_nvidia_connectivity(custom_print):
+    """Checks NVLink connectivity on NVIDIA GPUs."""
+    result = subprocess.run(["nvidia-smi", "topo", "-m"], stdout=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        custom_print("Failed to run nvidia-smi")
+        return
+
+    lines = result.stdout.strip().split("\n")
+    start_index = next((i for i, line in enumerate(lines) if "GPU0" in line), None)
+    if start_index is None:
+        custom_print("Failed to parse nvidia-smi output")
+        return
+
+    headers_line = lines[start_index]
+    headers = headers_line.split()
+    gpu_regex = re.compile(r"^GPU\d+$")
+    gpu_count = len([header for header in headers if gpu_regex.match(header)])
+
+    all_nvlink = True
+    for line in lines[start_index + 1 : start_index + 1 + gpu_count]:
+        columns = line.split()
+        connections = columns[1 : 1 + gpu_count]
+        if not all("NV" in conn for conn in connections if conn != "X"):
+            all_nvlink = False
+            break
+
+    if all_nvlink:
+        custom_print("All GPUs are fully connected via NVLink.")
+    else:
+        custom_print(
+            "Warning: Not all GPUs are fully connected via NVLink. Some GPUs are connected via slower interfaces. "
+            "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+        )
+
+
+def _check_amd_connectivity(custom_print):
+    """Checks XGMI connectivity on AMD GPUs."""
+    result = subprocess.run(["rocm-smi", "--showtopotype"], stdout=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        custom_print("Failed to run rocm-smi")
+        return
+
+    lines = result.stdout.strip().split("\n")
+    gpu_header_index = next((i for i, line in enumerate(lines) if re.match(r"^\s*GPU0", line)), None)
+    if gpu_header_index is None or gpu_header_index == 0:
+        custom_print("Failed to parse rocm-smi output (no GPU headers found)")
+        return
+
+    header_line = lines[gpu_header_index - 1]
+    headers = header_line.strip().split()
+    gpu_regex = re.compile(r"^GPU\d+$")
+    gpu_count = len([header for header in headers if gpu_regex.match(header)])
+
+    gpu_lines = []
+    for line in lines[gpu_header_index : gpu_header_index + gpu_count]:
+        if re.match(r"^\s*GPU\d+", line):
+            gpu_lines.append(line.strip())
+    if len(gpu_lines) != gpu_count:
+        custom_print("Mismatch in GPU count when parsing rocm-smi output")
+        return
+
+    all_xgmi = True
+    for line in gpu_lines:
+        columns = line.split()
+        connections = columns[1 : 1 + gpu_count]
+        for conn in connections:
+            if conn not in ("XGMI", "0"):
+                all_xgmi = False
+                break
+        if not all_xgmi:
+            break
+
+    if all_xgmi:
+        custom_print("All GPUs are fully connected via XGMI.")
+    else:
+        custom_print(
+            "Warning: Not all GPUs are fully connected via XGMI. Some GPUs are connected via slower interfaces. "
+            "It is recommended to switch to a different machine with faster GPU connections for optimal multi-GPU training performance."
+        )
+
+
+def fix_and_load_json(s):
+    # Remove trailing commas before } or ]
+    s = re.sub(r',(\s*[}\]])', r'\1', s)
+
+    # Insert missing commas between properties
+    # Match positions where a value is followed by a newline and then a quote without a comma
+    pattern = r'(?<=[}\]0-9truefalsenull"])\s*(\n\s*)"'
+    replacement = r',\1"'
+    s = re.sub(pattern, replacement, s)
+
+    # Now try to parse the JSON
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON after fixing: {e}")
+
+
+def create_finetuning_performance_report(training_time, token_counts, device_type):
+    tok_sec = token_counts["raw_tokens_plus_prompt_template_and_padding"] / training_time
+    output = f"""
+| ------------------------------------------------------
+| Token Counts
+| - Input Tokens              :  {token_counts["raw_tokens"]:>5}
+| - Tokens w/ Prompt          :  {token_counts["raw_tokens_plus_prompt_template"]:>5}
+| - Total Tokens (w/ Padding) :  {token_counts["raw_tokens_plus_prompt_template_and_padding"]:>5}
+| -----------------------------------------------------
+| Performance
+| - Training Time             :  {training_time:.2f} s
+| - Tok/sec                   :  {tok_sec:.2f} tok/s
+| -----------------------------------------------------
+"""
+
+    if device_type == "cuda":
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        output += f"| Memory Usage                                                                 \n"
+        output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
+    output += "-------------------------------------------------------\n"
+
+    return output
+
+
+def select_sft_generate_example(eval, data):
+
+    if eval.evaluate_example == "first":
+        if len(data.test_dataset.data):
+            instruction = data.test_dataset.data[0]["instruction"]
+        else:
+            instruction = data.train_dataset.data[0]["instruction"]
+
+    elif eval.evaluate_example == "random":
+        if len(data.test_dataset.data):
+            random_idx = random.randint(0, len(data.test_dataset.data) - 1)
+            instruction = data.test_dataset.data[random_idx]["instruction"]
+        else:
+            random_idx = random.randint(0, len(data.train_dataset.data) - 1)
+            instruction = data.train_dataset.data[random_idx]["instruction"]
+
+    elif isinstance(eval.evaluate_example, int):
+        index = eval.evaluate_example
+        if len(data.test_dataset.data) > index:
+            instruction = data.test_dataset.data[index]["instruction"]
+        elif len(data.train_dataset.data) > index:
+            instruction = data.train_dataset.data[index]["instruction"]
+        else:
+            raise IndexError(f"Index {index} is out of range for both test and training datasets.")
+
+    else:
+        raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
+    return instruction
+
+
+
+def _RunIf(thunder: bool = False, **kwargs):
+    import pytest
+    from lightning.fabric.utilities.testing import _runif_reasons
+
+    reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder and not module_available("thunder"):
+        # if we require Thunder, but it's not available, we should skip
+        reasons.append("Thunder")
+
+    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)

@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from litgpt import PromptStyle
+from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.tokenizer import Tokenizer
 
@@ -43,6 +43,7 @@ class LIMA(DataModule):
     test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
+        super().__init__()
         if self.access_token is None:
             raise ValueError(
                 "LIMA requires authentication, please set the `HF_TOKEN=your_token` environment"

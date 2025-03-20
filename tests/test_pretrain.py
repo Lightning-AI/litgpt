@@ -3,24 +3,43 @@
 import os
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, Mock
 
 import pytest
 import torch
-from conftest import RunIf
 from lightning.fabric.strategies import FSDPStrategy, SingleDeviceStrategy
 from torch.utils.data import DataLoader
 
-from test_utils import test_init_out_dir
 from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
 from litgpt.pretrain import initialize_weights
+from litgpt.utils import _RunIf
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=1, standalone=True)
+@mock.patch("litgpt.pretrain.save_hyperparameters")
+def test_optimizer_args(_, tmp_path):
+    model_config = Config(block_size=2, n_layer=2, n_embd=4, n_head=2, padded_vocab_size=8)
+
+    dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
+    dataloader = DataLoader(dataset)
+    pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
+
+    for i in ("AdamW", "SGD", "RMSprop"):
+        pretrain.setup(
+            "pythia-14m",
+            devices=1,
+            optimizer="RMSprop",
+            model_config=model_config,
+            out_dir=tmp_path,
+            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
+        )
+
+
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
@@ -38,11 +57,12 @@ def test_pretrain(_, tmp_path):
     stdout = StringIO()
     with redirect_stdout(stdout):
         pretrain.setup(
+            "pythia-14m",
             devices=2,
             model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
-            eval=EvalArgs(interval=1, max_iters=1),
+            eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
         )
 
     if torch.distributed.get_rank() == 0:
@@ -66,7 +86,7 @@ def test_pretrain(_, tmp_path):
     torch.distributed.barrier()
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 @mock.patch("litgpt.pretrain.L.Fabric.load_raw")
@@ -80,14 +100,9 @@ def test_initial_checkpoint_dir(_, load_mock, tmp_path):
     pretrain.get_dataloaders = Mock(return_value=(dataloader, dataloader))
     pretrain.fit = Mock()
 
-    pretrain.setup(initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
+    pretrain.setup("pythia-14m", initial_checkpoint_dir=tmp_path, devices=2, model_config=model_config, out_dir=tmp_path)
 
     load_mock.assert_called_once_with(tmp_path / "lit_model.pth", ANY)
-
-
-def test_pretrain_model_name_and_config():
-    with pytest.raises(ValueError, match="Only one of `model_name` or `model_config`"):
-        pretrain.setup(model_name="tiny-llama-1.1b", model_config=Config(name="tiny-llama-1.1b"))
 
 
 @pytest.mark.parametrize(("strategy", "expected"), [(SingleDeviceStrategy, True), (FSDPStrategy, False)])

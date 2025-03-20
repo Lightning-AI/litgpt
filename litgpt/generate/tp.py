@@ -3,8 +3,10 @@
 import logging
 import sys
 import time
+import warnings
 from functools import partial
 from pathlib import Path
+from pprint import pprint
 from typing import Literal, Optional, Union
 
 import lightning as L
@@ -13,12 +15,19 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
-from torch.distributed._functional_collectives import all_reduce
+from lightning_utilities.core.imports import RequirementCache
 
 import litgpt.generate.base as generate_base
-from litgpt import GPT, Config, Tokenizer
-from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
-from litgpt.utils import CLI, check_valid_checkpoint_dir, get_default_supported_precision
+from litgpt.config import Config
+from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import (
+    check_nvlink_connectivity,
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+)
 
 
 def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
@@ -61,12 +70,14 @@ def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMA
 
 
 def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    tensor_parallel_linear(fabric, attn.attn, "colwise")
+    tensor_parallel_linear(fabric, attn.qkv, "colwise")
     tensor_parallel_linear(fabric, attn.proj, "rowwise")
     attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
 
 
 def all_reduce_output(world_size: int, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+    from torch.distributed._functional_collectives import all_reduce
+
     return all_reduce(outs, "sum", list(range(world_size)))
 
 
@@ -90,33 +101,53 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
 
 @torch.inference_mode()
 def main(
+    checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 50,
     top_k: Optional[int] = 50,
+    top_p: float = 1.0,
     temperature: float = 0.8,
-    checkpoint_dir: Path = Path("checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
-    """Generates text samples based on a pre-trained model and tokenizer.
+    """Generation script that uses tensor parallelism to run across devices.
+
+    Generates text samples based on a pre-trained model and tokenizer.
 
     Args:
+        checkpoint_dir: The checkpoint directory to load.
         prompt: The prompt string to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
+        top_p: If specified, it represents the cumulative probability threshold to consider in the sampling process.
+            In top-p sampling, the next token is sampled from the highest probability tokens
+            whose cumulative probability exceeds the threshold `top_p`. When specified,
+            it must be `0 <= top_p <= 1`. Here, `top_p=0` is equivalent
+            to sampling the most probable token, while `top_p=1` samples from the whole distribution.
+            It can be used in conjunction with `top_k` and `temperature` with the following order
+            of application:
+
+            1. `top_k` sampling
+            2. `temperature` scaling
+            3. `top_p` sampling
+
+            For more details, see https://arxiv.org/abs/1904.09751
+            or https://huyenchip.com/2024/01/16/sampling.html#top_p
         temperature: A value controlling the randomness of the sampling process. Higher values result in more random
             samples.
-        checkpoint_dir: The checkpoint directory to load.
         quantize: Whether to quantize the model and using which method:
             - bnb.nf4, bnb.nf4-dq, bnb.fp4, bnb.fp4-dq: 4-bit quantization from bitsandbytes
             for more details, see https://github.com/Lightning-AI/litgpt/blob/main/tutorials/quantize.md
         precision: Indicates the Fabric precision setting to use.
         compile: Whether to compile the model.
     """
+    checkpoint_dir = extend_checkpoint_dir(checkpoint_dir)
+    pprint(locals())
+
     precision = precision or get_default_supported_precision(training=False)
 
     plugins = None
@@ -125,6 +156,11 @@ def main(
             raise NotImplementedError  # untested
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
+        if RequirementCache("bitsandbytes != 0.42.0"):
+            warnings.warn(
+                "LitGPT only supports bitsandbytes v0.42.0. "
+                "This may result in errors when using quantization."
+            )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
         bnb_logger.setLevel(logging.DEBUG)
@@ -134,6 +170,8 @@ def main(
 
     # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
     fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision, plugins=plugins)
+    if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
+        check_nvlink_connectivity(fabric)
     fabric.launch()
 
     check_valid_checkpoint_dir(checkpoint_dir)
@@ -143,6 +181,10 @@ def main(
     checkpoint_path = checkpoint_dir / model_file
 
     tokenizer = Tokenizer(checkpoint_dir)
+    prompt_style = (
+        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+    )
+    prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
@@ -211,9 +253,3 @@ def main(
         )
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(main)

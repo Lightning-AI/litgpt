@@ -7,8 +7,8 @@ from pathlib import Path
 
 from lightning_utilities.core.imports import RequirementCache
 
-from litgpt import Tokenizer
-from litgpt.utils import CLI
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import CLI, extend_checkpoint_dir
 
 _LITDATA_AVAILABLE = RequirementCache("litdata")
 if _LITDATA_AVAILABLE:
@@ -18,6 +18,8 @@ else:
 
 
 class StarcoderDataRecipe(DataChunkRecipe):
+    is_generator = True
+
     def __init__(self, tokenizer: Tokenizer, chunk_size: int):
         super().__init__(chunk_size)
         self.tokenizer = tokenizer
@@ -58,6 +60,7 @@ def prepare(
 ) -> None:
     from litdata.processing.data_processor import DataProcessor
 
+    tokenizer_path = extend_checkpoint_dir(tokenizer_path)
     tokenizer = Tokenizer(tokenizer_path)
     data_recipe = StarcoderDataRecipe(tokenizer=tokenizer, chunk_size=chunk_size)
     data_processor = DataProcessor(

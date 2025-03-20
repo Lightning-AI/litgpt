@@ -16,9 +16,8 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the finetuning
 
 ```bash
-litgpt finetune full \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
-  --checkpoint_dir checkpoints/tiiuae/falcon-7b
 ```
 
 Finetuning the falcon-7b model requires at least 8 GPUs with ~40 GB memory each.
@@ -29,7 +28,7 @@ Depending on the available GPU memory, you can also tune the `micro_batch_size` 
 This script will save checkpoints periodically to the `out_dir` directory. If you are finetuning different models or on your own dataset, you can specify an output directory with your preferred name:
 
 ```bash
-litgpt finetune full \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned
 ```
@@ -38,7 +37,7 @@ If your GPU does not support `bfloat16`, you can pass the `--precision 32-true` 
 For instance, to fine-tune on MPS (the GPU on modern Macs), you can run
 
 ```bash
-litgpt finetune full \
+litgpt finetune_full tiiuae/falcon-7b \
   --data Alpaca \
   --out_dir out/full/my-model-finetuned \
   --precision 32-true
@@ -51,9 +50,8 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-litgpt generate full \
+litgpt generate tiiuae/falcon-7b \
     --prompt "Recommend a movie to watch on the weekend." \
-    --checkpoint_dir checkpoints/tiiuae/falcon-7b \
     --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
 ```
 
@@ -70,26 +68,25 @@ If your GPU supports `bfloat16`, the script will automatically use it.
 You can easily train on your own instruction dataset saved in JSON format.
 
 1. Create a JSON file in which each row holds one instruction-response pair.
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional and can be
-   the empty string if the instruction doesn't require a context. Below is an example json file:
+   A row has an entry for 'instruction' and 'output', and optionally 'input'. Note that currently, the 'input' field is only used in the Alpaca chat template. If you are using the Alpaca template, 'input' can be the empty string if the instruction doesn't require a context.
+   Below is an example json file:
 
     ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
-            "input": "2, 4, 0, 8, 3",
+            "input": "2, 4, 0, 8, 3", // Optional: only used in Alpaca chat template
             "output": "0, 2, 3, 4, 8"
         },
         ...
     ]
     ```
 
-2. Run `litgpt/finetune/full.py` by passing in the location of your data (and optionally other parameters):
+2. Run `litgpt finetune` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune full \
+    litgpt finetune tiiuae/falcon-7b \
         --data JSON \
         --data.json_path data/mydata.json \
-        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
         --out_dir data/mydata-finetuned
     ```

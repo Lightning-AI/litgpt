@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import triton
-import triton.language as tl
-import torch
+from litgpt.utils import _TRITON_AVAILABLE
 from .utils import calculate_settings
+
+if _TRITON_AVAILABLE:
+    import triton
+    import triton.language as tl
 
 ROPE_GROUP_SIZE = 4
 
@@ -26,10 +28,11 @@ def _rope_embedding(
     cos, cos_row_stride,
     sin, sin_row_stride,
     seqlen,
-    head_dim      : tl.constexpr,
-    n_heads       : tl.constexpr,
-    BACKWARD_PASS : tl.constexpr,
-    BLOCK_SIZE    : tl.constexpr,
+    head_dim        : tl.constexpr,
+    n_heads         : tl.constexpr,
+    BACKWARD_PASS   : tl.constexpr,
+    BLOCK_SIZE      : tl.constexpr,
+    ROPE_GROUP_SIZE : tl.constexpr = 4,
 ):
     """
         Calculates the RoPE Embedding quickly

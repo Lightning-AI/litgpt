@@ -22,7 +22,8 @@ For more information about dataset preparation, also see the [prepare_dataset.md
 ## Running the Finetuning
 
 ```bash
-litgpt finetune lora --data Alpaca
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --data Alpaca
 ```
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
@@ -37,13 +38,15 @@ This script will save checkpoints periodically to the folder `out/`.
 Optionally, finetuning using 4-bit quantization (as in QLoRA) can be enabled via the `--quantize` flag, for example using the 4-bit NormalFloat data type:
 
 ```bash
-litgpt finetune lora --quantize "bnb.nf4"
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --quantize "bnb.nf4"
 ```
 
 and optionally with double-quantization:
 
 ```bash
-litgpt finetune lora --quantize "bnb.nf4-dq"
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --quantize "bnb.nf4-dq"
 ```
 
 The table below lists a comparison with different settings on a StableLM 3B model finetuned with LoRA on Alpaca for 1,000 iterations using a microbatch size of 1:
@@ -73,8 +76,7 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 You can test the finetuned model with your own instructions by running:
 
 ```bash
-litgpt generate base \
-  --checkpoint_dir "out/lora/final" \
+litgpt generate "out/lora/final" \
   --prompt "Recommend a movie to watch on the weekend."
 ```
 
@@ -93,29 +95,41 @@ If your GPU supports `bfloat16`, you can additionally pass `--precision "bf16-tr
 You can easily train on your own instruction dataset saved in JSON format.
 
 1. Create a JSON file in which each row holds one instruction-response pair.
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional and can be
-   the empty string if the instruction doesn't require a context. Below is an example json file:
+   A row has an entry for 'instruction' and 'output', and optionally 'input'. Note that currently, the 'input' field is only used in the Alpaca chat template. If you are using the Alpaca template, 'input' can be the empty string if the instruction doesn't require a context.
+   Below is an example json file:
 
     ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
-            "input": "2, 4, 0, 8, 3",
+            "input": "2, 4, 0, 8, 3", // Optional: only used in Alpaca chat template
             "output": "0, 2, 3, 4, 8"
         },
         ...
     ]
     ```
 
-2. Run `litgpt/finetune/lora.py` by passing in the location of your data (and optionally other parameters):
+2. Run `litgpt finetune_lora` by passing in the location of your data (and optionally other parameters):
 
     ```bash
-    litgpt finetune lora \
+    litgpt finetune_lora checkpoints/stabilityai/stablelm-base-alpha-3b \
         --data JSON \
         --data.json_path data/mydata.json \
-        --checkpoint_dir checkpoints/tiiuae/falcon-7b \
-        --out_dir data/mydata-finetuned
+        --out_dir out_dir/mydata-finetuned
     ```
+
+3. Test and use the finetuned model:
+
+    ```bash
+    litgpt chat out_dir/mydata-finetuned/final
+    ```
+
+or
+
+    ```bash
+    litgpt serve out_dir/mydata-finetuned/final
+    ```
+
 
 
 &nbsp;
@@ -135,6 +149,6 @@ The advantage of this merging process is to streamline inference operations, as 
 For example, after finetuning produced a checkpoint folder `out/lora/step-002000`, merge it as follows:
 
 ```bash
-litgpt merge_lora --checkpoint_dir "out/lora/step-002000"
+litgpt merge_lora "out/lora/step-002000"
 ```
 The command above creates a full `lit_model.pth` checkpoint file.

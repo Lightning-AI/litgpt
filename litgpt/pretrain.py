@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Dict
 
 import lightning as L
 import torch
@@ -23,13 +23,17 @@ from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
-    CLI,
     CycleIterator,
     capture_hparams,
+    check_nvlink_connectivity,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
+    extend_checkpoint_dir,
+    find_resume_path,
+    get_default_supported_precision,
     init_out_dir,
+    instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
     reset_parameters,
@@ -39,11 +43,12 @@ from litgpt.utils import (
 
 
 def setup(
-    model_name: Optional[str] = None,
+    model_name: str,
     model_config: Optional[Config] = None,
     out_dir: Path = Path("out/pretrain"),
+    precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
     initial_checkpoint_dir: Optional[Path] = None,
-    resume: Union[bool, Path] = False,
+    resume: Union[bool, Literal["auto"], Path] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -51,17 +56,15 @@ def setup(
         global_batch_size=512,
         micro_batch_size=4,
         max_tokens=int(3e12),  # 3 trillion
-        learning_rate=4e-4,
-        weight_decay=1e-1,
-        beta1=0.9,
-        beta2=0.95,
         max_norm=1.0,
         min_lr=4e-5,
         lr_warmup_steps=2000,
         tie_embeddings=False,
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
+    optimizer: Union[str, Dict] = "AdamW",
     devices: Union[int, str] = "auto",
+    num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
     logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
     seed: int = 42,
@@ -69,47 +72,80 @@ def setup(
     """Pretrain a model.
 
     Arguments:
-        model_name: The name of the model to pretrain. Choose from names in ``litgpt.config``. Mutually exclusive with
-            ``model_config``.
+        model_name: The name of the model to pretrain. Choose from names in ``litgpt.config``. Use "list" to list the supported models.
         model_config: A ``litgpt.Config`` object to define the model architecture. Mutually exclusive with
-            ``model_config``.
+            ``model_config``. Overrides the `model_name` if specified.
         out_dir: Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
             /teamspace/jobs/<job-name>/share.
+        precision: The precision to use for finetuning. Determines a compatible precision setting by default.
         initial_checkpoint_dir: Optional path to a checkpoint directory to initialize the model from.
             Useful for continued pretraining. Mutually exclusive with ``resume``.
         resume: Path to a checkpoint directory to resume from in case training was interrupted, or ``True`` to resume
-            from the latest checkpoint in ``out_dir``.
+            from the latest checkpoint in ``out_dir``. An error will be raised if no checkpoint is found. Passing
+            ``'auto'`` will resume from the latest checkpoint but not error if no checkpoint exists.
         data: Data-related arguments. If not provided, the default is ``litgpt.data.TinyLlama``.
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
+        optimizer: An optimizer name (such as "AdamW") or config.
+
         devices: How many devices/GPUs to use. Uses all GPUs by default.
+        num_nodes: How many nodes the code is being run on.
         tokenizer_dir: Optional path to the tokenizer dir that was used for preprocessing the dataset. Only some data
             module require this.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
     """
+    if model_name == "list":
+        available_models = "\n".join(sorted(name_to_config))
+        print(f"Available values:\n{available_models}")
+        quit()
+
+    if initial_checkpoint_dir is not None:
+        initial_checkpoint_dir = extend_checkpoint_dir(initial_checkpoint_dir)
+
+    if tokenizer_dir is not None:
+        tokenizer_dir = extend_checkpoint_dir(tokenizer_dir)
+
+    if model_config is None:
+        # Support both model_name options: meta-llama/Meta-Llama-3-8B & Meta-Llama-3-8B
+        try:
+            model_config = Config.from_name(model_name)
+        except ValueError:
+            print(f"Model name {model_name} is not supported.\n")
+            available_models = "\n".join(sorted(name_to_config))
+            print(f"Available values:\n{available_models}")
+            quit()
+
     hparams = capture_hparams()
     data = TinyLlama() if data is None else data
-    if model_config is not None and model_name is not None:
-        raise ValueError("Only one of `model_name` or `model_config` can be set.")
-    elif model_config is None and model_name is None:
-        available_models = "\n".join(sorted(name_to_config))
-        raise ValueError(f"Please specify --model_name <model_name>. Available values:\n{available_models}")
+
     config = Config.from_name(model_name) if model_config is None else model_config
+    precision = precision or get_default_supported_precision(training=True)
     devices = parse_devices(devices)
     out_dir = init_out_dir(out_dir)
     # in case the dataset requires the Tokenizer
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
-        logger_name, out_dir, name=f"pretrain-{config.name}", resume=resume, log_interval=train.log_interval
+        logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
     )
 
-    if devices > 1:
+    if devices * num_nodes > 1:
         strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
     else:
         strategy = "auto"
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision="bf16-mixed", loggers=[logger])
+
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=[logger]
+    )
+
+    if torch.cuda.is_available() and devices > 1:
+        check_nvlink_connectivity(fabric)
+
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
@@ -117,18 +153,20 @@ def setup(
         fabric.logger.log_hyperparams(hparams)
 
     main(
-        fabric,
-        devices,
-        seed,
-        initial_checkpoint_dir,
-        resume,
-        config,
-        data,
-        out_dir,
-        tokenizer_dir,
-        tokenizer,
-        train,
-        eval,
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        seed=seed,
+        initial_checkpoint_dir=initial_checkpoint_dir,
+        resume=resume,
+        config=config,
+        data=data,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        tokenizer=tokenizer,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
     )
 
 
@@ -137,7 +175,7 @@ def main(
     devices: int,
     seed: int,
     initial_checkpoint_dir: Optional[Path],
-    resume: Union[bool, Path],
+    resume: Union[bool, Literal["auto"], Path],
     config: Config,
     data: DataModule,
     out_dir: Path,
@@ -145,6 +183,8 @@ def main(
     tokenizer: Optional[Tokenizer],
     train: TrainArgs,
     eval: EvalArgs,
+    optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -169,13 +209,9 @@ def main(
 
     model = torch.compile(model)
     model = fabric.setup(model)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=train.learning_rate,
-        weight_decay=train.weight_decay,
-        betas=(train.beta1, train.beta2),
-        fused=True,
-    )
+
+    extra_kwargs = {"fused": fabric.device.type == "cuda"}
+    optimizer = instantiate_torch_optimizer(optimizer, model.parameters(), **extra_kwargs)
     optimizer = fabric.setup_optimizers(optimizer)
 
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
@@ -192,21 +228,37 @@ def main(
         "step_count": 0,
     }
 
-    if resume is True:
-        resume = max(out_dir.rglob("step-*/*.pth"), key=(lambda p: int(p.parent.name.split("-")[1])))
+    resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval)
+    fit(
+        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
+        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
+        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval
+    )
 
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
 
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    total_tokens = state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
+
+    # Print formatted output
+    separator = "-" * 40
+    fabric.print(separator)
+    fabric.print("| Performance")
+    fabric.print(f"| - Total tokens  : {total_tokens:,}")
+    fabric.print(f"| - Training Time : {(time.perf_counter()-train_time):.2f} s")
+    fabric.print(f"| - Tok/sec       : {total_tokens / train_time:.2f} tok/s")
+    fabric.print("| " + "-" * 40)
+
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
+        memory_used = torch.cuda.max_memory_allocated() / 1e9
+        fabric.print("| Memory Usage")
+        fabric.print(f"| - Memory Used   : {memory_used:.2f} GB")
+    fabric.print(separator)
 
 
 def fit(
@@ -219,11 +271,19 @@ def fit(
     tokenizer_dir: Optional[Path],
     train: TrainArgs,
     eval: EvalArgs,
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
 
-    validate(fabric, model, val_dataloader, max_iters=2)  # sanity check
+    if eval.initial_validation:
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        val_loss = f"{val_loss:.3f}"
+    else:
+        fabric.print("Verifying settings ...")
+        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
+        val_loss = "n/a"
+
     throughput = ThroughputMonitor(fabric, window_size=5)
 
     with torch.device("meta"):
@@ -238,25 +298,24 @@ def fit(
     max_tokens_per_device = train.max_tokens // fabric.world_size
     tokens_per_iter = train.micro_batch_size * model.max_seq_length
     max_iters = max_tokens_per_device // tokens_per_iter
-    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
+    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices, num_nodes)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
-    val_loss = "n/a"
 
-    warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+    warmup_iters = train.warmup_iters(devices, num_nodes, max_iters, train_dataloader)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(train.learning_rate, state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(optimizer.defaults["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -266,11 +325,11 @@ def fit(
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets)
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 
@@ -332,11 +391,19 @@ def fit(
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
 
+    # Final validation
+    if eval.final_validation:
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+        fabric.log_dict(metrics, step=state["iter_num"])
+        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int) -> torch.Tensor:
+def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True) -> torch.Tensor:
     fabric.barrier()
-    fabric.print("Validating ...")
+    if verbose:
+        fabric.print("Validating ...")
     model.eval()
 
     losses = []
@@ -432,9 +499,3 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
     if issues:
         raise ValueError("\n".join(issues))
-
-
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("high")
-
-    CLI(setup)
