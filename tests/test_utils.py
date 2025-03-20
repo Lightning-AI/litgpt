@@ -12,7 +12,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 import yaml
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
@@ -57,7 +57,7 @@ def test_find_multiple():
 
 
 # match fails on windows. why did they have to use backslashes?
-@RunIf(skip_windows=True)
+@_RunIf(skip_windows=True)
 def test_check_valid_checkpoint_dir(tmp_path):
     os.chdir(tmp_path)
 
@@ -181,7 +181,7 @@ def test_num_parameters():
     assert num_parameters(model, requires_grad=False) == 2
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 @pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
 def test_num_parameters_bitsandbytes(mode):
     plugin = BitsandbytesPrecision(mode=mode)
@@ -341,9 +341,9 @@ def test_find_resume_path(tmp_path):
     assert find_resume_path(resume="auto", out_dir=Path("does/not/exist")) is None
 
     # `resume=True` requires a checkpoint to exist
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
         find_resume_path(resume=True, out_dir=Path("does/not/exist"))
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpont file was found"):
+    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
         find_resume_path(resume=True, out_dir=tmp_path)
 
     (tmp_path / "step-001").mkdir()
@@ -578,16 +578,16 @@ GPU4	NV12	NV12	NV12	NV12	X 	NV12	NV12	NV12	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	P
 GPU5	NV12	NV12	NV12	NV12	NV12	X 	NV12	NV12	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	64-127,192-254	1		N/A
 GPU6	NV12	NV12	NV12	NV12	NV12	NV12	X 	NV12	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	64-127,192-254	1		N/A
 GPU7	NV12	NV12	NV12	NV12	NV12	NV12	NV12	X 	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	64-127,192-254	1		N/A
-NIC0	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC1	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC2	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC3	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS	SYS	SYS				
-NIC4	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS				
-NIC5	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS				
-NIC6	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS				
-NIC7	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS				
-NIC8	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB				
-NIC9	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 				
+NIC0	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS
+NIC1	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS
+NIC2	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS	SYS	SYS
+NIC3	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS	SYS	SYS
+NIC4	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	X 	PXB	SYS	SYS	SYS	SYS
+NIC5	SYS	SYS	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	PXB	X 	SYS	SYS	SYS	SYS
+NIC6	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PIX	SYS	SYS
+NIC7	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PIX	X 	SYS	SYS
+NIC8	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	X 	PXB
+NIC9	SYS	SYS	SYS	SYS	PXB	PXB	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	SYS	PXB	X
 
 Legend:
 

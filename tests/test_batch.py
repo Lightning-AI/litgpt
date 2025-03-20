@@ -12,7 +12,7 @@ from litgpt.generate.base import (
 )
 from litgpt.api import LLM, GPT
 from litgpt.scripts.download import download_from_hub
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 warnings.filterwarnings("ignore")
@@ -97,7 +97,7 @@ def test_batched_equivalence(tmp_path):
     assert all(t == tok_2 for t in toks_2), f"{tok_2} != {toks_2}"
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_simple_batch():
     old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -138,7 +138,7 @@ def test_simple_batch():
     torch.backends.cuda.matmul.allow_tf32 = old_allow_tf32
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_batch_generate(tmp_path):
 
     torch.use_deterministic_algorithms(True)
@@ -263,7 +263,7 @@ def test_batch_generate(tmp_path):
     # print()
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_batch_generate_equivalence(tmp_path):
 
     torch.use_deterministic_algorithms(True)

@@ -68,7 +68,7 @@ or
 litgpt finetune_adapter_v2 stabilityai/stablelm-base-alpha-3b
 ```
 
-Similar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning. 
+Similar to LoRA, adapter finetuning is a parameter-efficient finetuning technique that only requires training a small subset of weight parameters, making this finetuning method more memory-efficient than full-parameter finetuning.
 
 **More information and resources:**
 

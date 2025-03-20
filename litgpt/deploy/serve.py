@@ -85,7 +85,7 @@ class SimpleLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)   
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
 
     def setup(self, device: str):
         super().setup(device)
@@ -117,7 +117,7 @@ class StreamLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)   
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
 
     def setup(self, device: str):
         super().setup(device)

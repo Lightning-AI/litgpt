@@ -80,7 +80,7 @@ Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a s
 &nbsp;
 ## Random weights
 
-To start with random weights, for example, if you plan a pretraining script, initialize the model with `init="random""`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file. 
+To start with random weights, for example, if you plan a pretraining script, initialize the model with `init="random""`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file.
 
 ```python
 from litgpt.api import LLM
@@ -132,7 +132,7 @@ print(text)
 &nbsp;
 ### Tensor parallel strategy
 
-The sequential strategy explained in the previous subsection distributes the model sequentially across GPUs, which allows users to load models that would not fit onto a single GPU. However, due to this method's sequential nature, processing is naturally slower than parallel processing. 
+The sequential strategy explained in the previous subsection distributes the model sequentially across GPUs, which allows users to load models that would not fit onto a single GPU. However, due to this method's sequential nature, processing is naturally slower than parallel processing.
 
 To take advantage of parallel processing via tensor parallelism, you can use the `generate_strategy="tensor_parallel" setting. However, this method has downsides: the initial setup may be slower for large models, and it cannot run in interactive processes such as Jupyter notebooks.
 
@@ -175,7 +175,7 @@ print(text)
 pprint(bench_d)
 
 
-# Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized 
+# Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized
 # digestive system that allows them to efficiently extract nutrients from plant material.
 
 # Using 1 device(s)
@@ -242,7 +242,7 @@ print(benchmark_dict_to_markdown_table(bench_d_list))
 &nbsp;
 # PyTorch Lightning Trainer support
 
-You can use the LitGPT `LLM` class with the [PyTorch Lightning Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to pretrain and finetune models. 
+You can use the LitGPT `LLM` class with the [PyTorch Lightning Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to pretrain and finetune models.
 
 The examples below show the usage via a simple 160 million parameter model for demonstration purposes to be able to quickly try it out. However, you can replace the `EleutherAI/pythia-160m` model with any model supported by LitGPT (you can find a list of supported models by executing `litgpt download list` or visiting the [model weight docs](download_model_weights.md)).
 
@@ -263,13 +263,13 @@ import lightning as L
 class LitLLM(L.LightningModule):
     def __init__(self, checkpoint_dir, tokenizer_dir=None, trainer_ckpt_path=None):
         super().__init__()
- 
+
         self.llm = LLM.load(checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None)
         self.trainer_ckpt_path = trainer_ckpt_path
 
     def setup(self, stage):
         self.llm.trainer_setup(trainer_ckpt=self.trainer_ckpt_path)
-        
+
     def training_step(self, batch):
         logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
         self.log("train_loss", loss, prog_bar=True)

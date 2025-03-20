@@ -600,7 +600,7 @@ class LLM(torch.nn.Module):
 
 class Preprocessor:
     """
-    Preprocesser class for tokenization and de-tokenization.
+    Preprocessor class for tokenization and de-tokenization.
     """
 
     def __init__(self, tokenizer: Tokenizer, device: str = "cpu") -> None:
@@ -698,7 +698,7 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     print_table(f"Defaults ({model_name}), 2nd time", bench_d)
     del llm
 
-    # 3nd table
+    # 3rd table
     llm = LLM.load(
         model=model_name,
     )

@@ -26,7 +26,7 @@ from litgpt.data import Alpaca
 from litgpt.model import GPT as BaseGPT
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
 def test_config_identical():
@@ -147,7 +147,7 @@ def test_base_model_can_be_adapter_v2_loaded(name):
         assert adapter_filter(k, None)
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_v2_compile():
     model = AdapterV2GPT.from_name("pythia-14m", n_layer=3)
@@ -314,7 +314,7 @@ def test_against_original_gemma_2(model_name):
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)  # some macOS devices have numerical differences, hence the tol bump
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -352,8 +352,10 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
             out_dir=tmp_path,
         )
 
-    args, kwargs = train_mock.call_args
-    fabric, model, optimizer, *_ = args
+    _, kwargs = train_mock.call_args
+    fabric = kwargs["fabric"]
+    model = kwargs["model"]
+    optimizer = kwargs["optimizer"]
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)
     assert isinstance(optimizer._optimizer, PagedAdamW)

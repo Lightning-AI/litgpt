@@ -1,14 +1,21 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
+import sys
 import shutil
 from pathlib import Path
 from typing import List, Optional
 
+# support running without installing as a package, adding extensions to the Python path
+wd = Path(__file__).parent.parent.resolve()
+if wd.is_dir():
+    sys.path.append(str(wd))
+else:
+    import warnings
+    warnings.warn(f"Could not find extensions directory at {wd}")
+
 import pytest
 import torch
-from lightning.fabric.utilities.testing import _runif_reasons
-from lightning_utilities.core.imports import RequirementCache
 
 
 @pytest.fixture()
@@ -61,7 +68,7 @@ def destroy_process_group():
 
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
-    
+
     bos_id = 0
     eos_id = 1
 
@@ -86,14 +93,14 @@ def mock_tokenizer():
 
 @pytest.fixture()
 def alpaca_path(tmp_path):
-    file = Path(__file__).parent / "data" / "fixtures" / "alpaca.json"
+    file = Path(__file__).parent / "data" / "_fixtures" / "alpaca.json"
     shutil.copyfile(file, tmp_path / "alpaca.json")
     return tmp_path / "alpaca.json"
 
 
 @pytest.fixture()
 def dolly_path(tmp_path):
-    file = Path(__file__).parent / "data" / "fixtures" / "dolly.json"
+    file = Path(__file__).parent / "data" / "_fixtures" / "dolly.json"
     shutil.copyfile(file, tmp_path / "dolly.json")
     return tmp_path / "dolly.json"
 
@@ -103,22 +110,9 @@ def longform_path(tmp_path):
     path = tmp_path / "longform"
     path.mkdir()
     for split in ("train", "val"):
-        file = Path(__file__).parent / "data" / "fixtures" / f"longform_{split}.json"
+        file = Path(__file__).parent / "data" / "_fixtures" / f"longform_{split}.json"
         shutil.copyfile(file, path / f"{split}.json")
     return path
-
-
-def RunIf(thunder: Optional[bool] = None, **kwargs):
-    reasons, marker_kwargs = _runif_reasons(**kwargs)
-
-    if thunder is not None:
-        thunder_available = bool(RequirementCache("lightning-thunder", "thunder"))
-        if thunder and not thunder_available:
-            reasons.append("Thunder")
-        elif not thunder and thunder_available:
-            reasons.append("not Thunder")
-
-    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
 
 
 # https://github.com/Lightning-AI/lightning/blob/6e517bd55b50166138ce6ab915abd4547702994b/tests/tests_fabric/conftest.py#L140
@@ -148,7 +142,7 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
                     marker.name == "skipif" and marker.kwargs.get(kwarg) for marker in test.own_markers
                 )
                 if not has_runif_with_kwarg:
-                    # the test has `@RunIf(kwarg=True)`, filter it out
+                    # the test has `@_RunIf(kwarg=True)`, filter it out
                     items.pop(i)
                     filtered += 1
 

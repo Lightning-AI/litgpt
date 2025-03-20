@@ -15,10 +15,10 @@ from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
 from litgpt.pretrain import initialize_weights
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 
-@RunIf(min_cuda_gpus=1, standalone=True)
+@_RunIf(min_cuda_gpus=1, standalone=True)
 @mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_optimizer_args(_, tmp_path):
     model_config = Config(block_size=2, n_layer=2, n_embd=4, n_head=2, padded_vocab_size=8)
@@ -39,7 +39,7 @@ def test_optimizer_args(_, tmp_path):
         )
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
@@ -86,7 +86,7 @@ def test_pretrain(_, tmp_path):
     torch.distributed.barrier()
 
 
-@RunIf(min_cuda_gpus=2, standalone=True)
+@_RunIf(min_cuda_gpus=2, standalone=True)
 # Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
 @mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 @mock.patch("litgpt.pretrain.L.Fabric.load_raw")

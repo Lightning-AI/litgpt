@@ -174,7 +174,9 @@ def generate_fn(
     token = prompt
     prefill_token = True
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
-    if model.__class__.__name__ != 'ThunderModule':
+    # input_pos_maxp1 introduces data-dependent shapes and control flow.
+    # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
+    if not any(m.__class__.__name__ == 'ThunderModule' for m in model.modules()):
         input_pos_maxp1 = torch.tensor(prompt_size, device=device)
     else:
         input_pos_maxp1 = None
