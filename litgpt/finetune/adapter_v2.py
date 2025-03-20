@@ -27,6 +27,7 @@ from litgpt.utils import (
     auto_download_checkpoint,
     CycleIterator,
     check_nvlink_connectivity,
+    load_checkpoint_update,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -51,6 +52,7 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
     num_nodes: int = 1,
+    resume: Optional[bool] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -138,7 +140,7 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
+    fabric.launch(main, devices, seed, config, data, resume, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -147,6 +149,7 @@ def main(
     seed: int,
     config: Config,
     data: DataModule,
+    resume: bool,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -189,9 +192,22 @@ def main(
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
-
+    if resume == True:
+        # Finding last trace of adapter training
+        try:
+            resume = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=(lambda p: int(p.parent.name.split("-")[1])))
+            fabric.print(f"Resuming training from {resume}")
+            load_checkpoint_update(fabric, resume, model, checkpoint_path, strict=False)
+            resume = True
+        except ValueError:
+            fabric.print("No previous adapter found. Finetune from start.")
+            resume = False
+            load_checkpoint(fabric, model, checkpoint_path, strict=False)
+    else:
     # strict=False because missing keys due to Adapter weights not contained in state dict
-    load_checkpoint(fabric, model, checkpoint_path, strict=False)
+        load_checkpoint(fabric, model, checkpoint_path, strict=False)
+
+    mark_only_adapter_v2_as_trainable(model)
 
     train_time = time.perf_counter()
     token_counts = fit(
@@ -202,6 +218,7 @@ def main(
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
         devices=devices,
+        resume=resume,
         num_nodes=num_nodes,
         checkpoint_dir=checkpoint_dir,
         out_dir=out_dir,
@@ -239,6 +256,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
+    resume: bool,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -279,7 +297,15 @@ def fit(
         "raw_tokens_plus_prompt_template_and_padding": torch.tensor(0, device=fabric.device, dtype=torch.long),
     }
 
-    while step_count < max_steps:
+    if resume != False:
+        try:
+            iter_match = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=lambda p: int(p.parent.name.split("-")[1]))
+            step_count = int(iter_match.parent.name.split("-")[1]) if iter_match else 0
+        except ValueError:
+            step_count = 0
+
+    fabric.print(f"Starting at step count {step_count}")
+    while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
