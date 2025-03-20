@@ -1,37 +1,32 @@
 import os
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
 from unittest.mock import Mock
 
 import torch
-from tests.conftest import RunIf
 from torch.utils.data import DataLoader
 
 from litgpt import Config
 from litgpt.args import EvalArgs, TrainArgs
+from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
 
-# support running without installing as a package
-wd = Path(__file__).parent.parent.resolve()
-sys.path.append(str(wd))
-
-import extensions.thunder.pretrain as pretrain
+if _THUNDER_AVAILABLE:
+    import extensions.thunder.pretrain as thunder_pretrain
 
 
-@RunIf(min_cuda_gpus=1, thunder=True)
-def test_pretrain(tmp_path, monkeypatch):
+@_RunIf(min_cuda_gpus=1, thunder=True)
+def test_pretrain_thunder(tmp_path, monkeypatch):
     model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
-    monkeypatch.setattr(pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader)))
-    monkeypatch.setattr(pretrain, "save_hyperparameters", Mock())
+    monkeypatch.setattr(thunder_pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader)))
+    monkeypatch.setattr(thunder_pretrain, "save_hyperparameters", Mock())
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout):
-        pretrain.setup(
+        thunder_pretrain.setup(
             devices=1,
             model_config=model_config,
             out_dir=out_dir,

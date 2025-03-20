@@ -6,7 +6,7 @@ from lightning.fabric import seed_everything
 import torch
 import requests
 import subprocess
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 import threading
 import time
 import yaml
@@ -57,7 +57,7 @@ def test_simple(tmp_path):
         server_thread.join()
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_quantize(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
@@ -100,7 +100,7 @@ def test_quantize(tmp_path):
         server_thread.join()
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_multi_gpu_serve(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")

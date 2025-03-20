@@ -4,7 +4,6 @@ import itertools
 import math
 import subprocess
 import sys
-from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 from re import escape
@@ -12,13 +11,14 @@ from re import escape
 import pytest
 import torch
 import yaml
-from tests.conftest import RunIf
 from lightning import Fabric
 
 from litgpt import Config
 from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
+from litgpt.utils import _RunIf
+from .utils import find_forward_hooks
 
 
 @pytest.mark.parametrize(
@@ -117,8 +117,8 @@ def _test_model_1device(accelerator):
         "cos": device_str,
         "sin": device_str,
         "lm_head.weight": device_str,
-        "transformer.h.0.attn.attn.bias": device_str,
-        "transformer.h.0.attn.attn.weight": device_str,
+        "transformer.h.0.attn.qkv.bias": device_str,
+        "transformer.h.0.attn.qkv.weight": device_str,
         "transformer.h.0.attn.proj.bias": device_str,
         "transformer.h.0.attn.proj.weight": device_str,
         "transformer.h.0.mlp.fc.bias": device_str,
@@ -131,8 +131,8 @@ def _test_model_1device(accelerator):
         "transformer.h.0.norm_2.weight": device_str,
         "transformer.h.0.attn.kv_cache.k": device_str,
         "transformer.h.0.attn.kv_cache.v": device_str,
-        "transformer.h.1.attn.attn.bias": device_str,
-        "transformer.h.1.attn.attn.weight": device_str,
+        "transformer.h.1.attn.qkv.bias": device_str,
+        "transformer.h.1.attn.qkv.weight": device_str,
         "transformer.h.1.attn.proj.bias": device_str,
         "transformer.h.1.attn.proj.weight": device_str,
         "transformer.h.1.mlp.fc.bias": device_str,
@@ -152,7 +152,7 @@ def _test_model_1device(accelerator):
     assert model.max_seq_length == 15
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_model_1device_cuda():
     _test_model_1device("cuda")
 
@@ -161,19 +161,7 @@ def test_model_1device_cpu():
     _test_model_1device("cpu")
 
 
-def find_forward_hooks(module):
-    mapping = defaultdict(list)
-    for name, submodule in module.named_modules():
-        for hook in submodule._forward_pre_hooks.values():
-            hook_data = ("forward_pre_hook", hook.func.__name__, hook.args, hook.keywords)
-            mapping[name].append(hook_data)
-        for hook in submodule._forward_hooks.values():
-            hook_data = ("forward_hook", hook.func.__name__, hook.args, hook.keywords)
-            mapping[name].append(hook_data)
-    return dict(mapping)
-
-
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
 def test_model_forward_hooks():
     fabric = Fabric(accelerator="cuda", devices=1)
     with torch.device("meta"):
@@ -187,8 +175,8 @@ def test_model_forward_hooks():
         "transformer.wte.weight": "cuda:0",
         "transformer.h.0.norm_1.weight": "cuda:0",
         "transformer.h.0.norm_1.bias": "cuda:0",
-        "transformer.h.0.attn.attn.weight": "cuda:0",
-        "transformer.h.0.attn.attn.bias": "cuda:0",
+        "transformer.h.0.attn.qkv.weight": "cuda:0",
+        "transformer.h.0.attn.qkv.bias": "cuda:0",
         "transformer.h.0.attn.proj.weight": "cuda:0",
         "transformer.h.0.attn.proj.bias": "cuda:0",
         "transformer.h.0.norm_2.weight": "cuda:0",
@@ -199,8 +187,8 @@ def test_model_forward_hooks():
         "transformer.h.0.mlp.proj.bias": "cuda:0",
         "transformer.h.1.norm_1.weight": "cuda:0",
         "transformer.h.1.norm_1.bias": "cuda:0",
-        "transformer.h.1.attn.attn.weight": "cuda:0",
-        "transformer.h.1.attn.attn.bias": "cuda:0",
+        "transformer.h.1.attn.qkv.weight": "cuda:0",
+        "transformer.h.1.attn.qkv.bias": "cuda:0",
         "transformer.h.1.attn.proj.weight": "cuda:0",
         "transformer.h.1.attn.proj.bias": "cuda:0",
         "transformer.h.1.norm_2.weight": "cuda:0",
@@ -211,8 +199,8 @@ def test_model_forward_hooks():
         "transformer.h.1.mlp.proj.bias": "cuda:0",
         "transformer.h.2.norm_1.weight": "cuda:0",
         "transformer.h.2.norm_1.bias": "cuda:0",
-        "transformer.h.2.attn.attn.weight": "cuda:0",
-        "transformer.h.2.attn.attn.bias": "cuda:0",
+        "transformer.h.2.attn.qkv.weight": "cuda:0",
+        "transformer.h.2.attn.qkv.bias": "cuda:0",
         "transformer.h.2.attn.proj.weight": "cuda:0",
         "transformer.h.2.attn.proj.bias": "cuda:0",
         "transformer.h.2.norm_2.weight": "cuda:0",
@@ -223,8 +211,8 @@ def test_model_forward_hooks():
         "transformer.h.2.mlp.proj.bias": "cuda:0",
         "transformer.h.3.norm_1.weight": "cuda:1",
         "transformer.h.3.norm_1.bias": "cuda:1",
-        "transformer.h.3.attn.attn.weight": "cuda:1",
-        "transformer.h.3.attn.attn.bias": "cuda:1",
+        "transformer.h.3.attn.qkv.weight": "cuda:1",
+        "transformer.h.3.attn.qkv.bias": "cuda:1",
         "transformer.h.3.attn.proj.weight": "cuda:1",
         "transformer.h.3.attn.proj.bias": "cuda:1",
         "transformer.h.3.norm_2.weight": "cuda:1",
@@ -235,8 +223,8 @@ def test_model_forward_hooks():
         "transformer.h.3.mlp.proj.bias": "cuda:1",
         "transformer.h.4.norm_1.weight": "cuda:1",
         "transformer.h.4.norm_1.bias": "cuda:1",
-        "transformer.h.4.attn.attn.weight": "cuda:1",
-        "transformer.h.4.attn.attn.bias": "cuda:1",
+        "transformer.h.4.attn.qkv.weight": "cuda:1",
+        "transformer.h.4.attn.qkv.bias": "cuda:1",
         "transformer.h.4.attn.proj.weight": "cuda:1",
         "transformer.h.4.attn.proj.bias": "cuda:1",
         "transformer.h.4.norm_2.weight": "cuda:1",
@@ -247,8 +235,8 @@ def test_model_forward_hooks():
         "transformer.h.4.mlp.proj.bias": "cuda:1",
         "transformer.h.5.norm_1.weight": "cuda:1",
         "transformer.h.5.norm_1.bias": "cuda:1",
-        "transformer.h.5.attn.attn.weight": "cuda:1",
-        "transformer.h.5.attn.attn.bias": "cuda:1",
+        "transformer.h.5.attn.qkv.weight": "cuda:1",
+        "transformer.h.5.attn.qkv.bias": "cuda:1",
         "transformer.h.5.attn.proj.weight": "cuda:1",
         "transformer.h.5.attn.proj.bias": "cuda:1",
         "transformer.h.5.norm_2.weight": "cuda:1",
@@ -287,7 +275,8 @@ def test_model_forward_hooks():
 root = Path(__file__).parent.parent.resolve()
 
 
-@RunIf(min_cuda_gpus=2)
+@_RunIf(min_cuda_gpus=2)
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_base_with_sequentially(tmp_path):
     # download the tokenizer
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)

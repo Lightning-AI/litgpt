@@ -18,12 +18,12 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from extensions.xla.generate.base import generate
-from extensions.xla.utils import rank_print
+from xla.generate.base import generate
+from xla.utils import rank_print
 
 
 def setup(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     *,
     input: str = "",
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),

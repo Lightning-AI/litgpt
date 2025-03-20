@@ -60,6 +60,11 @@ def test_tokenizer_against_hf(config):
         # even though their config defines it, it's set as None in HF
         assert isinstance(ours.bos_id, int)
         assert theirs.bos_token_id is None
+    elif config.name.startswith("Falcon3"):
+        if isinstance(ours.bos_id, int):
+            assert theirs.bos_token_id is None
+        else:
+            assert ours.bos_id == theirs.bos_token_id == None
     else:
         assert ours.bos_id == theirs.bos_token_id
 

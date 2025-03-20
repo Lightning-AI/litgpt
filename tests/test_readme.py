@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
-from tests.conftest import RunIf
+from litgpt.utils import _RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -32,6 +32,7 @@ def run_command(command):
 
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_model():
     repo_id = str(REPO_ID).replace("\\", "/")  # fix for Windows CI
     command = ["litgpt", "download", str(repo_id)]
@@ -48,6 +49,7 @@ def test_download_model():
 
 
 @pytest.mark.dependency()
+@pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_books():
     CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -70,7 +72,7 @@ def test_chat_with_model():
     assert "What food do llamas eat?" in result.stdout
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_quantized_model():
     command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]

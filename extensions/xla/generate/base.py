@@ -19,7 +19,7 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from extensions.xla.utils import rank_print
+from xla.utils import rank_print
 
 
 # xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
@@ -95,7 +95,7 @@ def generate(
 
 
 def setup(
-    prompt: str = "What food do lamas eat?",
+    prompt: str = "What food do llamas eat?",
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,

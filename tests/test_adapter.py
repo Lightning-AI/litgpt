@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 from contextlib import redirect_stdout
+from copy import deepcopy
 from dataclasses import asdict
 from io import StringIO
 from unittest import mock
@@ -19,11 +20,12 @@ from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 import litgpt.adapter as gpt_adapter
 import litgpt.finetune.adapter as module
 import litgpt.model as gpt
-from litgpt.adapter import GPT, Config, adapter_filter
+from litgpt.adapter import GPT, CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_hf_llama
-from tests.conftest import RunIf
+from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
+from litgpt.utils import _RunIf
 
 
 def test_config_identical():
@@ -116,7 +118,7 @@ def test_adapter_gpt_init_weights():
     assert (param == 0).all()
 
 
-@RunIf(dynamo=True)
+@_RunIf(dynamo=True)
 @torch.inference_mode()
 def test_adapter_compile():
     model = GPT.from_name("pythia-14m", n_layer=3)
@@ -136,7 +138,7 @@ def test_adapter_compile():
     assert explanation.graph_break_count == 0
 
 
-@RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
@@ -174,8 +176,10 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
             out_dir=tmp_path,
         )
 
-    args, kwargs = train_mock.call_args
-    fabric, model, optimizer, *_ = args
+    _, kwargs = train_mock.call_args
+    fabric = kwargs["fabric"]
+    model = kwargs["model"]
+    optimizer = kwargs["optimizer"]
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)
     assert isinstance(optimizer._optimizer, PagedAdamW)
@@ -192,7 +196,7 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
             "transformer.h.0.norm_1.weight",
             "transformer.h.0.norm_1.bias",
             "transformer.h.0.attn.gating_factor",
-            "transformer.h.0.attn.attn.bias",
+            "transformer.h.0.attn.qkv.bias",
             "transformer.h.0.attn.proj.bias",
             "transformer.h.0.attn.adapter_wte.weight",
             "transformer.h.0.norm_2.weight",
@@ -202,7 +206,7 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
             "transformer.h.1.norm_1.weight",
             "transformer.h.1.norm_1.bias",
             "transformer.h.1.attn.gating_factor",
-            "transformer.h.1.attn.attn.bias",
+            "transformer.h.1.attn.qkv.bias",
             "transformer.h.1.attn.proj.bias",
             "transformer.h.1.attn.adapter_wte.weight",
             "transformer.h.1.norm_2.weight",
@@ -214,11 +218,11 @@ def test_adapter_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca
         },
         "torch.uint8": {
             "lm_head.weight",
-            "transformer.h.0.attn.attn.weight",
+            "transformer.h.0.attn.qkv.weight",
             "transformer.h.0.attn.proj.weight",
             "transformer.h.0.mlp.fc.weight",
             "transformer.h.0.mlp.proj.weight",
-            "transformer.h.1.attn.attn.weight",
+            "transformer.h.1.attn.qkv.weight",
             "transformer.h.1.attn.proj.weight",
             "transformer.h.1.mlp.fc.weight",
             "transformer.h.1.mlp.proj.weight",
@@ -299,7 +303,7 @@ def test_against_hf_gemma(model_name):
                 # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
                 # is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
-                RunIf(min_cuda_gpus=1),
+                _RunIf(min_cuda_gpus=1),
             ],
         ),
     ],
@@ -345,7 +349,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     # Gemma weights are shipped without `lm_head.weight`
     theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
-    copy_weights_gemma_2(ours_config, {}, state_dict, theirs_state_dict)
+    copy_weights_gemma_2({}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -355,3 +359,25 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
+
+def test_load_legacy_state_dict():
+    """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
+    config = Config(
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+    )
+
+    attention_1 = CausalSelfAttention(config=config, block_idx=0)
+
+    # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
+    # and make them interleaved
+    state_dict = deepcopy(attention_1.state_dict())
+    state_dict["attn.weight"] = make_qkv_interleaved(state_dict.pop("qkv.weight"), config)
+    state_dict["attn.bias"] = make_qkv_interleaved(state_dict.pop("qkv.bias"), config)
+
+    attention_2 = CausalSelfAttention(config=config, block_idx=0)
+    attention_2.load_state_dict(state_dict)

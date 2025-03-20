@@ -48,7 +48,7 @@ The simplest way to get started with pretraining on a small custom dataset is by
 &nbsp;
 
 > [!NOTE]
-> This approach adds a beginning-of-sequence token at the beginning of each text file. However, it otherwise assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable in case a text file conists of multiple documents. 
+> This approach adds a beginning-of-sequence token at the beginning of each text file. However, it otherwise assumes that you have already cleaned the text files, for example, removing any unwanted characters and inserting beginning-of-sequence and end-of-sequence tokens if applicable in case a text file conists of multiple documents.
 
 &nbsp;
 
@@ -61,7 +61,7 @@ The simplest way to get started with pretraining on a small custom dataset is by
 For instance, assume you stored a number of text files in a `custom_pretraining_dataset` folder (we recommend avoiding small files and concatenating them to files of at least 50 Mb for efficiency):
 
 ```bash
-~ ls -lh custom_pretraining_data 
+~ ls -lh custom_pretraining_data
 total 3225M
 -rw-r--r-- 1 sebastian 50M Apr  2 18:31 combined_1.txt
 -rw-r--r-- 1 sebastian 50M Apr  2 18:31 combined_2.txt
@@ -94,7 +94,7 @@ litgpt pretrain pythia-14m \
 &nbsp;
 ## Continued pretraining on custom data
 
-Often, it makes sense to adopt an existing pretrained model and further pretrain it on our own custom data. The existing pretrained model can be either our own pretrained model or a model downloaded from a model hub. 
+Often, it makes sense to adopt an existing pretrained model and further pretrain it on our own custom data. The existing pretrained model can be either our own pretrained model or a model downloaded from a model hub.
 
 The following subsections illustrate three typical scenarioes:
 
@@ -202,4 +202,4 @@ The following [Lightning Studio](https://lightning.ai/lightning-ai/studios) temp
 |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | <p align="left">[Prepare the TinyLlama 1T token dataset](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset) <br> [<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/3.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset)         | [Pretrain LLMs - TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/4.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b)                                        |
 | [Continued Pretraining with TinyLlama 1.1B](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) <br> <p align="left">[<img src="https://pl-public-data.s3.amazonaws.com/assets_litgpt/readme/1.webp" width="300"></p>](https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b) | |
-|                                                                                                                                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                     
+|                                                                                                                                                                                                                                                                                                                                             |

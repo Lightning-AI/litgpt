@@ -12,6 +12,8 @@ import shutil
 import sys
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
+
+from lightning_utilities.core.imports import module_available
 from packaging import version
 from pathlib import Path
 import subprocess
@@ -35,6 +37,9 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
+_THUNDER_AVAILABLE = module_available("thunder")
+_TRITON_AVAILABLE = module_available("triton")
+
 
 def init_out_dir(out_dir: Path) -> Path:
     if not isinstance(out_dir, Path):
@@ -53,7 +58,7 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
         return resume_path
     if resume is True and resume_path is None:
         raise FileNotFoundError(
-            f"You passed `--resume=True`, but no checkpont file was found in `--out_dir={out_dir}`."
+            f"You passed `--resume=True`, but no checkpoint file was found in `--out_dir={out_dir}`."
         )
     return resume_path
 
@@ -168,12 +173,12 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(storage, torch.storage.TypedStorage), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -245,13 +250,14 @@ class incremental_save:
         self.zipfile = torch._C.PyTorchFileWriter(str(name))
         self.has_saved = False
         self.next_key = 0
+        self.protocol_version = 2
 
     def __enter__(self):
         return self
 
     def store_early(self, tensor):
         if isinstance(tensor, torch.Tensor):
-            return SavingProxyForTensor(tensor, self)
+            return SavingProxyForTensor(tensor, self, protocol_version=self.protocol_version)
         raise TypeError(f"can only store tensors early, not {type(tensor)}")
 
     def save(self, obj):
@@ -259,7 +265,7 @@ class incremental_save:
             raise RuntimeError("have already saved")
         # Write the pickle data for `obj`
         data_buf = BytesIO()
-        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=5)
+        pickler = IncrementalPyTorchPickler(self, data_buf, protocol=self.protocol_version)
         pickler.dump(obj)
         data_value = data_buf.getvalue()
         self.zipfile.write_record("data.pkl", data_value, len(data_value))
@@ -358,7 +364,6 @@ def get_default_supported_precision(training: bool) -> str:
 
     Args:
         training: If True, returns '-mixed' version of the precision; if False, returns '-true' version.
-        use_mps: Flag to determine if MPS should be used when available.
 
     Returns:
         The default precision that is suitable for the task and is supported by the hardware.
@@ -815,3 +820,17 @@ def select_sft_generate_example(eval, data):
     else:
         raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
     return instruction
+
+
+
+def _RunIf(thunder: bool = False, **kwargs):
+    import pytest
+    from lightning.fabric.utilities.testing import _runif_reasons
+
+    reasons, marker_kwargs = _runif_reasons(**kwargs)
+
+    if thunder and not module_available("thunder"):
+        # if we require Thunder, but it's not available, we should skip
+        reasons.append("Thunder")
+
+    return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)

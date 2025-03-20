@@ -3,31 +3,30 @@
 import logging
 import sys
 import time
+import warnings
 from functools import partial
 from pathlib import Path
 from pprint import pprint
 from typing import Literal, Optional, Union
-import warnings
 
 import lightning as L
-from lightning_utilities.core.imports import RequirementCache
 import torch
 import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
+from lightning_utilities.core.imports import RequirementCache
 
 import litgpt.generate.base as generate_base
-from litgpt.model import GPT
 from litgpt.config import Config
-from litgpt.tokenizer import Tokenizer
-from litgpt.model import CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
-    get_default_supported_precision
+    get_default_supported_precision,
 )
 
 
@@ -71,7 +70,7 @@ def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMA
 
 
 def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    tensor_parallel_linear(fabric, attn.attn, "colwise")
+    tensor_parallel_linear(fabric, attn.qkv, "colwise")
     tensor_parallel_linear(fabric, attn.proj, "rowwise")
     attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
 

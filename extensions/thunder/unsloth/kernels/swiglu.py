@@ -13,8 +13,12 @@
 # limitations under the License.
 
 import torch
-import triton
-import triton.language as tl
+
+from litgpt.utils import _TRITON_AVAILABLE
+
+if _TRITON_AVAILABLE:
+    import triton
+    import triton.language as tl
 
 
 @triton.jit

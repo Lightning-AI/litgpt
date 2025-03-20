@@ -88,15 +88,15 @@ seed: 1337
 optimizer:
 
   class_path: torch.optim.AdamW
-  
+
   init_args:
-    
+
     #   (type: float, default: 0.001)
     lr: 0.0002
-    
+
     #   (type: float, default: 0.01)
     weight_decay: 0.1
-    
+
     #   (type: tuple, default: (0.9,0.999))
     betas:
       - 0.9
