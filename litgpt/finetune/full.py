@@ -119,7 +119,7 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -134,12 +134,13 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
-    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
+    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices, num_nodes)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
@@ -168,7 +169,20 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    token_counts = fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval, data)
+    token_counts = fit(
+        fabric=fabric,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        devices=devices,
+        num_nodes=num_nodes,
+        resume=resume,
+        checkpoint_dir=checkpoint_dir,
+        out_dir=out_dir,
+        train=train,
+        eval=eval,
+        data=data,
+    )
     training_time = time.perf_counter() - train_time
     output = create_finetuning_performance_report(training_time, token_counts, fabric.device.type)
     fabric.print(output)
@@ -203,6 +217,7 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -246,7 +261,7 @@ def fit(
             f" {initial_iter}."
         )
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
@@ -259,12 +274,12 @@ def fit(
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             # shift the targets such that output n predicts token n+1
             loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 

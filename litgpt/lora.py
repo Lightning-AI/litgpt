@@ -328,7 +328,7 @@ class LoRAQKVLinear(LoRALinear):
         If the number of heads is equal to the number of query groups - grouped queries are disabled
         (see scheme in `litgpt/config.py:Config`). In this case the combined QKV matrix consists of equally sized
         query, key and value parts, which means we can utilize `groups` argument from `conv1d`: with this argument the
-        input and weight matrices will be splitted in equally sized parts and applied separately (like having multiple
+        input and weight matrices will be split in equally sized parts and applied separately (like having multiple
         conv layers side by side).
 
         Otherwise QKV matrix consists of unequally sized parts and thus we have to split input and weight matrices manually,
