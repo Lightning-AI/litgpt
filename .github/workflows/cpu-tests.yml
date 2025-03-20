@@ -79,12 +79,6 @@ jobs:
         path: .cache-HF
         key: ${{ runner.os }}-huggingface
 
-    - name: Get `thunder/test/test_networks.py`
-      run: |
-        mkdir -p tests/ext_thunder  # Ensure directory exists
-        curl -L -o tests/ext_thunder/test_networks.py \
-        https://raw.githubusercontent.com/Lightning-AI/lightning-thunder/main/thunder/tests/test_networks.py
-
     - name: Install dependencies
       run: |
         pip install '.[extra,compiler,test]'
