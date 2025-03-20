@@ -1,12 +1,3 @@
-import os
-import lightning as L
-from litgpt.data import Alpaca
-from litgpt.tokenizer import Tokenizer
-from litgpt.model import GPT, Config
-from litgpt.utils import num_parameters, CycleIterator
-import torch
-import torch.nn as nn
-
 """
 This script is meant to be the simplest possible starting point for full finetuning a GPT model using lightning fabric with code (not CLI).
 
@@ -21,6 +12,16 @@ and no other fancy stuff.
 
 To add all the above stuff, you can slowly add them in yourself by looking at the code in litgpt/finetune/full.py or the docs for litgpt/fabric.
 """
+
+import os
+import lightning as L
+from litgpt.data import Alpaca
+from litgpt.tokenizer import Tokenizer
+from litgpt.model import GPT, Config
+from litgpt.utils import num_parameters, CycleIterator
+import torch
+import torch.nn as nn
+
 
 # training params/args
 SEED = 1337
