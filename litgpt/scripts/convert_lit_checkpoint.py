@@ -254,7 +254,7 @@ def copy_weights_phi(
         name_template, layer_idx = layer_template(from_name)
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
-            if config.name.startswith(("Phi-3", "phi-4", "Phi-4")):
+            if config.name.lower().startswith(("phi-3", "phi-4")):
                 to_names = (weight_map[name_template].format(layer_idx),)
                 params = (param,)
             else:
