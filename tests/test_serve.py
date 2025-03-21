@@ -171,7 +171,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true", "--devices", "0"
+        "litgpt", "serve", tmp_path, "--openai_spec", "true"
     ]
 
     process = None
