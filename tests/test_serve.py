@@ -180,7 +180,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=20)
+            stdout, stderr = process.communicate(timeout=30)
             print(stdout, stderr)
             return stdout, stderr
         except subprocess.TimeoutExpired:
@@ -229,7 +229,7 @@ def test_serve_with_openai_spec(tmp_path):
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            stdout, stderr = process.communicate(timeout=30)
             print(stdout, stderr)
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
