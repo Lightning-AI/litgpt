@@ -54,7 +54,8 @@ def test_simple(tmp_path):
         print(response.status_code)
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
-        if process:
+        if process and psutil.pid_exists(process.pid):
+            # Kill the process and any child processes if it exists
             parent = psutil.Process(process.pid)
             for child in parent.children(recursive=True):
                 child.kill()
@@ -100,7 +101,8 @@ def test_quantize(tmp_path):
         print(response.status_code)
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
-        if process:
+        if process and psutil.pid_exists(process.pid):
+            # Kill the process and any child processes if it exists
             parent = psutil.Process(process.pid)
             for child in parent.children(recursive=True):
                 child.kill()
@@ -146,7 +148,8 @@ def test_multi_gpu_serve(tmp_path):
         print(response.status_code)
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
-        if process:
+        if process and psutil.pid_exists(process.pid):
+            # Kill the process and any child processes if it exists
             parent = psutil.Process(process.pid)
             for child in parent.children(recursive=True):
                 child.kill()
@@ -194,7 +197,8 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         assert "ValueError: chat_template not found in tokenizer config file." in stdout, \
             "Expected ValueError for missing chat_template not found in tokenizer config file."
     finally:
-        if process:
+        if process and psutil.pid_exists(process.pid):
+            # Kill the process and any child processes if it exists
             parent = psutil.Process(process.pid)
             for child in parent.children(recursive=True):
                 child.kill()
@@ -274,7 +278,8 @@ def test_serve_with_openai_spec(tmp_path):
                 assert "delta" in data["choices"][0], "Response JSON does not contain 'delta' in 'choices'."
                 assert "content" in data["choices"][0]["delta"], "Response JSON does not contain 'content' in 'delta'."
     finally:
-        if process:
+        if process and psutil.pid_exists(process.pid):
+            # Kill the process and any child processes if it exists
             parent = psutil.Process(process.pid)
             for child in parent.children(recursive=True):
                 child.kill()
