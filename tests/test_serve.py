@@ -11,6 +11,7 @@ import threading
 import time
 import yaml
 import json
+import psutil
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
@@ -54,6 +55,9 @@ def test_simple(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
+            parent = psutil.Process(process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
             process.kill()
         server_thread.join()
 
@@ -97,6 +101,9 @@ def test_quantize(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
+            parent = psutil.Process(process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
             process.kill()
         server_thread.join()
 
@@ -140,6 +147,9 @@ def test_multi_gpu_serve(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
+            parent = psutil.Process(process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
             process.kill()
         server_thread.join()
 
@@ -185,6 +195,9 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
             "Expected ValueError for missing chat_template not found in tokenizer config file."
     finally:
         if process:
+            parent = psutil.Process(process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
             process.kill()
         server_thread.join()
 
@@ -262,5 +275,8 @@ def test_serve_with_openai_spec(tmp_path):
                 assert "content" in data["choices"][0]["delta"], "Response JSON does not contain 'content' in 'delta'."
     finally:
         if process:
+            parent = psutil.Process(process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
             process.kill()
         server_thread.join()
