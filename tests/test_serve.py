@@ -181,7 +181,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         stdout, _ = run_server()
 
         assert "ValueError: chat_template not found in tokenizer config file." in stdout, \
-            "Expected ValueError for missing chat_template not found in stderr."
+            "Expected ValueError for missing chat_template not found in tokenizer config file."
     finally:
         if process:
             process.kill()
