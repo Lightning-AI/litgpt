@@ -79,7 +79,6 @@ optional-dependencies.test = [
   "pytest-dependency>=0.6",
   "pytest-rerunfailures>=14",
   "pytest-timeout>=2.3.1",
-  "transformers==4.47.1",     # numerical comparisons
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
