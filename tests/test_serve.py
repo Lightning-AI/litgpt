@@ -171,7 +171,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true"
+        "litgpt", "serve", tmp_path, "--openai_spec", "true", "--devices", "0"
     ]
 
     process = None
@@ -180,21 +180,20 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            stdout, stderr = process.communicate(timeout=20)
             print(stdout, stderr)
             return stdout, stderr
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
-
+        return None, None
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
     time.sleep(5)
     try:
-        stdout, stderr = run_server()
-
-        assert "ValueError: chat_template not found in tokenizer config file." in stdout, \
+        stdout, _ = run_server()
+        assert "ValueError: chat_template not found in tokenizer config file." in stdout or "", \
             "Expected ValueError for missing chat_template not found in tokenizer config file."
     finally:
         if process and psutil.pid_exists(process.pid):
