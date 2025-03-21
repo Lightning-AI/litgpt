@@ -181,6 +181,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=20)
+            print(stdout, stderr)
             return stdout, stderr
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
@@ -229,6 +230,7 @@ def test_serve_with_openai_spec(tmp_path):
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=10)
+            print(stdout, stderr)
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
 
