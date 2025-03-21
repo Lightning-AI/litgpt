@@ -171,7 +171,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true"
+        "litgpt", "serve", tmp_path, "--openai_spec", "true", "--port", "8001"
     ]
 
     process = None
@@ -220,7 +220,7 @@ def test_serve_with_openai_spec(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true"
+        "litgpt", "serve", tmp_path, "--openai_spec", "true", "--port", "8002"
     ]
 
     process = None
@@ -241,13 +241,13 @@ def test_serve_with_openai_spec(tmp_path):
 
     try:
         # Test server health
-        response = requests.get("http://127.0.0.1:8000/health")
+        response = requests.get("http://127.0.0.1:8002/health")
         assert response.status_code == 200, f"Server health check failed with status code {response.status_code}"
         assert response.text == "ok", "Server did not respond as expected."
 
         # Test non-streaming chat completion
         response = requests.post(
-            "http://127.0.0.1:8000/v1/chat/completions",
+            "http://127.0.0.1:8002/v1/chat/completions",
             json={
                 "model": "SmolLM2-135M-Instruct",
                 "messages": [{"role": "user", "content": "Hello!"}],
@@ -262,7 +262,7 @@ def test_serve_with_openai_spec(tmp_path):
 
         # Test streaming chat completion
         stream_response = requests.post(
-            "http://127.0.0.1:8000/v1/chat/completions",
+            "http://127.0.0.1:8002/v1/chat/completions",
             json={
                 "model": "SmolLM2-135M-Instruct",
                 "messages": [{"role": "user", "content": "Hello!"}],
