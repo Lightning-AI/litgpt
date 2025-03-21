@@ -192,9 +192,10 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
 
     time.sleep(5)
     try:
-        stdout, _ = run_server()
-        assert "ValueError: chat_template not found in tokenizer config file." in stdout or "", \
-            "Expected ValueError for missing chat_template not found in tokenizer config file."
+        stdout, stderr = run_server()
+        output = (stdout or "") + (stderr or "")
+        assert "ValueError: chat_template not found in tokenizer config file." in output, \
+            "Expected ValueError for missing chat_template not found."
     finally:
         if process and psutil.pid_exists(process.pid):
             # Kill the process and any child processes if it exists
