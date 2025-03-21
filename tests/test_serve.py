@@ -205,7 +205,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
             process.kill()
         server_thread.join()
 
-# @_RunIf(min_cuda_gpus=1)
+@_RunIf(min_cuda_gpus=1)
 def test_serve_with_openai_spec(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("SmolLM2-135M-Instruct")
@@ -220,7 +220,7 @@ def test_serve_with_openai_spec(tmp_path):
         yaml.dump(asdict(ours_config), fp)
 
     run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true","--devices", "0"
+        "litgpt", "serve", tmp_path, "--openai_spec", "true"
     ]
 
     process = None
