@@ -168,6 +168,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=10)
+            print(stdout, stderr)
             return stdout, stderr
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
@@ -178,7 +179,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
 
     time.sleep(5)
     try:
-        stdout, _ = run_server()
+        stdout, stderr = run_server()
 
         assert "ValueError: chat_template not found in tokenizer config file." in stdout, \
             "Expected ValueError for missing chat_template not found in tokenizer config file."
@@ -212,6 +213,7 @@ def test_serve_with_openai_spec(tmp_path):
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=10)
+            print(stdout, stderr)
         except subprocess.TimeoutExpired:
             print('Server start-up timeout expired')
 
