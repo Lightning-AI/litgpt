@@ -40,7 +40,7 @@ def test_rope_llama_2():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, scaling_factor=None)
+    rot_emb = LlamaRotaryEmbedding(head_dim)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -77,17 +77,17 @@ def test_rope_llama_3():
     head_dim = 64
     rope_theta = 50_000
 
-    their_rope_config = {
+    our_rope_config = {
         "factor": 8.0,
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
-        "original_max_position_embeddings": 1024,
+        "original_max_position_embeddings": 2047,
         "rope_type": "llama3"
      }
     
     config = LlamaConfig(
         rope_theta=rope_theta,
-        rope_scaling=their_rope_config,
+        rope_scaling=our_rope_config,
         head_dim=head_dim
     )
 
@@ -95,7 +95,7 @@ def test_rope_llama_3():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, config=config, scaling_factor=None)
+    rot_emb = LlamaRotaryEmbedding(head_dim, config=config)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
