@@ -376,6 +376,8 @@ def test_against_original_stablelm_zephyr_3b():
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
+
+    assert type(ours_y) == type(theirs_y)
     torch.testing.assert_close(ours_y, theirs_y)
 
 

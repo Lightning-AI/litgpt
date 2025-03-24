@@ -667,6 +667,8 @@ def test_against_original_stablelm_zephyr_3b(device, dtype):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+
+    assert type(ours_y) == type(theirs_y)
     torch.testing.assert_close(ours_y, theirs_y)
 
 
@@ -1062,7 +1064,7 @@ def test_model_compile():
 @pytest.mark.parametrize(
     "max_seq_length", (25, pytest.param(23, marks=pytest.mark.xfail(raises=IndexError, strict=True)))
 )
-@pytest.mark.flaky(reruns=5)
+# @pytest.mark.flaky(reruns=5) -- pytest complaining rerun unknown keyword
 def test_kv_cache(max_seq_length):
     config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
     model = GPT(config)
