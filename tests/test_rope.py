@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
-from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding
+from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, GPTNeoXConfig
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb as apply_rotary_pos_emb_llama
@@ -17,7 +17,19 @@ def test_rope_gptneox():
     x = torch.randint(0, 10000, size=(bs, n_head, seq_len, head_size)).float()
     position_ids = torch.arange(seq_len).unsqueeze(0)
 
-    theirs_rot_emb = GPTNeoXRotaryEmbedding(head_size, seq_len)
+    our_rope_config = {
+        "factor": 8.0,
+        "low_freq_factor": 1.0,
+        "high_freq_factor": 4.0,
+        "original_max_position_embeddings": 2047,
+        "rope_type":"default"
+     }
+
+    cfg = GPTNeoXConfig(max_position_embeddings=seq_len,
+                        num_attention_heads=n_head,
+                        rope_scaling=our_rope_config)
+
+    theirs_rot_emb = GPTNeoXRotaryEmbedding(cfg)
     theirs_cos, theirs_sin = theirs_rot_emb(x, position_ids)
 
     ours_cos_cached, ours_sin_cached = build_rope_cache(seq_len, head_size, device=x.device)
@@ -40,7 +52,19 @@ def test_rope_llama_2():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim)
+
+    our_rope_config = {
+        "factor": 8.0,
+        "low_freq_factor": 1.0,
+        "high_freq_factor": 4.0,
+        "original_max_position_embeddings": 2047,
+        "rope_type":"default"
+    }
+
+    cfg = LlamaConfig( num_attention_heads=head_dim,
+                        rope_scaling=our_rope_config)
+
+    rot_emb = LlamaRotaryEmbedding(cfg)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -95,7 +119,7 @@ def test_rope_llama_3():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, config=config)
+    rot_emb = LlamaRotaryEmbedding(config=config)
     batch_size, seq_len = 1, 10
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -136,7 +160,7 @@ def test_rope_llama_3_1():
         "factor": 8.0,
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
-        "original_max_position_embeddings": 8192,
+        "original_max_position_embeddings": 2047,
         "rope_type": "llama3"
      }
 
@@ -157,7 +181,7 @@ def test_rope_llama_3_1():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, config=config, rope_type="llama3")
+    rot_emb = LlamaRotaryEmbedding(config=config)
     batch_size, seq_len = 1, 131_072
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
@@ -198,7 +222,7 @@ def test_rope_llama_3_2():
         "factor": 32.0,
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
-        "original_max_position_embeddings": 8192,
+        "original_max_position_embeddings": 2047,
         "rope_type": "llama3"
      }
 
@@ -219,7 +243,7 @@ def test_rope_llama_3_2():
     # Compare cos and sin
     ##################################
     # transformer rope
-    rot_emb = LlamaRotaryEmbedding(head_dim, config=config, rope_type="llama3")
+    rot_emb = LlamaRotaryEmbedding(config=config)
     batch_size, seq_len = 1, 131_072
     qk_tensor = torch.randn(batch_size, seq_len, head_dim)
     position_ids = torch.arange(seq_len, dtype=torch.long).unsqueeze(0)
