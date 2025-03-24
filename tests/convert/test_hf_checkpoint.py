@@ -110,7 +110,7 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
     bin_file.touch()
     with mock.patch("litgpt.scripts.convert_hf_checkpoint.lazy_load") as load:
         # bypass if-statement for weight tying
-        if model_name in ("Llama-2-7b-hf", "phi-2"):
+        if model_name == "Llama-2-7b-hf":
             load.return_value = {"model.embed_tokens.weight": torch.rand((10, 10))}
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
     load.assert_called_with(bin_file)

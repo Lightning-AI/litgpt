@@ -361,7 +361,7 @@ def copy_weights_phi(
         if progress_per_file is not None:
             pbar.update(progress_per_file)
 
-    if "lm_head.weight" not in state_dict:
+    if "lm_head.weight" not in state_dict and config.name.startswith("Phi-4"):
         state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
 
     for i in list(qkv_weights):
@@ -600,6 +600,5 @@ def convert_hf_checkpoint(
             for bin_file in sorted(bin_files):
                 hf_weights = load_safetensors(bin_file) if bin_file.suffix == ".safetensors" else lazy_load(bin_file)
                 copy_fn(sd, hf_weights, saver=saver, dtype=dtype, debug_mode=debug_mode)
-
         print(f"Saving converted checkpoint to {checkpoint_dir}")
         saver.save(sd)
