@@ -112,3 +112,42 @@ addopts = [
   "--color=yes",
   "--disable-pytest-warnings",
 ]
+
+
+
+
+[tool.ruff]
+line-length = 120
+target-version = 'py38'
+exclude = [
+    "build",
+    "dist",
+    "docs"
+]
+
+[tool.ruff.format]
+preview = true
+
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # see: https://pypi.org/project/pycodestyle
+    "F",  # see: https://pypi.org/project/pyflakes
+#    "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+#    "I", # implementation for isort
+]
+#extend-select = [
+#    "C4",  # see: https://pypi.org/project/flake8-comprehensions
+#    "PT",  # see: https://pypi.org/project/flake8-pytest-style
+#    "RET",  # see: https://pypi.org/project/flake8-return
+#    "SIM",  # see: https://pypi.org/project/flake8-simplify
+#]
+ignore = [
+    "E731",  # Do not assign a lambda expression, use a def
+]
+# Exclude a variety of commonly ignored directories.
+ignore-init-module-imports = true
+
+[tool.ruff.lint.pydocstyle]
+# Use Google-style docstrings.
+convention = "google"
