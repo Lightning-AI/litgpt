@@ -28,6 +28,8 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
 
+import torch._dynamo # fallback to eager mode if torchscript fails
+torch._dynamo.config.suppress_errors = True
 
 def main() -> None:
     parser_data = {
