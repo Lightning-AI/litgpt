@@ -72,13 +72,13 @@ optional-dependencies.extra = [
   "zstandard>=0.22",
 ]
 optional-dependencies.test = [
-  "einops >=0.7",
-  "protobuf >=4.23.4",
-  "pytest >=8.1.1",
-  "pytest-dependency >=0.6",
-  "pytest-rerunfailures >=14",
-  "pytest-timeout >=2.3.1",
-  "transformers ==4.47.1",     # numerical comparisons
+  "einops>=0.7",
+  "protobuf>=4.23.4",
+  "pytest>=8.1.1",
+  "pytest-dependency>=0.6",
+  "pytest-rerunfailures>=14",
+  "pytest-timeout>=2.3.1",
+  "transformers==4.47.1",     # numerical comparisons
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
