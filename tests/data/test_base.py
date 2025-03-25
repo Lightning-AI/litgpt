@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from litgpt.data import SFTDataset, get_sft_collate_fn
+from litgpt.data.base import SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 
 
