@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 
 import litgpt.model
+from litgpt.model import LLaMAMLP as OriginalLLaMAMLP
 from litgpt.utils import _THUNDER_AVAILABLE
 from thunder.core.proxies import TensorProxy
 from thunder.core.transforms import get_grad, mean_backward, put_grads
@@ -156,9 +157,6 @@ weight, just for the input.
 
 def swiglu(e: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.silu(e) * g
-
-
-from litgpt.model import LLaMAMLP as OriginalLLaMAMLP
 
 
 class ThunderLLaMAMLP(OriginalLLaMAMLP):

@@ -44,6 +44,13 @@ wd = Path(__file__).parent.resolve()
 sys.path.append(str(wd))
 
 
+def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    logits = model(input_ids)
+    # disable chunk_size to enable the unsloth cross entropy kernel
+    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    return loss
+
+
 def setup(
     model_name: Optional[str] = None,
     model_config: Optional[Config] = None,
@@ -280,8 +287,8 @@ def fit(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        model_fwd = lambda: meta_model(x)  # noqa: F821
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -382,13 +389,6 @@ def fit(
 
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
-
-
-def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    logits = model(input_ids)
-    # disable chunk_size to enable the unsloth cross entropy kernel
-    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-    return loss
 
 
 @torch.no_grad()

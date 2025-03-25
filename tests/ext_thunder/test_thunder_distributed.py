@@ -20,7 +20,7 @@ if _THUNDER_AVAILABLE:
 
 
 @_RunIf(thunder=True)
-def test_thunder_strategy_input_parsing():
+def test_thunder_strategy_ddp_input_parsing():
     with pytest.raises(ValueError, match="doesn't have an effect with `jit=False"):
         ThunderDDPStrategy(jit=False, executors=("python",))
 
@@ -77,7 +77,7 @@ def test_no_backward_sync_thunder(choice):
 @_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("jit", (False, True))
 @pytest.mark.xfail(TypeError, reason="temporally disabled until resolved with Thunder")
-def test_jit_before_setup(jit):
+def test_jit_ddp_before_setup(jit):
     import thunder
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderDDPStrategy(jit=jit))
@@ -94,7 +94,7 @@ def test_jit_before_setup(jit):
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
-def test_setup_already_traced():
+def test_strategy_ddp_setup_already_traced():
     import thunder
 
     device = torch.device("cuda")
@@ -110,7 +110,7 @@ def test_setup_already_traced():
 
 
 @_RunIf(thunder=True)
-def test_thunder_strategy_input_parsing():
+def test_thunder_strategy_fsdp_input_parsing():
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
     strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
@@ -399,7 +399,7 @@ def test_save_load_sharded_checkpoint(tmp_path):
 @_RunIf(min_cuda_gpus=2, thunder=True, standalone=True)
 @pytest.mark.parametrize("jit", (False, True))
 @pytest.mark.xfail(TypeError, reason="temporally disabled until resolved with Thunder")
-def test_jit_before_setup(jit):
+def test_jit_fsdp_before_setup(jit):
     import thunder
 
     fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
@@ -416,7 +416,7 @@ def test_jit_before_setup(jit):
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
-def test_setup_already_traced():
+def test_strategy_fsdp_setup_already_traced():
     import thunder
 
     device = torch.device("cuda")

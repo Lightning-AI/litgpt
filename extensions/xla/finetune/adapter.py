@@ -22,9 +22,9 @@ from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, esti
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.scripts.prepare_alpaca import generate_prompt
-from xla.utils import rank_print, sequential_load_and_fsdp_wrap
+from xla.generate.base import generate  # noqa: E402
+from xla.scripts.prepare_alpaca import generate_prompt  # noqa: E402
+from xla.utils import rank_print, sequential_load_and_fsdp_wrap  # noqa: E402
 
 eval_interval = 200
 save_interval = 200
@@ -148,8 +148,8 @@ def train(
         # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
-        forward_fn = lambda: meta_model(x)
-        loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        forward_fn = lambda: meta_model(x)  # noqa: F821
+        loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, forward_fn, loss_fn)
         rank_print(fabric, f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
