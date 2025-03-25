@@ -8,7 +8,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union, List, Dict
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -22,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -123,7 +123,10 @@ def setup(
                 from extensions.thunder.strategies import ThunderFSDPStrategy
 
                 strategy = ThunderFSDPStrategy(
-                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", state_dict_type="full", jit=False,
+                    sharding_strategy="ZERO3",
+                    bucketing_strategy="BLOCK",
+                    state_dict_type="full",
+                    jit=False,
                 )
             elif strategy == "ddp":
                 from extensions.thunder.strategies import ThunderDDPStrategy
@@ -141,7 +144,9 @@ def setup(
 
     if compiler is not None:
         global forward_and_loss
-        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        forward_and_loss = (
+            jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        )
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
@@ -232,9 +237,17 @@ def main(
 
     train_time = time.perf_counter()
     fit(
-        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
-        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval, optimizer=optimizer
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
     )
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
@@ -486,8 +499,9 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 
 def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
-    import thunder
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
+
+    import thunder
 
     return thunder.jit(fn, executors=executors)
 

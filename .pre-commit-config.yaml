@@ -72,9 +72,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.6
     hooks:
-      # try to fix what is possible
       - id: ruff
         args: ["--fix"]
+      - id: ruff-format
+      - id: ruff
 
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: v2.5.0

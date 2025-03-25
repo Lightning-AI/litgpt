@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union, Dict
+from typing import Dict, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -135,13 +135,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=[logger]
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -235,9 +229,16 @@ def main(
 
     train_time = time.perf_counter()
     fit(
-        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
-        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
     )
 
     # Save final checkpoint
@@ -281,7 +282,7 @@ def fit(
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -400,7 +401,9 @@ def fit(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True
+) -> torch.Tensor:
     fabric.barrier()
     if verbose:
         fabric.print("Validating ...")

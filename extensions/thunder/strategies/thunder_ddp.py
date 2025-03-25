@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from thunder import Executor
 
 
-
 class ThunderDDPStrategy(ParallelStrategy):
     def __init__(
         self,

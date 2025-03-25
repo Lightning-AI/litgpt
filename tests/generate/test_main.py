@@ -1,11 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import os
 import re
 import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
-import os
 from unittest import mock
 from unittest.mock import ANY, Mock, call
 
@@ -17,10 +17,9 @@ import litgpt.generate.base as generate
 from litgpt import GPT, Config
 from litgpt.generate.base import sample
 
-
 skip_in_ci_on_macos = pytest.mark.skipif(
     sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test.",
 )
 
 
@@ -29,6 +28,7 @@ skip_in_ci_on_macos = pytest.mark.skipif(
 )
 def test_generate(max_seq_length):
     import lightning as L
+
     L.seed_everything(1234)
 
     T = 5
