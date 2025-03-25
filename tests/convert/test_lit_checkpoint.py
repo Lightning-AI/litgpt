@@ -527,6 +527,7 @@ def test_check_conversion_supported_lora():
     with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
+
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview"))
 @pytest.mark.parametrize(
@@ -590,6 +591,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
 
 def test_qkv_reassemble():
     # MHA

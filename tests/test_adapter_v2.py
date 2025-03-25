@@ -311,7 +311,9 @@ def test_against_original_gemma_2(model_name):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)  # some macOS devices have numerical differences, hence the tol bump
+    torch.testing.assert_close(
+        ours_y, theirs_y, rtol=3e-5, atol=3e-5
+    )  # some macOS devices have numerical differences, hence the tol bump
 
 
 @_RunIf(min_cuda_gpus=1)
@@ -469,6 +471,7 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     logs = stdout.getvalue()
     assert "of trainable parameters: 552" in logs
     assert "of non-trainable parameters: 1,808" in logs
+
 
 def test_load_legacy_state_dict():
     """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""

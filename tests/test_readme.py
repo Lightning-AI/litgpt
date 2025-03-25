@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+
 from litgpt.utils import _RunIf
 
 REPO_ID = Path("EleutherAI/pythia-14m")
@@ -55,7 +56,7 @@ def test_download_books():
 
     books = [
         ("https://www.gutenberg.org/cache/epub/24440/pg24440.txt", "book1.txt"),
-        ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt")
+        ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt"),
     ]
     for url, filename in books:
         subprocess.run(["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename)], check=True)
@@ -85,52 +86,69 @@ def test_chat_with_quantized_model():
 @pytest.mark.dependency(depends=["test_download_model"])
 @pytest.mark.timeout(300)
 def test_finetune_model(tmp_path):
-
     OUT_DIR = tmp_path / "out" / "lora"
     DATASET_PATH = tmp_path / "custom_finetuning_dataset.json"
     CHECKPOINT_DIR = "checkpoints" / REPO_ID
 
-    download_command = ["curl", "-L", "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json", "-o", str(DATASET_PATH)]
+    download_command = [
+        "curl",
+        "-L",
+        "https://huggingface.co/datasets/medalpaca/medical_meadow_health_advice/raw/main/medical_meadow_health_advice.json",
+        "-o",
+        str(DATASET_PATH),
+    ]
     subprocess.run(download_command, check=True)
 
     assert DATASET_PATH.exists(), "Dataset file not downloaded"
 
     finetune_command = [
-        "litgpt", "finetune_lora",
+        "litgpt",
+        "finetune_lora",
         str(CHECKPOINT_DIR),
-        "--lora_r", "1",
-        "--data", "JSON",
-        "--data.json_path", str(DATASET_PATH),
-        "--data.val_split_fraction", "0.00001",  # Keep small because new final validation is expensive
-        "--train.max_steps", "1",
-        "--out_dir", str(OUT_DIR)
+        "--lora_r",
+        "1",
+        "--data",
+        "JSON",
+        "--data.json_path",
+        str(DATASET_PATH),
+        "--data.val_split_fraction",
+        "0.00001",  # Keep small because new final validation is expensive
+        "--train.max_steps",
+        "1",
+        "--out_dir",
+        str(OUT_DIR),
     ]
     run_command(finetune_command)
 
-    generated_out_dir = OUT_DIR/"final"
+    generated_out_dir = OUT_DIR / "final"
     assert generated_out_dir.exists(), f"Finetuning output directory ({generated_out_dir}) was not created"
-    model_file = OUT_DIR/"final"/"lit_model.pth"
+    model_file = OUT_DIR / "final" / "lit_model.pth"
     assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith("win") or
-    sys.platform == "darwin",
-    reason="`torch.compile` is not supported on this OS."
+    sys.platform.startswith("win") or sys.platform == "darwin", reason="`torch.compile` is not supported on this OS."
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_pretrain_model(tmp_path):
     OUT_DIR = tmp_path / "out" / "custom_pretrained"
     pretrain_command = [
-        "litgpt", "pretrain",
+        "litgpt",
+        "pretrain",
         "pythia-14m",
-        "--tokenizer_dir", str("checkpoints" / REPO_ID),
-        "--data", "TextFiles",
-        "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
-        "--train.max_tokens", "100",     # to accelerate things for CI
-        "--eval.max_iters", "1",         # to accelerate things for CI
-        "--out_dir", str(OUT_DIR)
+        "--tokenizer_dir",
+        str("checkpoints" / REPO_ID),
+        "--data",
+        "TextFiles",
+        "--data.train_data_path",
+        str(CUSTOM_TEXTS_DIR),
+        "--train.max_tokens",
+        "100",  # to accelerate things for CI
+        "--eval.max_iters",
+        "1",  # to accelerate things for CI
+        "--out_dir",
+        str(OUT_DIR),
     ]
     output = run_command(pretrain_command)
 
@@ -146,39 +164,43 @@ def test_pretrain_model(tmp_path):
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith("win") or
-    sys.platform == "darwin",
-    reason="`torch.compile` is not supported on this OS."
+    sys.platform.startswith("win") or sys.platform == "darwin", reason="`torch.compile` is not supported on this OS."
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
 def test_continue_pretrain_model(tmp_path):
     OUT_DIR = tmp_path / "out" / "custom_continue_pretrained"
     pretrain_command = [
-        "litgpt", "pretrain",
+        "litgpt",
+        "pretrain",
         "pythia-14m",
-        "--initial_checkpoint", str("checkpoints" / REPO_ID),
-        "--tokenizer_dir", str("checkpoints" / REPO_ID),
-        "--data", "TextFiles",
-        "--data.train_data_path", str(CUSTOM_TEXTS_DIR),
-        "--train.max_tokens", "100",     # to accelerate things for CI
-        "--eval.max_iters", "1",         # to accelerate things for CI
-        "--out_dir", str(OUT_DIR)
+        "--initial_checkpoint",
+        str("checkpoints" / REPO_ID),
+        "--tokenizer_dir",
+        str("checkpoints" / REPO_ID),
+        "--data",
+        "TextFiles",
+        "--data.train_data_path",
+        str(CUSTOM_TEXTS_DIR),
+        "--train.max_tokens",
+        "100",  # to accelerate things for CI
+        "--eval.max_iters",
+        "1",  # to accelerate things for CI
+        "--out_dir",
+        str(OUT_DIR),
     ]
     run_command(pretrain_command)
 
-    generated_out_dir = OUT_DIR/"final"
+    generated_out_dir = OUT_DIR / "final"
     assert generated_out_dir.exists(), f"Continued pretraining directory ({generated_out_dir}) was not created"
-    model_file = OUT_DIR/"final"/"lit_model.pth"
+    model_file = OUT_DIR / "final" / "lit_model.pth"
     assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
-    run_command = [
-        "litgpt", "serve", str(CHECKPOINT_DIR)
-    ]
+    run_command = ["litgpt", "serve", str(CHECKPOINT_DIR)]
 
     process = None
 
@@ -188,7 +210,7 @@ def test_serve():
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()

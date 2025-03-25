@@ -1,5 +1,4 @@
 import torch
-
 from litdata import optimize
 from torch.utils._pytree import tree_map
 
@@ -53,5 +52,5 @@ def test_textfiles_datamodule(tmp_path):
         [[73, 5, 0]],
         [[12, 0, 23]],
         [[23, 15, 63]],
-        [[13, 12, 0]]
+        [[13, 12, 0]],
     ]

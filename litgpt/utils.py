@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """Utility functions for training and inference."""
+
 import inspect
 import json
 import math
@@ -9,16 +10,13 @@ import pickle
 import random
 import re
 import shutil
+import subprocess
 import sys
+import warnings
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
-
-from lightning_utilities.core.imports import module_available
-from packaging import version
 from pathlib import Path
-import subprocess
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
-import warnings
 
 import lightning as L
 import torch
@@ -28,11 +26,12 @@ import yaml
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
-from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.cli import instantiate_class
+from lightning.pytorch.loggers import WandbLogger
+from lightning_utilities.core.imports import module_available
+from packaging import version
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
-
 
 if TYPE_CHECKING:
     from litgpt import GPT, Config
@@ -90,23 +89,24 @@ def reset_parameters(module: nn.Module) -> None:
 
 
 def check_valid_checkpoint_dir(
-        checkpoint_dir: Path,
-        model_filename: str = "lit_model.pth",
-        verbose: bool = True,
-        raise_error: bool = False,
-        ignore_tokenizer_files: bool = False
-    ) -> None:
-
+    checkpoint_dir: Path,
+    model_filename: str = "lit_model.pth",
+    verbose: bool = True,
+    raise_error: bool = False,
+    ignore_tokenizer_files: bool = False,
+) -> None:
     files = {
         model_filename: (checkpoint_dir / model_filename).is_file(),
         "model_config.yaml": (checkpoint_dir / "model_config.yaml").is_file(),
     }
     if not ignore_tokenizer_files:
-        files.update({
-            "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file() or
-                                                (checkpoint_dir / "tokenizer.model").is_file(),
-            "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
-        })
+        files.update(
+            {
+                "tokenizer.json OR tokenizer.model": (checkpoint_dir / "tokenizer.json").is_file()
+                or (checkpoint_dir / "tokenizer.model").is_file(),
+                "tokenizer_config.json": (checkpoint_dir / "tokenizer_config.json").is_file(),
+            }
+        )
 
     if checkpoint_dir.is_dir():
         if all(files.values()):
@@ -173,12 +173,16 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
+            assert isinstance(
+                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
+            ), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), "Please check for updates"
+            assert isinstance(
+                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
+            ), "Please check for updates"
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -545,15 +549,21 @@ def choose_logger(
 
 def get_argument_names(cls):
     sig = inspect.signature(cls.__init__)
-    return {name for name, param in sig.parameters.items()
-            if param.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]}
+    return {
+        name
+        for name, param in sig.parameters.items()
+        if param.kind in [inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY]
+    }
 
 
 def instantiate_bnb_optimizer(optimizer, model_parameters):
-    if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")):
+    if (isinstance(optimizer, str) and "AdamW" not in optimizer) or (
+        isinstance(optimizer, dict) and "AdamW" not in optimizer.get("class_path", "")
+    ):
         raise ValueError("The chosen quantization format only supports the AdamW optimizer.")
 
     import bitsandbytes as bnb
+
     if isinstance(optimizer, str):
         optimizer = bnb.optim.PagedAdamW(model_parameters)
     else:
@@ -600,10 +610,12 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
 
 def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
     new_checkpoint_dir = "checkpoints" / checkpoint_dir
-    should_return_new_dir = (not checkpoint_dir.is_dir() and
-                             checkpoint_dir.parts[0] != "checkpoints" and
-                             not checkpoint_dir.is_absolute() and
-                             new_checkpoint_dir.exists())
+    should_return_new_dir = (
+        not checkpoint_dir.is_dir()
+        and checkpoint_dir.parts[0] != "checkpoints"
+        and not checkpoint_dir.is_absolute()
+        and new_checkpoint_dir.exists()
+    )
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
 
 
@@ -628,7 +640,9 @@ def auto_download_checkpoint(model_name, access_token=None, ignore_tokenizer_fil
 
     checkpoint_dir = extend_checkpoint_dir(Path(model_name))
     try:
-        check_valid_checkpoint_dir(checkpoint_dir, verbose=False, raise_error=True, ignore_tokenizer_files=ignore_tokenizer_files)
+        check_valid_checkpoint_dir(
+            checkpoint_dir, verbose=False, raise_error=True, ignore_tokenizer_files=ignore_tokenizer_files
+        )
     except FileNotFoundError as e:
         if access_token is None:
             access_token = os.getenv("HF_TOKEN")
@@ -753,7 +767,7 @@ def _check_amd_connectivity(custom_print):
 
 def fix_and_load_json(s):
     # Remove trailing commas before } or ]
-    s = re.sub(r',(\s*[}\]])', r'\1', s)
+    s = re.sub(r",(\s*[}\]])", r"\1", s)
 
     # Insert missing commas between properties
     # Match positions where a value is followed by a newline and then a quote without a comma
@@ -785,7 +799,7 @@ def create_finetuning_performance_report(training_time, token_counts, device_typ
 
     if device_type == "cuda":
         memory_used = torch.cuda.max_memory_allocated() / 1e9
-        output += f"| Memory Usage                                                                 \n"
+        output += "| Memory Usage                                                                 \n"
         output += f"| - Memory Used               :  {memory_used:.02f} GB                                        \n"
     output += "-------------------------------------------------------\n"
 
@@ -793,7 +807,6 @@ def create_finetuning_performance_report(training_time, token_counts, device_typ
 
 
 def select_sft_generate_example(eval, data):
-
     if eval.evaluate_example == "first":
         if len(data.test_dataset.data):
             instruction = data.test_dataset.data[0]["instruction"]
@@ -820,7 +833,6 @@ def select_sft_generate_example(eval, data):
     else:
         raise ValueError(f"Unknown evaluation example type: {eval.evaluate_example}")
     return instruction
-
 
 
 def _RunIf(thunder: bool = False, **kwargs):
