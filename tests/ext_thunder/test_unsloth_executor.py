@@ -3,8 +3,7 @@ import torch
 
 from litgpt import GPT, Config
 from litgpt.model import apply_rope, build_rope_cache
-from litgpt.utils import chunked_cross_entropy
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, chunked_cross_entropy
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
@@ -45,7 +44,7 @@ def test_unsloth_cross_entropy(reduction):
     torch.testing.assert_close(actual, expected)
 
 
-@pytest.mark.skip(reason='out of date')
+@pytest.mark.skip(reason="out of date")
 @_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_rope():
     import thunder

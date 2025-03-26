@@ -2,10 +2,11 @@
 
 import json
 from pathlib import Path
-from typing import Optional, Union, Iterable, Iterator
+from typing import Iterable, Iterator, Optional, Union
+
+import torch
 
 from litgpt.utils import fix_and_load_json
-import torch
 
 
 class Tokenizer:
@@ -146,12 +147,14 @@ class Tokenizer:
             dummy_token_id = 33  # \x1e
             dummy_token = self.processor.decode([dummy_token_id])
             if dummy_token != "\x1e":
-                dummy_token_id = 165 # \x1e is different in salamandra tokenizers
+                dummy_token_id = 165  # \x1e is different in salamandra tokenizers
                 dummy_token = self.processor.decode([dummy_token_id])
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
-    def decode_stream(self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None) -> Iterator[str]:
+    def decode_stream(
+        self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None
+    ) -> Iterator[str]:
         if self.backend == "huggingface":
             try:
                 for token in token_stream:

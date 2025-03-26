@@ -291,6 +291,7 @@ def copy_weights_phi(
             state_dict[layer_name] = weight
             del gate_up_proj_weights[layer_idx]
 
+
 def copy_weights_qwen_2_5(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
@@ -381,7 +382,7 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_gemma_2, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
-    elif config.name.lower().startswith(("qwen2.5","qwq")):
+    elif config.name.lower().startswith(("qwen2.5", "qwq")):
         copy_fn = partial(copy_weights_qwen_2_5, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name

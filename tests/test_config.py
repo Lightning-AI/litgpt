@@ -58,7 +58,9 @@ def test_from_hf_name_with_org_string():
     assert config0 == config1
 
     # Test case 2: invalid input - org not found
-    with pytest.raises(ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"):
+    with pytest.raises(
+        ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"
+    ):
         Config.from_name("UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T")
 
     # Test case 3: invalid input - name not found
