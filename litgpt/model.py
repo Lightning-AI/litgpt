@@ -324,7 +324,8 @@ class CausalSelfAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_stride == 0
+            config.sliding_window_size is not None
+            and config.sliding_window_block_idx_map_fn(block_idx) % config.sliding_window_layer_stride == 0
         )
 
         if config.norm_qk:
