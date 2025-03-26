@@ -113,12 +113,12 @@ class Config:
 
         if self.sliding_window_size is not None:
             self.sliding_window_layer_stride = (
-                1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2
-            ) if self.sliding_window_layer_stride is None else self.sliding_window_layer_stride
-        
-        SLIDING_WINDOW_TYPE_TO_MAP_FN: dict[Literal["gemma3"], Callable[[int],int]]    = {
-            "gemma3": lambda x: x+1
-        }
+                (1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2)
+                if self.sliding_window_layer_stride is None
+                else self.sliding_window_layer_stride
+            )
+
+        SLIDING_WINDOW_TYPE_TO_MAP_FN: dict[Literal["gemma3"], Callable[[int], int]] = {"gemma3": lambda x: x + 1}
         self.sliding_window_block_idx_map_fn = (
             lambda x: x if self.sliding_window_type is None else SLIDING_WINDOW_TYPE_TO_MAP_FN[self.sliding_window_type]
         )
