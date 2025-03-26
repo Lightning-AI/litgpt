@@ -11,7 +11,6 @@ from litgpt.data import LitData
 @pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
 @mock.patch("litgpt.data.lit_data.LitData._dataloader")
 def test_input_dir_and_splits(dl_mock, tmp_path):
-
     with pytest.raises(ValueError, match="If provided `split_names` must be a tuple of two strings"):
         LitData(data_path=tmp_path, split_names=("train",))
 

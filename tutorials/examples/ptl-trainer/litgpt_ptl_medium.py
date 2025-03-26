@@ -1,8 +1,9 @@
-import torch
-import litgpt
-from litgpt.lora import GPT, merge_lora_weights
-from litgpt.data import Alpaca2k
 import lightning as L
+import torch
+
+import litgpt
+from litgpt.data import Alpaca2k
+from litgpt.lora import GPT, merge_lora_weights
 
 
 class LitLLM(L.LightningModule):
