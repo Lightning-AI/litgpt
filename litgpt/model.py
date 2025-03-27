@@ -587,28 +587,26 @@ def build_rope_cache(
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
-        if "rope_type" in extra_config:
-            rope_type = extra_config["rope_type"]
+        rope_type = extra_config.get("rope_type", "llama3")
+        if rope_type == "llama3":
+            orig_context_len = extra_config["original_max_seq_len"]
+            factor = extra_config["factor"]
+            low_freq_factor = extra_config["low_freq_factor"]
+            high_freq_factor = extra_config["high_freq_factor"]
 
-            if rope_type is None or rope_type == "llama3":
-                orig_context_len = extra_config["original_max_seq_len"]
-                factor = extra_config["factor"]
-                low_freq_factor = extra_config["low_freq_factor"]
-                high_freq_factor = extra_config["high_freq_factor"]
+            wavelen = 2 * torch.pi / theta
+            ratio = orig_context_len / wavelen
+            smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+            smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
 
-                wavelen = 2 * torch.pi / theta
-                ratio = orig_context_len / wavelen
-                smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
-                smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
-
-                # Compute adjusted_theta without masked indexing
-                adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
-                theta = adjusted_theta
-            elif rope_type == "linear":
-                factor = extra_config["factor"]
-                theta = theta / factor
-            else:
-                raise NotImplementedError(f"Not implemented for rope_type={rope_type}")
+            # Compute adjusted_theta without masked indexing
+            adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
+            theta = adjusted_theta
+        elif rope_type == "linear":
+            factor = extra_config["factor"]
+            theta = theta / factor
+        else:
+            raise NotImplementedError(f"Not implemented for rope_type={rope_type}")
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
