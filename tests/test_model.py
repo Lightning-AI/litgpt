@@ -670,7 +670,7 @@ def test_against_original_stablelm_zephyr_3b(device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
 
-    assert type(ours_y) == type(theirs_y)
+    assert isinstance(ours_y, type(theirs_y))
     torch.testing.assert_close(ours_y, theirs_y)
 
 
