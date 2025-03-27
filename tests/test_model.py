@@ -331,7 +331,9 @@ def test_against_hf_phi(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct", "phi-4"))
+@pytest.mark.parametrize(
+    "model_name", ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct", "phi-4")
+)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -980,6 +982,7 @@ def test_against_original_smollm2(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
+
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("Falcon3-1B-Base", "Falcon3-7B-Base"))
 @pytest.mark.parametrize(
@@ -1307,6 +1310,7 @@ def test_batched_index_copy_modes():
             batched_index_copy_(t3_mps, dim_3, idx_3_mps, val_3_mps)
             assert torch.allclose(t3_cpu, t3_mps), "Mismatch with negative dimension on mocked MPS"
 
+
 def test_load_legacy_state_dict():
     """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
     config = Config(
@@ -1327,6 +1331,7 @@ def test_load_legacy_state_dict():
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)
+
 
 @pytest.mark.parametrize("n_query_groups", (1, 2, 4, 8))
 @torch.inference_mode()
@@ -1352,10 +1357,7 @@ def test_kv_cache_buffer_shape(n_query_groups):
         assert kv_cache.v.shape == required_shape
 
 
-@pytest.mark.parametrize(
-    ("rotary_percentage", "final_dim"),
-    ((0.75, 3), (0.25, 2))
-)
+@pytest.mark.parametrize(("rotary_percentage", "final_dim"), ((0.75, 3), (0.25, 2)))
 @torch.inference_mode()
 def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd(rotary_percentage, final_dim):
     batch_size = 3
@@ -1371,6 +1373,7 @@ def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd(rotary_percentage, final_dim)
     required_shape = (config.block_size, final_dim)
     assert model.cos.shape == required_shape
     assert model.sin.shape == required_shape
+
 
 def test_forward_with_without_input_pos_maxp1():
     batch_size = 3

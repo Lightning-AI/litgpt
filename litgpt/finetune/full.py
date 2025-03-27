@@ -10,7 +10,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
@@ -20,8 +20,8 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    auto_download_checkpoint,
     CycleIterator,
+    auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -30,9 +30,9 @@ from litgpt.utils import (
     create_finetuning_performance_report,
     find_resume_path,
     get_default_supported_precision,
-    load_checkpoint,
     init_out_dir,
     instantiate_torch_optimizer,
+    load_checkpoint,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -108,13 +108,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=logger
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=logger)
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -223,7 +217,9 @@ def fit(
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(
+        ConcatDataset([train_dataloader.dataset, val_dataloader.dataset])
+    )
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
@@ -290,7 +286,9 @@ def fit(
             state["step_count"] += 1
 
         token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
-        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += (
+            batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        )
         token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
 
         if state["iter_num"] % train.log_interval == 0:
@@ -343,9 +341,12 @@ def fit(
 
     return total_token_counts
 
+
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()

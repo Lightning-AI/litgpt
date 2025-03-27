@@ -1,4 +1,3 @@
-
 # The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
 checkpoint_dir: checkpoints/meta-llama/Llama-2-7b-hf
 
@@ -56,7 +55,6 @@ data:
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
-
   # Number of optimizer steps between saving checkpoints (type: Optional[int], default: 1000)
   save_interval: 200
 
@@ -95,7 +93,6 @@ train:
 
 # Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details
 eval:
-
   # Number of optimizer steps between evaluation calls (type: int, default: 100)
   interval: 100
 
@@ -119,11 +116,9 @@ seed: 1337
 
 # Optimizer-related arguments
 optimizer:
-
   class_path: torch.optim.AdamW
 
   init_args:
-
     #   (type: float, default: 0.001)
     lr: 0.0002
 

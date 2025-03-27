@@ -1,9 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import warnings
+
 import torch
+from jsonargparse import CLI, set_config_read_mode, set_docstring_parse_options
 
 from litgpt.chat.base import main as chat_fn
+from litgpt.deploy.serve import run_server as serve_fn
+from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
 from litgpt.finetune.adapter import setup as finetune_adapter_fn
 from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
 from litgpt.finetune.full import setup as finetune_full_fn
@@ -23,9 +27,6 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-from litgpt.eval.evaluate import convert_and_evaluate as evaluate_fn
-from litgpt.deploy.serve import run_server as serve_fn
-from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
 
 def main() -> None:
@@ -50,7 +51,7 @@ def main() -> None:
         "convert_pretrained_checkpoint": convert_pretrained_checkpoint_fn,
         "merge_lora": merge_lora_fn,
         "evaluate": evaluate_fn,
-        "serve": serve_fn
+        "serve": serve_fn,
     }
 
     set_docstring_parse_options(attribute_docstrings=True)
@@ -58,15 +59,10 @@ def main() -> None:
 
     # PyTorch bug that raises a false-positive warning
     # More info: https://github.com/Lightning-AI/litgpt/issues/1561
-    warning_message = (
-        r"The epoch parameter in `scheduler.step\(\)` was not necessary and is being deprecated.*"
-    )
+    warning_message = r"The epoch parameter in `scheduler.step\(\)` was not necessary and is being deprecated.*"
 
     warnings.filterwarnings(
-        action="ignore",
-        message=warning_message,
-        category=UserWarning,
-        module=r'.*torch\.optim\.lr_scheduler.*'
+        action="ignore", message=warning_message, category=UserWarning, module=r".*torch\.optim\.lr_scheduler.*"
     )
 
     torch.set_float32_matmul_precision("high")

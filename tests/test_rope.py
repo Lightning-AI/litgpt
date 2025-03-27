@@ -3,9 +3,9 @@
 import torch
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, GPTNeoXConfig
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
+from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb as apply_rotary_pos_emb_llama
-from transformers.models.llama.configuration_llama import LlamaConfig
 
 from litgpt.model import apply_rope, build_rope_cache
 
@@ -108,7 +108,7 @@ def test_rope_llama_3():
         "original_max_position_embeddings": 2047,
         "rope_type": "llama3"
      }
-    
+
     config = LlamaConfig(
         rope_theta=rope_theta,
         rope_scaling=our_rope_config,
@@ -161,21 +161,12 @@ def test_rope_llama_3_1():
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
-        "rope_type": "llama3"
+        "rope_type": "llama3",
      }
 
-    our_rope_config = {
-        "factor": 8.0,
-        "low_freq_factor": 1.0,
-        "high_freq_factor": 4.0,
-        "original_max_seq_len": 8192
-     }
+    our_rope_config = {"factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_seq_len": 8192}
 
-    config = LlamaConfig(
-        rope_theta=rope_theta,
-        rope_scaling=their_rope_config,
-        head_dim=head_dim
-    )
+    config = LlamaConfig(rope_theta=rope_theta, rope_scaling=their_rope_config, head_dim=head_dim)
 
     ##################################
     # Compare cos and sin
@@ -223,21 +214,12 @@ def test_rope_llama_3_2():
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
-        "rope_type": "llama3"
+        "rope_type": "llama3",
      }
 
-    our_rope_config = {
-        "factor": 32.0,
-        "low_freq_factor": 1.0,
-        "high_freq_factor": 4.0,
-        "original_max_seq_len": 8192
-     }
+    our_rope_config = {"factor": 32.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_seq_len": 8192}
 
-    config = LlamaConfig(
-        rope_theta=rope_theta,
-        rope_scaling=their_rope_config,
-        head_dim=head_dim
-    )
+    config = LlamaConfig(rope_theta=rope_theta, rope_scaling=their_rope_config, head_dim=head_dim)
 
     ##################################
     # Compare cos and sin
@@ -272,6 +254,7 @@ def test_rope_llama_3_2():
     theirs_q_rot, theirs_k_rot = apply_rotary_pos_emb_llama(queries, keys, theirs_cos, theirs_sin)
     torch.testing.assert_close(theirs_q_rot, ours_q_rot)
     torch.testing.assert_close(theirs_k_rot, ours_k_rot)
+
 
 @torch.inference_mode()
 def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd():
