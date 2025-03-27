@@ -610,7 +610,6 @@ def build_rope_cache(
             else:
                 raise NotImplementedError(f"Not implemented for rope_type={rope_type}")
 
-
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
 
