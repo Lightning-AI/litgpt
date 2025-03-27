@@ -2,7 +2,7 @@
 
 import torch
 from transformers.models.gemma3.configuration_gemma3 import Gemma3TextConfig
-from transformers.models.gemma3.modeling_gemma3 import Gemma3RotaryEmbedding
+from transformers.models.gemma3.modeling_gemma3 import Gemma3RotaryEmbedding, apply_rotary_pos_emb
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
 from transformers.models.llama.configuration_llama import LlamaConfig
@@ -249,6 +249,23 @@ def test_rope_gemma_3():
     ours_sin = ours_sin.unsqueeze(0)
     torch.testing.assert_close(theirs_cos, ours_cos)
     torch.testing.assert_close(theirs_sin, ours_sin)
+
+    ##################################
+    # Compare rotated tensors
+    ##################################
+    # Settings
+    num_heads = 4
+
+    # Dummy query and key tensors
+    torch.manual_seed(123)
+    queries = torch.randn(batch_size, num_heads, seq_len, head_dim)
+    keys = torch.randn(batch_size, num_heads, seq_len, head_dim)
+
+    ours_q_rot = apply_rope(queries, ours_cos, ours_sin)
+    ours_k_rot = apply_rope(keys, ours_cos, ours_sin)
+    theirs_q_rot, theirs_k_rot = apply_rotary_pos_emb(queries, keys, theirs_cos, theirs_sin)
+    torch.testing.assert_close(theirs_q_rot, ours_q_rot)
+    torch.testing.assert_close(theirs_k_rot, ours_k_rot)
 
 
 @torch.inference_mode()
