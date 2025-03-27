@@ -146,7 +146,7 @@ class MultiHeadSelfAttention:
                 # We need a mask if T > 1, since inference needs to be causal
                 # for the new tokens
                 mask = batched_index_select(
-                    self.mask_cache[input_pos:(input_pos + T), :],
+                    self.mask_cache[input_pos : (input_pos + T), :],
                     dim=1,
                     idx=token_positions,
                 )
@@ -156,7 +156,11 @@ class MultiHeadSelfAttention:
         # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
         return_scores = not (input_pos is None or for_prefill) and return_attn_weights
         y, scores = self.scaled_dot_product_attention(
-            query, k_and_v, mask, is_causal, return_scores,
+            query,
+            k_and_v,
+            mask,
+            is_causal,
+            return_scores,
         )
         # Re-assemble all head outputs side by side.
         y = y.reshape(B, T, -1)
