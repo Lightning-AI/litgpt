@@ -1,13 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
+from transformers.models.gemma3.configuration_gemma3 import Gemma3TextConfig
+from transformers.models.gemma3.modeling_gemma3 import Gemma3RotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb as apply_rotary_pos_emb_llama
-from transformers.models.gemma3.modeling_gemma3 import Gemma3RotaryEmbedding, apply_rotary_pos_emb
-from transformers.models.gemma3.configuration_gemma3 import Gemma3TextConfig
 
 from litgpt.model import apply_rope, build_rope_cache
 
@@ -219,6 +219,7 @@ def test_rope_llama_3_2():
     torch.testing.assert_close(theirs_q_rot, ours_q_rot)
     torch.testing.assert_close(theirs_k_rot, ours_k_rot)
 
+
 # See https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json for settings
 @torch.inference_mode()
 def test_rope_gemma_3():
@@ -248,6 +249,7 @@ def test_rope_gemma_3():
     ours_sin = ours_sin.unsqueeze(0)
     torch.testing.assert_close(theirs_cos, ours_cos)
     torch.testing.assert_close(theirs_sin, ours_sin)
+
 
 @torch.inference_mode()
 def test_rope_cos_sin_shapes_if_rope_n_elem_is_odd():
