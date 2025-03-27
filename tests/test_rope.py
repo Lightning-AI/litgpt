@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
-from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, GPTNeoXConfig
+from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXConfig, GPTNeoXRotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
@@ -22,12 +22,10 @@ def test_rope_gptneox():
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
-        "rope_type":"default"
-     }
+        "rope_type": "default",
+    }
 
-    cfg = GPTNeoXConfig(max_position_embeddings=seq_len,
-                        num_attention_heads=n_head,
-                        rope_scaling=our_rope_config)
+    cfg = GPTNeoXConfig(max_position_embeddings=seq_len, num_attention_heads=n_head, rope_scaling=our_rope_config)
 
     theirs_rot_emb = GPTNeoXRotaryEmbedding(cfg)
     theirs_cos, theirs_sin = theirs_rot_emb(x, position_ids)
@@ -58,11 +56,10 @@ def test_rope_llama_2():
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
-        "rope_type":"default"
+        "rope_type": "default",
     }
 
-    cfg = LlamaConfig( num_attention_heads=head_dim,
-                        rope_scaling=our_rope_config)
+    cfg = LlamaConfig(num_attention_heads=head_dim, rope_scaling=our_rope_config)
 
     rot_emb = LlamaRotaryEmbedding(cfg)
     batch_size, seq_len = 1, 10
@@ -106,14 +103,10 @@ def test_rope_llama_3():
         "low_freq_factor": 1.0,
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
-        "rope_type": "llama3"
-     }
+        "rope_type": "llama3",
+    }
 
-    config = LlamaConfig(
-        rope_theta=rope_theta,
-        rope_scaling=our_rope_config,
-        head_dim=head_dim
-    )
+    config = LlamaConfig(rope_theta=rope_theta, rope_scaling=our_rope_config, head_dim=head_dim)
 
     ##################################
     # Compare cos and sin
@@ -162,7 +155,7 @@ def test_rope_llama_3_1():
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
         "rope_type": "llama3",
-     }
+    }
 
     our_rope_config = {"factor": 8.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_seq_len": 8192}
 
@@ -215,7 +208,7 @@ def test_rope_llama_3_2():
         "high_freq_factor": 4.0,
         "original_max_position_embeddings": 2047,
         "rope_type": "llama3",
-     }
+    }
 
     our_rope_config = {"factor": 32.0, "low_freq_factor": 1.0, "high_freq_factor": 4.0, "original_max_seq_len": 8192}
 

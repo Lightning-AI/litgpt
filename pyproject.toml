@@ -65,7 +65,7 @@ optional-dependencies.extra = [
   # litgpt.pretrain:
   "tensorboard>=2.14",
   "torchmetrics>=1.3.1",
-  "transformers==4.49.0",
+  "transformers==4.49",
   # litdata, only on non-Windows:
   "uvloop>=0.2; sys_platform!='win32'",
   # litgpt.data.prepare_slimpajama.py:
@@ -78,7 +78,7 @@ optional-dependencies.test = [
   "pytest-dependency>=0.6",
   "pytest-rerunfailures>=14",
   "pytest-timeout>=2.3.1",
-  "transformers==4.49.0",     # numerical comparisons
+  "transformers==4.49",       # numerical comparisons
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
