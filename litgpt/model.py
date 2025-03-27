@@ -587,10 +587,9 @@ def build_rope_cache(
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
-        rope_type = extra_config.get("rope_type", "llama3")
-        if rope_type == "llama3":
+        factor = extra_config["factor"]
+        if "original_max_seq_len" in extra_config:
             orig_context_len = extra_config["original_max_seq_len"]
-            factor = extra_config["factor"]
             low_freq_factor = extra_config["low_freq_factor"]
             high_freq_factor = extra_config["high_freq_factor"]
 
@@ -602,11 +601,8 @@ def build_rope_cache(
             # Compute adjusted_theta without masked indexing
             adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
             theta = adjusted_theta
-        elif rope_type == "linear":
-            factor = extra_config["factor"]
-            theta = theta / factor
         else:
-            raise NotImplementedError(f"Not implemented for rope_type={rope_type}")
+            theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
