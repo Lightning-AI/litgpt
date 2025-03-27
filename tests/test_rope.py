@@ -1,7 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import torch
-from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXRotaryEmbedding, GPTNeoXConfig
+from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXConfig, GPTNeoXRotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
@@ -17,7 +17,7 @@ def test_rope_gptneox():
     x = torch.randint(0, 10000, size=(bs, n_head, seq_len, head_size)).float()
     position_ids = torch.arange(seq_len).unsqueeze(0)
 
-    config = GPTNeoXConfig(num_attention_heads=n_head, hidden_size=head_size*n_embed)
+    config = GPTNeoXConfig(num_attention_heads=n_head, hidden_size=head_size * n_embed)
     theirs_rot_emb = GPTNeoXRotaryEmbedding(config)
     theirs_cos, theirs_sin = theirs_rot_emb(x, position_ids)
 
