@@ -1,8 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import os
 import warnings
-from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -11,7 +9,6 @@ from huggingface_hub import hf_hub_download
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
-from transformers.utils import cached_file
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
@@ -34,11 +31,10 @@ def test_tokenizer_against_hf(config, tmp_path):
             file_to_cache[filename] = str(hf_file)
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
-            #pytest.xfail(f"Failed to download {filename} from {repo_id}")
+            # pytest.xfail(f"Failed to download {filename} from {repo_id}")
     checkpoint_dir.mkdir(parents=True)
     for filename, hf_file in file_to_cache.items():
         (checkpoint_dir / filename).symlink_to(hf_file)
-
 
     ours = Tokenizer(checkpoint_dir)
 
