@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+import requests
 from huggingface_hub import hf_hub_download
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
@@ -29,9 +30,10 @@ def test_tokenizer_against_hf(config, tmp_path):
         try:  # download the HF tokenizer config
             hf_file = hf_hub_download(repo_id=repo_id, filename=filename)
             file_to_cache[filename] = str(hf_file)
+        except requests.exceptions.HTTPError:
+            pytest.xfail(f"Failed to download {filename} from {repo_id}")
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
-            # pytest.xfail(f"Failed to download {filename} from {repo_id}")
     checkpoint_dir.mkdir(parents=True)
     for filename, hf_file in file_to_cache.items():
         (checkpoint_dir / filename).symlink_to(hf_file)
