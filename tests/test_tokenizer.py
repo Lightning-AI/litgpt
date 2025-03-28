@@ -27,13 +27,13 @@ def test_tokenizer_against_hf(config, tmp_path):
     checkpoint_dir = tmp_path / config.hf_config["org"] / config.hf_config["name"]
     file_to_cache = {}
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-        try:  # download the HF tokenizer config
-            hf_file = hf_hub_download(repo_id=repo_id, filename=filename)
-            file_to_cache[filename] = str(hf_file)
-        except requests.exceptions.HTTPError:
-            pytest.xfail(f"Failed to download {filename} from {repo_id}")
-        except Exception as ex:
-            warnings.warn(str(ex), RuntimeWarning)
+        # try:  # download the HF tokenizer config
+        hf_file = hf_hub_download(repo_id=repo_id, filename=filename)
+        file_to_cache[filename] = str(hf_file)
+        # except requests.exceptions.HTTPError:
+        #     pytest.xfail(f"Failed to download {filename} from {repo_id}")
+        # except Exception as ex:
+        #     warnings.warn(str(ex), RuntimeWarning)
     checkpoint_dir.mkdir(parents=True)
     for filename, hf_file in file_to_cache.items():
         (checkpoint_dir / filename).symlink_to(hf_file)
