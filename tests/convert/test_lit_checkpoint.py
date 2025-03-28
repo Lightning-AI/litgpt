@@ -368,7 +368,7 @@ def test_against_original_stablelm_zephyr_3b():
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
-    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True)
+    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True, torch_dtype=torch.float32)
     theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
