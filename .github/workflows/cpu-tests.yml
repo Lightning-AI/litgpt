@@ -84,8 +84,8 @@ jobs:
           pip list
 
       - name: Run tests
-        #env:
-        #  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout 180
 
       - name: Show cache
