@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import os
 import warnings
 from types import SimpleNamespace
 from unittest import mock
@@ -19,14 +20,14 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id)
+    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
     # create a checkpoint directory that points to the HF files
     checkpoint_dir = tmp_path / config.hf_config["org"] / config.hf_config["name"]
     hf_files = {}
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
         try:  # download the HF tokenizer config
-            hf_file = hf_hub_download(repo_id=repo_id, filename=filename)
+            hf_file = hf_hub_download(repo_id=repo_id, filename=filename, token=os.getenv("HF_TOKEN"))
             hf_files[filename] = str(hf_file)
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
