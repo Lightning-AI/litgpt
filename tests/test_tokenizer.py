@@ -5,10 +5,10 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
-from huggingface_hub import hf_hub_download
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
+from transformers.utils import cached_file
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
@@ -27,7 +27,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     hf_files = {}
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
         try:  # download the HF tokenizer config
-            hf_file = hf_hub_download(repo_id=repo_id, filename=filename, token=os.getenv("HF_TOKEN"))
+            hf_file = cached_file(repo_id=repo_id, filename=filename)
             hf_files[filename] = str(hf_file)
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
