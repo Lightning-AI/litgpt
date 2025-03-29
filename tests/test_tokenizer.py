@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-
 import os
-from pathlib import Path
+import warnings
 from types import SimpleNamespace
 from unittest import mock
 
@@ -15,38 +14,29 @@ import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
 
 
-@pytest.mark.flaky(reruns=5, rerun_except=["AssertionError", "assert", "TypeError"])
+# @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
-def test_tokenizer_against_hf(config):
-    access_token = os.getenv("HF_TOKEN")
-
+def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    cache_dir = Path("/tmp/tokenizer_test_cache")
+    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
     # create a checkpoint directory that points to the HF files
-    checkpoint_dir = cache_dir / "litgpt" / config.hf_config["org"] / config.hf_config["name"]
-    if not checkpoint_dir.exists():
-        file_to_cache = {}
-        for file in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-            try:
-                # download the HF tokenizer config
-                hf_file = cached_file(repo_id, file, cache_dir=cache_dir / "hf", token=access_token)
-            except OSError as e:
-                if "gated repo" in str(e):
-                    pytest.xfail("Invalid token" if access_token else "Gated repo")
-                if "does not appear to have" in str(e):
-                    continue
-                raise e
-            file_to_cache[file] = str(hf_file)
-        checkpoint_dir.mkdir(parents=True)
-        for file, hf_file in file_to_cache.items():
-            (checkpoint_dir / file).symlink_to(hf_file)
+    checkpoint_dir = tmp_path / config.hf_config["org"] / config.hf_config["name"]
+    hf_files = {}
+    for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
+        try:  # download the HF tokenizer config
+            hf_file = cached_file(repo_id=repo_id, filename=filename)
+            hf_files[filename] = str(hf_file)
+        except Exception as ex:
+            warnings.warn(str(ex), RuntimeWarning)
+    if "tokenizer.json" not in hf_files or "tokenizer.model" not in hf_files:
+        raise ConnectionError("Unable to download any tokenizer files from HF")
+    checkpoint_dir.mkdir(parents=True)
+    for filename, hf_file in hf_files.items():
+        (checkpoint_dir / filename).symlink_to(hf_file)
 
-    theirs = AutoTokenizer.from_pretrained(
-        repo_id, cache_dir=cache_dir / "hf", local_files_only=True, token=access_token
-    )
     ours = Tokenizer(checkpoint_dir)
 
     assert ours.vocab_size == theirs.vocab_size
