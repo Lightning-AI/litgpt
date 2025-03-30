@@ -66,7 +66,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -143,7 +143,7 @@ def setup(
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
+    if logger_name in ("tensorboard", "wandb", "mlflow"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
