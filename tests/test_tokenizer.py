@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
+import shutil
 import warnings
 from types import SimpleNamespace
 from unittest import mock
@@ -23,7 +24,6 @@ def test_tokenizer_against_hf(config, tmp_path):
     theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
     # create a checkpoint directory that points to the HF files
-    checkpoint_dir = tmp_path / config.hf_config["org"] / config.hf_config["name"]
     hf_files = {}
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
         try:  # download the HF tokenizer config
@@ -33,11 +33,10 @@ def test_tokenizer_against_hf(config, tmp_path):
             warnings.warn(str(ex), RuntimeWarning)
     if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
         raise ConnectionError("Unable to download any tokenizer files from HF")
-    checkpoint_dir.mkdir(parents=True)
     for filename, hf_file in hf_files.items():
-        (checkpoint_dir / filename).symlink_to(hf_file)
+        shutil.copy(hf_file, str(tmp_path / filename))
 
-    ours = Tokenizer(checkpoint_dir)
+    ours = Tokenizer(tmp_path)
 
     assert ours.vocab_size == theirs.vocab_size
     if config.name.startswith("CodeLlama-70b-Instruct"):
