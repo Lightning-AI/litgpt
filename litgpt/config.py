@@ -81,6 +81,7 @@ class Config:
     final_logit_softcapping: Optional[float] = None
     norm_1: bool = True
     norm_2: bool = True
+
     def __post_init__(self):
         if not self.name:
             self.name = self.hf_config.get("name", self.name)

@@ -258,7 +258,11 @@ class Block(nn.Module):
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
-        self.norm_2 = nn.Identity() if not config.norm_2 else ( None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
+        self.norm_2 = (
+            nn.Identity()
+            if not config.norm_2
+            else (None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
+        )
         self.mlp = config.mlp_class(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
@@ -327,7 +331,6 @@ class CausalSelfAttention(nn.Module):
         self.apply_sliding_window_attention = (
             config.sliding_window_size is not None and block_idx % config.sliding_window_layer_stride == 0
         )
-
 
         self.q_norm = None
         self.k_norm = None

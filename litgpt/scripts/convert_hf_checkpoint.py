@@ -514,7 +514,7 @@ def copy_weights_olmo2(
         for weight_type in list(qkv_weights[i]):
             qkv = qkv_weights[i][weight_type]
             if len(qkv) != 3:
-                # qkv is splitted across different .bin files
+                # qkv is split across different .bin files
                 continue
             q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
             k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
