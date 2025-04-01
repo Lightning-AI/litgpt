@@ -120,14 +120,14 @@ If your GPU supports `bfloat16`, the script will automatically use it.
 You can easily train on your own instruction dataset saved in JSON format.
 
 1. Create a JSON file in which each row holds one instruction-response pair.
-   A row has an entry for 'instruction', 'input', and 'output', where 'input' is optional and can be
-   the empty string if the instruction doesn't require a context. Below is an example json file:
+   A row has an entry for 'instruction' and 'output', and optionally 'input'. Note that currently, the 'input' field is only used in the Alpaca chat template. If you are using the Alpaca template, 'input' can be the empty string if the instruction doesn't require a context.
+   Below is an example json file:
 
     ```text
     [
         {
             "instruction": "Arrange the given numbers in ascending order.",
-            "input": "2, 4, 0, 8, 3",
+            "input": "2, 4, 0, 8, 3", // Optional: only used in Alpaca chat template
             "output": "0, 2, 3, 4, 8"
         },
         ...

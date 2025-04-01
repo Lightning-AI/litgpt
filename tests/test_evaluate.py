@@ -1,12 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import pytest
 import subprocess
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from io import StringIO
 from unittest import mock
 
+import pytest
 import torch
 import yaml
 
@@ -34,7 +34,7 @@ def test_evaluate_script(tmp_path):
                 dtype=torch.float32,
                 limit=5,
                 tasks="logiqa",
-                batch_size=0  # Test for non-positive integer
+                batch_size=0,  # Test for non-positive integer
             )
         assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
 
@@ -46,7 +46,7 @@ def test_evaluate_script(tmp_path):
                 dtype=torch.float32,
                 limit=5,
                 tasks="logiqa",
-                batch_size="invalid"  # Test for invalid string
+                batch_size="invalid",  # Test for invalid string
             )
         assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
 
@@ -59,7 +59,7 @@ def test_evaluate_script(tmp_path):
             dtype=torch.float32,
             limit=5,
             tasks="logiqa",
-            batch_size=1  # Valid case
+            batch_size=1,  # Valid case
         )
     stdout = stdout.getvalue()
     assert (tmp_path / "out_dir" / "results.json").is_file()

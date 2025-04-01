@@ -5,8 +5,8 @@ import os
 import time
 from pathlib import Path
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.data.prepare_starcoder import DataChunkRecipe
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import CLI, extend_checkpoint_dir
 
 
