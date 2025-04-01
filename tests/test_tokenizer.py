@@ -31,7 +31,7 @@ def test_tokenizer_against_hf(config, tmp_path):
             hf_files[filename] = str(hf_file)
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
-    if "tokenizer.json" not in hf_files or "tokenizer.model" not in hf_files:
+    if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
         raise ConnectionError("Unable to download any tokenizer files from HF")
     checkpoint_dir.mkdir(parents=True)
     for filename, hf_file in hf_files.items():
