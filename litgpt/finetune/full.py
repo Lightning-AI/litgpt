@@ -320,14 +320,16 @@ def fit(
             val_loss = validate(fabric, model, val_dataloader, eval)
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
-            
+
             val_loss_tensor = val_loss.detach().clone().to(fabric.device)
             val_time_tensor = torch.tensor(t1, device=fabric.device, dtype=torch.float32)
-            
+
             fabric.all_reduce(val_loss_tensor, reduce_op="mean")
             fabric.all_reduce(val_time_tensor, reduce_op="mean")
 
-            fabric.print(f"iter {state['iter_num']}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms")
+            fabric.print(
+                f"iter {state['iter_num']}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
+            )
             metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()

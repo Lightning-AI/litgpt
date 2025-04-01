@@ -354,7 +354,9 @@ def fit(
             fabric.all_reduce(val_loss_tensor, reduce_op="mean")
             fabric.all_reduce(val_time_tensor, reduce_op="mean")
 
-            fabric.print(f"iter {iter_num}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms")
+            fabric.print(
+                f"iter {iter_num}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
+            )
             metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
