@@ -1,10 +1,8 @@
-import sys
-from pathlib import Path
-
 import pytest
 import torch
-from litgpt.utils import _RunIf
 from lightning import Fabric
+
+from litgpt.utils import _RunIf
 
 
 @_RunIf(min_cuda_gpus=2, standalone=True)

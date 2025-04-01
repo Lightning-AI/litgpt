@@ -15,10 +15,12 @@ def test_cli():
         main()
     out = out.getvalue()
     assert "usage: litgpt" in out
-    assert ("{download,chat,finetune,finetune_lora,finetune_full,finetune_adapter,finetune_adapter_v2,"
-            "pretrain,generate,generate_full,generate_adapter,generate_adapter_v2,generate_sequentially,"
-            "generate_speculatively,generate_tp,convert_to_litgpt,convert_from_litgpt,convert_pretrained_checkpoint,"
-            "merge_lora,evaluate,serve}" in out)
+    assert (
+        "{download,chat,finetune,finetune_lora,finetune_full,finetune_adapter,finetune_adapter_v2,"
+        "pretrain,generate,generate_full,generate_adapter,generate_adapter_v2,generate_sequentially,"
+        "generate_speculatively,generate_tp,convert_to_litgpt,convert_from_litgpt,convert_pretrained_checkpoint,"
+        "merge_lora,evaluate,serve}" in out
+    )
     assert (
         """Available subcommands:
     download            Download weights or tokenizer data from the Hugging

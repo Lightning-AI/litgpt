@@ -72,13 +72,13 @@ optional-dependencies.extra = [
   "zstandard>=0.22",
 ]
 optional-dependencies.test = [
-  "einops >=0.7",
-  "protobuf >=4.23.4",
-  "pytest >=8.1.1",
-  "pytest-dependency >=0.6",
-  "pytest-rerunfailures >=14",
-  "pytest-timeout >=2.3.1",
-  "transformers ==4.47.1",     # numerical comparisons
+  "einops>=0.7",
+  "protobuf>=4.23.4",
+  "pytest>=8.1.1",
+  "pytest-dependency>=0.6",
+  "pytest-rerunfailures>=14",
+  "pytest-timeout>=2.3.1",
+  "transformers==4.47.1",     # numerical comparisons
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
@@ -96,6 +96,39 @@ litgpt = [
   "LICENSE",
   "README.md",
 ]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+exclude = [
+  "build",
+  "dist",
+  "docs",
+]
+
+lint.select = [
+  "E",
+  "F", # see: https://pypi.org/project/pyflakes
+  #    "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+  "I", # implementation for isort
+  "W", # see: https://pypi.org/project/pycodestyle
+]
+#extend-select = [
+#    "C4",  # see: https://pypi.org/project/flake8-comprehensions
+#    "PT",  # see: https://pypi.org/project/flake8-pytest-style
+#    "RET",  # see: https://pypi.org/project/flake8-return
+#    "SIM",  # see: https://pypi.org/project/flake8-simplify
+#]
+lint.ignore = [
+  "E501", # Line too long
+  "E731", # Do not assign a lambda expression, use a def
+  "E741", # todo: Ambiguous variable name
+  "F841", # todo: Local variable is assigned to but never used
+]
+# Use Google-style docstrings.
+lint.pydocstyle.convention = "google"
+# Exclude a variety of commonly ignored directories.
+lint.ignore-init-module-imports = true
 
 [tool.codespell]
 #skip = '*.py'

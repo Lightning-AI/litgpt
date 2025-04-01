@@ -6,8 +6,8 @@ from typing import Optional, Tuple, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
@@ -50,7 +50,7 @@ class LitData(DataModule):
         return self._dataloader(input_dir=input_dir, train=False)
 
     def _dataloader(self, input_dir: str, train: bool):
-        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         dataset = StreamingDataset(
             input_dir=input_dir,

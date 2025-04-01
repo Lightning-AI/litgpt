@@ -8,8 +8,8 @@ from typing import Optional
 
 from torch.utils.data import DataLoader
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
@@ -20,6 +20,7 @@ class TextFiles(DataModule):
     and provides training and validation dataloaders that return batches of tokens.
     Every sample is set to a fixed length.
     """
+
     train_data_path: Path
     """The path to the data directory used for training that contains .txt files"""
     val_data_path: Optional[Path] = None
@@ -116,7 +117,7 @@ class TextFiles(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=str(self.out_path_val),

@@ -1,10 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 import shutil
+import sys
 from pathlib import Path
 from typing import List, Optional
+
+import pytest
+import torch
 
 # support running without installing as a package, adding extensions to the Python path
 wd = Path(__file__).parent.parent.resolve()
@@ -12,10 +15,8 @@ if wd.is_dir():
     sys.path.append(str(wd))
 else:
     import warnings
-    warnings.warn(f"Could not find extensions directory at {wd}")
 
-import pytest
-import torch
+    warnings.warn(f"Could not find extensions directory at {wd}")
 
 
 @pytest.fixture()

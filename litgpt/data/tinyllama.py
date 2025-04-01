@@ -5,8 +5,8 @@ from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass

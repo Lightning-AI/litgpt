@@ -7,8 +7,8 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
 import math
-from typing import Any, Optional, Tuple, Union, List
 from functools import partial
+from typing import Any, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -25,16 +25,11 @@ class GPT(nn.Module):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(
-            config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias
-        )
+        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(
-                    Block(config, block_idx)
-                    for block_idx in range(config.n_layer)
-                ),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -68,7 +63,9 @@ class GPT(nn.Module):
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
         if self.mask_cache is not None and self.mask_cache.shape[-1] < value:
-            print(f"Warning: KV cache has length {self.mask_cache.shape[-1]} < {value} = max_seq_length. Call 'set_kv_cache' before doing any forwards!")
+            print(
+                f"Warning: KV cache has length {self.mask_cache.shape[-1]} < {value} = max_seq_length. Call 'set_kv_cache' before doing any forwards!"
+            )
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
@@ -155,7 +152,7 @@ class GPT(nn.Module):
 
         x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
         if self.config.scale_embeddings:
-            x = x * torch.tensor(self.config.n_embd ** 0.5, dtype=x.dtype)
+            x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
         for block in self.transformer.h:
             x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
@@ -167,10 +164,7 @@ class GPT(nn.Module):
         )
         if lm_head_chunk_size > 0:
             # chunk the lm head logits to reduce the peak memory used by autograd
-            return [
-                clamp_head(self.lm_head(x_i))
-                for x_i in x.split(lm_head_chunk_size, dim=1)
-            ]
+            return [clamp_head(self.lm_head(x_i)) for x_i in x.split(lm_head_chunk_size, dim=1)]
         else:
             return clamp_head(self.lm_head(x))  # (B, T, padded_vocab_size)
 
@@ -179,7 +173,6 @@ class GPT(nn.Module):
         return cls(Config.from_name(name, **kwargs))
 
     def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
-
         if self.config.rope_adjustments is None:
             extra_config = None
 
@@ -192,10 +185,7 @@ class GPT(nn.Module):
                 extra_config = None  # uses standard RoPE
             elif num_params_present == 4:
                 # These parameters should always be used together so that we don't interfere with standard rope
-                extra_config = {
-                    name: self.config.rope_adjustments[name]
-                    for name in adjusted_params_required
-                }
+                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
                 # Some but not all parameters are specified; raise an error
                 missing_params = [
@@ -307,10 +297,7 @@ class Block(nn.Module):
         """
 
         x_normed = self.norm_1(x)
-
-        attention_output = self.attn(
-            x_normed, cos, sin, mask, input_pos, input_pos_maxp1
-        )
+        attention_output = self.attn(x_normed, cos, sin, mask, input_pos, input_pos_maxp1)
         attention_output = self.post_attention_norm(attention_output)
 
         if self.config.parallel_residual:
@@ -334,14 +321,11 @@ class CausalSelfAttention(nn.Module):
             bias=config.bias or config.attn_bias,
         )
         # output projection
-        self.proj = nn.Linear(
-            config.head_size * config.n_head, config.n_embd, bias=config.bias
-        )
+        self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and
-            block_idx % config.sliding_window_layer_stride == 0
+            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_stride == 0
         )
 
 
@@ -405,10 +389,10 @@ class CausalSelfAttention(nn.Module):
         v = v.transpose(1, 2)  # (B, nh_v, T, hs)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., : rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., : rope_n_elem], cos, sin)
-        q = torch.cat((q_roped, q[..., rope_n_elem :]), dim=-1)  # (B, nh_q, T, hs)
-        k = torch.cat((k_roped, k[..., rope_n_elem :]), dim=-1)  # (B, nh_k, T, hs)
+        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
+        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
+        q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
+        k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
         # Apply kv-cache during inference.
         if input_pos is not None:
@@ -518,12 +502,8 @@ class CausalSelfAttention(nn.Module):
 class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc = nn.Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.proj = nn.Linear(
-            config.intermediate_size, config.n_embd, bias=config.bias
-        )
+        self.fc = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -535,15 +515,9 @@ class GptNeoxMLP(nn.Module):
 class LLaMAMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.fc_1 = nn.Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.fc_2 = nn.Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.proj = nn.Linear(
-            config.intermediate_size, config.n_embd, bias=config.bias
-        )
+        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -734,8 +708,8 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     if cos.shape != sin.shape:
         raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
     head_size_half = x.size(-1) // 2
-    x1 = x[..., : head_size_half]  # (B, ..., T, head_size/2)
-    x2 = x[..., head_size_half :]  # (B, ..., T, head_size/2)
+    x1 = x[..., :head_size_half]  # (B, ..., T, head_size/2)
+    x2 = x[..., head_size_half:]  # (B, ..., T, head_size/2)
     rotated = torch.cat((-x2, x1), dim=-1)  # (B, ..., T, head_size)
     dims_diff = x.dim() - cos.dim()
     if dims_diff > 0:
@@ -757,6 +731,7 @@ class KVCache(nn.Module):
     Buffers `k`, `v` have shape
     `(batch_size, n_query_groups, max_seq_length, head_size)`.
     """
+
     def __init__(
         self,
         k_shape: Tuple[int, int, int, int],

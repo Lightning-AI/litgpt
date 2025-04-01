@@ -64,7 +64,7 @@ def test_tokenizer_against_hf(config):
         if isinstance(ours.bos_id, int):
             assert theirs.bos_token_id is None
         else:
-            assert ours.bos_id == theirs.bos_token_id == None
+            assert ours.bos_id == theirs.bos_token_id is None
     else:
         assert ours.bos_id == theirs.bos_token_id
 
