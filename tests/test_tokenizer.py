@@ -72,7 +72,7 @@ def test_tokenizer_against_hf(config, tmp_path):
         # TODO: there's a encoding difference with this model. why? note that the decoding is equal
         # "Hello": 10994, "▁Hello": 15043
         assert [15043 if t == 10994 else t for t in actual.tolist()] == expected
-    elif "Llama-3." in config.name:
+    elif "Llama-3." in config.name or "Llama-3-" in config.name:
         assert [128000] + actual.tolist() == expected
     else:
         assert actual.tolist() == expected
