@@ -118,8 +118,9 @@ class Config:
                 else self.sliding_window_layer_stride
             )
 
-        SLIDING_WINDOW_TYPE_TO_MAP_FN: dict[Literal["gemma3"], Callable[[int], int]] = {"gemma3": lambda x: x + 1}
-        self.sliding_window_block_idx_map_fn = lambda x: x + self.sliding_window_offset
+        self.sliding_window_block_idx_map_fn = (
+            lambda x: x + self.sliding_window_offset
+        )
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
