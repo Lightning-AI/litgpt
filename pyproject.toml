@@ -126,8 +126,6 @@ lint.ignore = [
 ]
 # Use Google-style docstrings.
 lint.pydocstyle.convention = "google"
-# Exclude a variety of commonly ignored directories.
-lint.ignore-init-module-imports = true
 
 [tool.codespell]
 #skip = '*.py'
