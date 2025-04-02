@@ -2297,9 +2297,8 @@ qwq = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=27648,
         norm_eps=1e-5,
-        rope_base=1000000
+        rope_base=1000000,
     ),
-
 ]
 
 configs.extend(qwq)
