@@ -3,7 +3,7 @@ name: CPU tests
 on:
   push:
     branches: [main]
-  pull_request_target: {}
+  pull_request: {}
   workflow_dispatch: {}
 
 concurrency:
