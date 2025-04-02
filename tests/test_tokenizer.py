@@ -68,7 +68,9 @@ def test_tokenizer_against_hf(config, tmp_path):
     prompt = PromptStyle.from_config(config).apply(prompt)
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
-    if (expected[0] == theirs.bos_token_id and actual[0] != theirs.bos_token_id) or (expected[0] == theirs.bos_token_id and expected[1] == theirs.bos_token_id):
+    if (expected[0] == theirs.bos_token_id and actual[0] != theirs.bos_token_id) or (
+        expected[0] == theirs.bos_token_id and expected[1] == theirs.bos_token_id
+    ):
         # TODO: check what is going on with the bos_tokens
         del expected[0]
     if config.name.startswith("CodeLlama-70b"):
