@@ -60,7 +60,7 @@ class Config:
     sliding_window_size: Optional[int] = None
     sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
     sliding_window_layer_stride: Optional[int] = None
-    sliding_window_type: Optional[Literal["gemma3"]] = None
+    sliding_window_offset: int = 0
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -120,7 +120,7 @@ class Config:
 
         SLIDING_WINDOW_TYPE_TO_MAP_FN: dict[Literal["gemma3"], Callable[[int], int]] = {"gemma3": lambda x: x + 1}
         self.sliding_window_block_idx_map_fn = (
-            lambda x: x if self.sliding_window_type is None else SLIDING_WINDOW_TYPE_TO_MAP_FN[self.sliding_window_type]
+            lambda x: x + self.sliding_window_offset
         )
 
     @classmethod
