@@ -82,7 +82,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
 
     if not config.name.startswith(("Mistral", "Mixtral")):
-        decoded_output = sep.join([ours.decode(x) for x in actual])
+        decoded_output = "".join([ours.decode(x) for x in actual])
         if ours.apply_decoding_fix and decoded_output[0] == " ":
             decoded_output = decoded_output[1:]  # the "hack" adds an empty space to the beginning
         assert decoded_output == ours.decode(actual), type(theirs)
