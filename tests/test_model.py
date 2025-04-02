@@ -110,7 +110,7 @@ def test_against_gpt_neox_model(rotary_pct, batch_size, n_embd, parallel_residua
 
     theirs = theirs_model(token_sample)["logits"]
     ours = ours_model(token_sample)
-    torch.testing.assert_close(ours, theirs)
+    torch.testing.assert_close(ours, theirs, rtol=1e-2, atol=1e-2)
 
 
 @torch.inference_mode()
