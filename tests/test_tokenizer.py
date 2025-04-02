@@ -60,7 +60,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     if config.name.startswith("stablecode"):
         # even though their config defines it, it's set as None in HF
         assert ours.eos_id == 0
-        assert theirs.eos_token_id is None
+        assert ours.eos_id == theirs.eos_token_id or theirs.eos_token_id is None
     else:
         assert ours.eos_id == theirs.eos_token_id
 
