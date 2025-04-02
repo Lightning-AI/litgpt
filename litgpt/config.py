@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union
 
 import torch
 import yaml
@@ -118,9 +118,7 @@ class Config:
                 else self.sliding_window_layer_stride
             )
 
-        self.sliding_window_block_idx_map_fn = (
-            lambda x: x + self.sliding_window_offset
-        )
+        self.sliding_window_block_idx_map_fn = lambda x: x + self.sliding_window_offset
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
