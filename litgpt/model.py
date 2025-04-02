@@ -324,7 +324,8 @@ class CausalSelfAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
         self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_stride == 0
+            config.sliding_window_size is not None
+            and config.sliding_window_block_idx_map_fn(block_idx) % config.sliding_window_layer_stride == 0
         )
 
         if config.norm_qk:
@@ -587,19 +588,22 @@ def build_rope_cache(
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
-        orig_context_len = extra_config["original_max_seq_len"]
         factor = extra_config["factor"]
-        low_freq_factor = extra_config["low_freq_factor"]
-        high_freq_factor = extra_config["high_freq_factor"]
+        if "original_max_seq_len" in extra_config:
+            orig_context_len = extra_config["original_max_seq_len"]
+            low_freq_factor = extra_config["low_freq_factor"]
+            high_freq_factor = extra_config["high_freq_factor"]
 
-        wavelen = 2 * torch.pi / theta
-        ratio = orig_context_len / wavelen
-        smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
-        smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
+            wavelen = 2 * torch.pi / theta
+            ratio = orig_context_len / wavelen
+            smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+            smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
 
-        # Compute adjusted_theta without masked indexing
-        adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
-        theta = adjusted_theta
+            # Compute adjusted_theta without masked indexing
+            adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
+            theta = adjusted_theta
+        else:
+            theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
