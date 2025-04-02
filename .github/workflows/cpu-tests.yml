@@ -37,7 +37,7 @@ jobs:
 
       - name: Install minimal dependencies
         run: |
-          pip install .
+          pip install . -U
           pip list
 
       - name: Testing package imports
@@ -80,7 +80,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]'
+          pip install '.[extra,compiler,test]' -U
           pip list
 
       - name: Run tests
