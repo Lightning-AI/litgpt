@@ -1,9 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import lightning as L
 import torch
+
 from litgpt import LLM
 from litgpt.data import Alpaca2k
-import lightning as L
 
 
 class LitLLM(L.LightningModule):
@@ -34,7 +35,6 @@ class LitLLM(L.LightningModule):
 
 
 if __name__ == "__main__":
-
     batch_size = 8
     accumulate_grad_batches = 1
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
         for root, _, files in os.walk(directory):
             for file in files:
-                if file.endswith('.ckpt'):
+                if file.endswith(".ckpt"):
                     file_path = os.path.join(root, file)
                     file_time = os.path.getmtime(file_path)
                     if file_time > latest_time:
@@ -109,7 +109,9 @@ if __name__ == "__main__":
 
         return latest_checkpoint
 
-    lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs"))
+    lit_model = LitLLM(
+        checkpoint_dir="EleutherAI/pythia-160m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs")
+    )
 
     data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
 
