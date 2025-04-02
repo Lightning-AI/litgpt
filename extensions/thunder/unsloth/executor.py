@@ -1,16 +1,18 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import sys
-import torch
 from pathlib import Path
 from typing import Optional, Tuple
+
+import torch
+from torch import Tensor
+
+import litgpt.model
+from litgpt.model import LLaMAMLP as OriginalLLaMAMLP
+from litgpt.utils import _THUNDER_AVAILABLE
 from thunder.core.proxies import TensorProxy
 from thunder.core.transforms import get_grad, mean_backward, put_grads
 from thunder.extend import OperatorExecutor, register_executor
 from thunder.torch import ne, sum, true_divide
-from torch import Tensor
-
-import litgpt.model
-from litgpt.utils import _THUNDER_AVAILABLE
 
 if _THUNDER_AVAILABLE:
     import thunder
@@ -155,9 +157,6 @@ weight, just for the input.
 
 def swiglu(e: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
     return torch.nn.functional.silu(e) * g
-
-
-from litgpt.model import LLaMAMLP as OriginalLLaMAMLP
 
 
 class ThunderLLaMAMLP(OriginalLLaMAMLP):

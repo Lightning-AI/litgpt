@@ -12,11 +12,11 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+from safetensors.torch import load_file as load_safetensors
 from tqdm import tqdm
 
 from litgpt.config import Config
 from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
-from safetensors.torch import load_file as load_safetensors
 
 
 def copy_weights_gpt_neox(
@@ -380,6 +380,7 @@ def copy_weights_phi(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
+
 def copy_weights_qwen_2_5(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
@@ -389,7 +390,7 @@ def copy_weights_qwen_2_5(
     dtype: Optional[torch.dtype] = None,
     pbar: Optional[tqdm] = None,
     progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False
+    debug_mode: Optional[bool] = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -471,7 +472,6 @@ def qkv_reassemble(
     return torch.cat((q, k, v))
 
 
-
 def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
     pattern = r"\.(\d+)\."
     if not (search_res := re.findall(pattern, layer_name)):
@@ -481,7 +481,7 @@ def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
 
 
 def load_param(
-    param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose: bool =False
+    param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose: bool = False
 ) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
@@ -493,7 +493,6 @@ def load_param(
             print(f"Converting {name!r} from {param.dtype} to {dtype}")
         param = param.to(dtype)
     return param
-
 
 
 @torch.inference_mode()
@@ -536,7 +535,7 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
-    elif model_name.lower().startswith(("qwen2.5","qwq")):
+    elif model_name.lower().startswith(("qwen2.5", "qwq")):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)
@@ -588,8 +587,18 @@ def convert_hf_checkpoint(
                     current_file_size = os.path.getsize(bin_file)
                     progress_per_file = (current_file_size / total_size) * total_progress
 
-                    hf_weights = load_safetensors(bin_file) if bin_file.suffix == ".safetensors" else lazy_load(bin_file)
-                    copy_fn(sd, hf_weights, saver=saver, dtype=dtype, pbar=pbar, progress_per_file=progress_per_file, debug_mode=debug_mode)
+                    hf_weights = (
+                        load_safetensors(bin_file) if bin_file.suffix == ".safetensors" else lazy_load(bin_file)
+                    )
+                    copy_fn(
+                        sd,
+                        hf_weights,
+                        saver=saver,
+                        dtype=dtype,
+                        pbar=pbar,
+                        progress_per_file=progress_per_file,
+                        debug_mode=debug_mode,
+                    )
                 gc.collect()
 
                 if pbar.n < total_progress:

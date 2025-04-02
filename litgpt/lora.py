@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple, Type, Union, Optional
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -57,7 +57,6 @@ from litgpt.config import Config as BaseConfig
 from litgpt.model import GPT as BaseModel
 from litgpt.model import Block as BaseBlock
 from litgpt.model import CausalSelfAttention as BaseCausalSelfAttention
-from litgpt.model import KVCache
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
 
@@ -367,9 +366,7 @@ class LoRAQKVLinear(LoRALinear):
         lora = self.conv1d(
             self.lora_A.data.unsqueeze(0),  # (4, 128) -> (1, 4, 128)
             self.lora_B.data.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).squeeze(
-            0
-        )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
+        ).squeeze(0)  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
         return self.zero_pad(lora.T * self.scaling).T  # (256, 128) after zero_pad (384, 128)
 
     def merge(self) -> None:
@@ -408,9 +405,7 @@ class LoRAQKVLinear(LoRALinear):
         after_B = self.conv1d(
             after_A.transpose(-2, -1),  # (64, 64, 4) -> (64, 4, 64)
             self.lora_B.unsqueeze(-1),  # (256, 2) -> (256, 2, 1)
-        ).transpose(
-            -2, -1
-        )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
+        ).transpose(-2, -1)  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
         lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
 
@@ -497,10 +492,7 @@ class GPT(BaseModel):
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(
-                    Block(config, block_idx)
-                    for block_idx in range(config.n_layer)
-                ),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -600,12 +592,8 @@ def create_lora_linear(
 class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = create_lora_linear(
-            config, config.n_embd, config.intermediate_size
-        )
-        self.proj = create_lora_linear(
-            config, config.intermediate_size, config.n_embd
-        )
+        self.fc = create_lora_linear(config, config.n_embd, config.intermediate_size)
+        self.proj = create_lora_linear(config, config.intermediate_size, config.n_embd)
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -623,15 +611,9 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = create_lora_linear(
-            config, config.n_embd, config.intermediate_size
-        )
-        self.fc_2 = create_lora_linear(
-            config, config.n_embd, config.intermediate_size
-        )
-        self.proj = create_lora_linear(
-            config, config.intermediate_size, config.n_embd
-        )
+        self.fc_1 = create_lora_linear(config, config.n_embd, config.intermediate_size)
+        self.fc_2 = create_lora_linear(config, config.n_embd, config.intermediate_size)
+        self.proj = create_lora_linear(config, config.intermediate_size, config.n_embd)
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -659,9 +641,7 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(litgpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.gate = create_lora_linear(
-            config, config.n_embd, config.n_expert, bias=False
-        )
+        self.gate = create_lora_linear(config, config.n_embd, config.n_expert, bias=False)
         self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
         self.config = config
 

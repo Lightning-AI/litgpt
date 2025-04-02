@@ -18,6 +18,7 @@ from litgpt.generate.sequentially import layer_to_device, replace_device, sequen
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
+
 from .utils import find_forward_hooks
 
 
@@ -296,7 +297,9 @@ def test_base_with_sequentially(tmp_path):
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
     sequential_stdout = subprocess.check_output(
-        [sys.executable, "-m", "litgpt", "generate_sequentially", *args], env=env, cwd=root,
+        [sys.executable, "-m", "litgpt", "generate_sequentially", *args],
+        env=env,
+        cwd=root,
     ).decode()
 
     assert "What food do llamas eat?" in sequential_stdout
