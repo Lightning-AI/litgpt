@@ -222,7 +222,10 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            rope_cache_length = self.cos.size(-1)
+            if len(self.cos.shape) == 2:
+                rope_cache_length = self.cos.size(-1)
+            else:
+                rope_cache_length = self.cos[..., 0].size(-1)
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
