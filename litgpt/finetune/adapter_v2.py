@@ -27,7 +27,6 @@ from litgpt.utils import (
     CycleIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
-    load_checkpoint_update,
     check_valid_checkpoint_dir,
     choose_logger,
     chunked_cross_entropy,
@@ -38,6 +37,7 @@ from litgpt.utils import (
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
     load_checkpoint,
+    load_checkpoint_update,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -206,7 +206,7 @@ def main(
             resume = False
             load_checkpoint(fabric, model, checkpoint_path, strict=False)
     else:
-    # strict=False because missing keys due to Adapter weights not contained in state dict
+        # strict=False because missing keys due to Adapter weights not contained in state dict
         load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     mark_only_adapter_v2_as_trainable(model)

@@ -390,7 +390,10 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
         state_dict = state_dict.get("model", state_dict)
         model.load_state_dict(state_dict, strict=strict)
 
-def load_checkpoint_update(fabric: L.Fabric, adapter_path: Path, model: nn.Module, checkpoint_path: Path, strict: bool = True) -> None:
+
+def load_checkpoint_update(
+    fabric: L.Fabric, adapter_path: Path, model: nn.Module, checkpoint_path: Path, strict: bool = True
+) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     else:
