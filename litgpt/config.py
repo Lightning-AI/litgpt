@@ -1046,7 +1046,6 @@ gemma = [
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
-
 ]
 configs.extend(gemma)
 for c in gemma:
