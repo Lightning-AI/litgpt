@@ -338,7 +338,7 @@ class LLM(torch.nn.Module):
         if precision is None:
             precision = get_default_supported_precision(training=False)
 
-        print(f"Precision set", file=sys.stderr)
+        print("Precision set", file=sys.stderr)
 
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
@@ -365,7 +365,7 @@ class LLM(torch.nn.Module):
                 check_nvlink_connectivity(fabric)
                 fabric.launch()
 
-        print(f"Fabric launched", file=sys.stderr)
+        print("Fabric launched", file=sys.stderr)
 
         self.kv_cache_initialized = False
         if generate_strategy is None:
