@@ -82,7 +82,6 @@ class Config:
     # The base period of the RoPE embeddings for local attention.
     # If not provided, rope_theta will be used for both local and global attention.
     rope_local_base_freq: Optional[float] = None
-    rope_indices: Optional[List] = None
 
     def __post_init__(self):
         if not self.name:

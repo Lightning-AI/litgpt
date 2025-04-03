@@ -154,19 +154,8 @@ class GPT(nn.Module):
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
-        for block_idx, block in enumerate(self.transformer.h):
-            if self.config.rope_indices is not None:
-                x = block(
-                    x,
-                    cos[..., self.config.rope_indices[block_idx]],
-                    sin[..., self.config.rope_indices[block_idx]],
-                    mask,
-                    input_pos,
-                    input_pos_maxp1,
-                )
-            else:
-                x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
-
+        for block in self.transformer.h:
+            x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
         x = self.transformer.ln_f(x)
         clamp_head = (
             partial(do_softcapping, thresh=self.config.final_logit_softcapping)
@@ -230,10 +219,7 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            if len(self.cos.shape) == 2:
-                rope_cache_length = self.cos.size(-1)
-            else:
-                rope_cache_length = self.cos.size(-2)
+            rope_cache_length = self.cos.size(-1)
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
