@@ -1046,6 +1046,7 @@ gemma = [
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
+    # https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json
     dict(
         name="Gemma-3-27b",
         hf_config=dict(org="google", name="gemma-3-27b"),
