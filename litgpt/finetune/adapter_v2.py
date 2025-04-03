@@ -194,7 +194,7 @@ def main(
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
-    if resume == True:
+    if resume:
         # Finding last trace of adapter training
         try:
             resume = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=(lambda p: int(p.parent.name.split("-")[1])))
@@ -301,7 +301,7 @@ def fit(
         "raw_tokens_plus_prompt_template_and_padding": torch.tensor(0, device=fabric.device, dtype=torch.long),
     }
 
-    if resume != False:
+    if not resume:
         try:
             iter_match = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=lambda p: int(p.parent.name.split("-")[1]))
             step_count = int(iter_match.parent.name.split("-")[1]) if iter_match else 0
