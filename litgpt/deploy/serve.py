@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, Any, Optional, Literal, List
+from typing import Any, Dict, List, Literal, Optional
 
 import torch
 from lightning_utilities.core.imports import RequirementCache
@@ -14,7 +14,7 @@ _LITSERVE_AVAILABLE = RequirementCache("litserve")
 _JINJA2_AVAILABLE = RequirementCache("jinja2")
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
-    from litserve.specs.openai import OpenAISpec, ChatCompletionRequest, ChatMessage
+    from litserve.specs.openai import ChatCompletionRequest, ChatMessage, OpenAISpec
 else:
     LitAPI, LitServer = object, object
 
@@ -141,9 +141,9 @@ class OpenAISpecLitAPI(BaseLitAPI):
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
-        devices: int = 1
+        devices: int = 1,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)   
+        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
 
     def setup(self, device: str):
         super().setup(device)
@@ -151,7 +151,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
         config_path = self.checkpoint_dir / "tokenizer_config.json"
         if not config_path.is_file():
             raise FileNotFoundError(f"Tokenizer config file not found at {config_path}")
-        
+
         with open(config_path, encoding="utf-8") as fp:
             config = json.load(fp)
             chat_template = config.get("chat_template", None)
@@ -159,8 +159,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
                 raise ValueError("chat_template not found in tokenizer config file.")
             self.chat_template = chat_template
 
-
-    def decode_request(self, request: 'ChatCompletionRequest') -> Any:
+    def decode_request(self, request: "ChatCompletionRequest") -> Any:
         prompt = self.apply_chat_template(request.messages)
         return prompt
 
@@ -172,21 +171,17 @@ class OpenAISpecLitAPI(BaseLitAPI):
 
         # Run the model on the input and return the output.
         yield from self.llm.generate(
-            inputs,
-            temperature=temperature,
-            top_k=self.top_k,
-            top_p=top_p,
-            max_new_tokens=max_new_tokens,
-            stream=True
+            inputs, temperature=temperature, top_k=self.top_k, top_p=top_p, max_new_tokens=max_new_tokens, stream=True
         )
-    
-    def apply_chat_template(self, messages:List['ChatMessage'])-> str:
+
+    def apply_chat_template(self, messages: List["ChatMessage"]) -> str:
         if not _JINJA2_AVAILABLE:
             raise ImportError(
                 "apply_chat_template requires jinja2 to be installed. Please install it using `pip install jinja2`."
             )
 
         from jinja2 import Template
+
         template = Template(self.chat_template)
         return template.render(messages=messages)
 
@@ -247,7 +242,7 @@ def run_server(
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
-    
+
     api_class = OpenAISpecLitAPI if openai_spec else StreamLitAPI if stream else SimpleLitAPI
     server = LitServer(
         api_class(
@@ -258,12 +253,12 @@ def run_server(
             top_k=top_k,
             top_p=top_p,
             max_new_tokens=max_new_tokens,
-            devices=devices
+            devices=devices,
         ),
         spec=OpenAISpec() if openai_spec else None,
         accelerator=accelerator,
         devices=1,
-        stream=stream 
+        stream=stream,
     )
-    
+
     server.run(port=port, generate_client_file=False)

@@ -1,15 +1,15 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import json
 import shutil
 import subprocess
 import threading
 import time
 from dataclasses import asdict
 
+import psutil
 import requests
 import torch
 import yaml
-import json
-import psutil
 from lightning.fabric import seed_everything
 
 from litgpt import GPT, Config
@@ -150,6 +150,7 @@ def test_multi_gpu_serve(tmp_path):
             process.kill()
         server_thread.join()
 
+
 @_RunIf(min_cuda_gpus=1)
 def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     seed_everything(123)
@@ -164,9 +165,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--openai_spec", "true"]
 
     process = None
 
@@ -178,7 +177,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
             print(stdout, stderr)
             return stdout, stderr
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
         return None, None
 
     server_thread = threading.Thread(target=run_server)
@@ -188,8 +187,9 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     try:
         stdout, stderr = run_server()
         output = (stdout or "") + (stderr or "")
-        assert "ValueError: chat_template not found in tokenizer config file." in output, \
-            "Expected ValueError for missing chat_template not found."
+        assert (
+            "ValueError: chat_template not found in tokenizer config file." in output
+        ), "Expected ValueError for missing chat_template not found."
     finally:
         if process and psutil.pid_exists(process.pid):
             # Kill the process and any child processes if it exists
@@ -198,6 +198,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
                 child.kill()
             process.kill()
         server_thread.join()
+
 
 @_RunIf(min_cuda_gpus=1)
 def test_serve_with_openai_spec(tmp_path):
@@ -213,9 +214,7 @@ def test_serve_with_openai_spec(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--openai_spec", "true"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--openai_spec", "true"]
 
     process = None
 
@@ -226,7 +225,7 @@ def test_serve_with_openai_spec(tmp_path):
             stdout, stderr = process.communicate(timeout=120)
             print(stdout, stderr)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
@@ -247,11 +246,15 @@ def test_serve_with_openai_spec(tmp_path):
                 "messages": [{"role": "user", "content": "Hello!"}],
             },
         )
-        assert response.status_code == 200, f"Non-streaming chat completion failed with status code {response.status_code}"
+        assert (
+            response.status_code == 200
+        ), f"Non-streaming chat completion failed with status code {response.status_code}"
         response_json = response.json()
         assert "choices" in response_json, "Response JSON does not contain 'choices'."
         assert "message" in response_json["choices"][0], "Response JSON does not contain 'message' in 'choices'."
-        assert "content" in response_json["choices"][0]["message"], "Response JSON does not contain 'content' in 'message'."
+        assert (
+            "content" in response_json["choices"][0]["message"]
+        ), "Response JSON does not contain 'content' in 'message'."
         assert response_json["choices"][0]["message"]["content"], "Content is empty in the response."
 
         # Test streaming chat completion
@@ -263,7 +266,9 @@ def test_serve_with_openai_spec(tmp_path):
                 "stream": True,
             },
         )
-        assert stream_response.status_code == 200, f"Streaming chat completion failed with status code {stream_response.status_code}"
+        assert (
+            stream_response.status_code == 200
+        ), f"Streaming chat completion failed with status code {stream_response.status_code}"
         for line in stream_response.iter_lines():
             decoded = line.decode("utf-8").replace("data: ", "").replace("[DONE]", "").strip()
             if decoded:
