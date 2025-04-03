@@ -1048,7 +1048,7 @@ gemma = [
     ),
     # https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json
     dict(
-        name="Gemma-3-27b",
+        name="Gemma-3-27b-it",
         hf_config=dict(org="google", name="gemma-3-27b-it"),
         scale_embeddings=True,
         attention_scores_scalar=168,
