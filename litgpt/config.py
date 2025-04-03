@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, List, Literal, Optional, Type, Union
 
 import torch
 import yaml
@@ -58,9 +58,7 @@ class Config:
     attn_bias: bool = False
     attention_scores_scalar: Optional[int] = None
     sliding_window_size: Optional[int] = None
-    sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
-    sliding_window_layer_stride: Optional[int] = None
-    sliding_window_offset: int = 0
+    sliding_window_indices: Optional[List] = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -83,6 +81,9 @@ class Config:
     final_logit_softcapping: Optional[float] = None
     norm_1: bool = True
     norm_2: bool = True
+    # The base period of the RoPE embeddings for local attention.
+    # If not provided, rope_theta will be used for both local and global attention.
+    rope_local_base_freq: Optional[float] = None
 
     def __post_init__(self):
         if not self.name:
@@ -113,14 +114,11 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
-        if self.sliding_window_size is not None:
-            self.sliding_window_layer_stride = (
-                (1 if (self.sliding_window_layer_placing is None or self.sliding_window_layer_placing == "all") else 2)
-                if self.sliding_window_layer_stride is None
-                else self.sliding_window_layer_stride
-            )
+        if self.sliding_window_size is not None and self.sliding_window_indices is None:
+            self.sliding_window_indices = [1] * self.n_layer
 
-        self.sliding_window_block_idx_map_fn = lambda x: x + self.sliding_window_offset
+        if self.rope_local_base_freq is not None and self.rope_indices is None:
+            self.rope_indices = [1] * self.n_layer
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
@@ -1033,7 +1031,7 @@ gemma = [
         block_size=8192,
         sliding_window_size=4096,
         # only layer with idx 0, 2, 4, ... have sliding window attention
-        sliding_window_layer_placing="interleaved",
+        sliding_window_indices=[1 if i % 2 == 0 else 0 for i in range(26)],
         intermediate_size=9216,
         n_embd=2304,
         n_layer=26,
@@ -1061,7 +1059,7 @@ gemma = [
         block_size=8192,
         sliding_window_size=4096,
         # only layer with idx 0, 2, 4, ... have sliding window attention
-        sliding_window_layer_placing="interleaved",
+        sliding_window_indices=[1 if i % 2 == 0 else 0 for i in range(42)],
         intermediate_size=14336,
         n_embd=3584,
         n_layer=42,
@@ -1091,7 +1089,7 @@ gemma = [
         block_size=8192,
         sliding_window_size=4096,
         # only layer with idx 0, 2, 4, ... have sliding window attention
-        sliding_window_layer_placing="interleaved",
+        sliding_window_indices=[1 if i % 2 == 0 else 0 for i in range(46)],
         intermediate_size=36864,
         n_embd=4608,
         n_layer=46,
@@ -1608,7 +1606,6 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
         sliding_window_size=2048,
-        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/microsoft/Phi-3-mini-128k-instruct/blob/main/config.json
     dict(
@@ -1626,7 +1623,6 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
         sliding_window_size=262145,
-        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/config.json
     dict(
@@ -1663,6 +1659,25 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
     ),
+    # https://huggingface.co/microsoft/Phi-4-mini-instruct/blob/main/config.json
+    dict(
+        name="Phi-4-mini-instruct",
+        hf_config=dict(org="microsoft", name="Phi-4-mini-instruct"),
+        vocab_size=200019,
+        padded_vocab_size=200064,
+        block_size=131072,
+        n_embd=3072,
+        n_layer=32,
+        n_head=24,
+        n_query_groups=8,
+        rotary_percentage=0.75,
+        bias=False,
+        norm_class_name="RMSNorm",
+        intermediate_size=8192,
+        mlp_class_name="LLaMAMLP",
+        parallel_residual=False,
+        sliding_window_size=262145,
+    ),
 ]
 configs.extend(phi)
 
@@ -1688,7 +1703,6 @@ configs.append(
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
         sliding_window_size=4096,
-        sliding_window_layer_placing="all",
     )
 )
 
@@ -1709,7 +1723,6 @@ mistral = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
         sliding_window_size=4096,
-        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/config.json
     dict(
@@ -2316,11 +2329,32 @@ for c in qwen_2_5:
         configs.append(copy)
 
 qwq = [
+    # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
+    dict(
+        name="QwQ-32B",
+        hf_config=dict(org="Qwen", name="QwQ-32B"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000,
+    ),
     # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
     dict(
         name="QwQ-32B-Preview",
         hf_config=dict(org="Qwen", name="QwQ-32B-Preview"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,

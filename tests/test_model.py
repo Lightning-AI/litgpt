@@ -334,7 +334,8 @@ def test_against_hf_phi(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "model_name", ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct", "phi-4")
+    "model_name",
+    ("Phi-3-mini-4k-instruct", "Phi-3-mini-128k-instruct", "Phi-3.5-mini-instruct", "phi-4", "Phi-4-mini-instruct"),
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
@@ -421,7 +422,6 @@ def test_against_mistral_hf_models(device, dtype, model_name):
         padded_vocab_size=10000,
         block_size=T,
         sliding_window_size=T // 2,
-        sliding_window_layer_placing="all",
         n_layer=2,
         n_embd=32,
         n_head=8,
@@ -862,7 +862,9 @@ def test_against_original_gemma_2(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview"))
+@pytest.mark.parametrize(
+    "model_name", ["Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B"]
+)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
