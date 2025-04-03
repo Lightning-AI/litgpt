@@ -63,7 +63,7 @@ class LongForm(DataModule):
         return self._dataloader("val")
 
     def _dataloader(self, split: str) -> DataLoader:
-        with open(self.download_dir / f"{split}.json", "r", encoding="utf-8") as file:
+        with open(self.download_dir / f"{split}.json", encoding="utf-8") as file:
             data = json.load(file)
 
         dataset = SFTDataset(

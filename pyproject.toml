@@ -108,10 +108,10 @@ exclude = [
 
 lint.select = [
   "E",
-  "F", # see: https://pypi.org/project/pyflakes
-  #    "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
-  "I", # implementation for isort
-  "W", # see: https://pypi.org/project/pycodestyle
+  "F",  # see: https://pypi.org/project/pyflakes
+  "I",  # implementation for isort
+  "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+  "W",  # see: https://pypi.org/project/pycodestyle
 ]
 #extend-select = [
 #    "C4",  # see: https://pypi.org/project/flake8-comprehensions
