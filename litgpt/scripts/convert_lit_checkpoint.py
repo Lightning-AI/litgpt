@@ -236,7 +236,7 @@ def copy_weights_phi(
         "lm_head.weight": "lm_head.weight",
         "lm_head.bias": "lm_head.bias",
     }
-    if config.name.startswith(("Phi-3", "phi-4")):
+    if config.name.lower().startswith(("phi-3", "phi-4")):
         weight_map.update(
             {
                 "transformer.h.{}.attn.qkv.weight": "model.layers.{}.self_attn.qkv_proj.weight",
@@ -249,10 +249,12 @@ def copy_weights_phi(
         gate_up_proj_weights = defaultdict(dict)
 
     for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and config.name.startswith("Phi-4"):
+            continue
         name_template, layer_idx = layer_template(from_name)
         param = load_param(param, from_name, None)
         if from_name.endswith((".attn.qkv.weight", ".attn.qkv.bias")):
-            if config.name.startswith("Phi-3"):
+            if config.name.lower().startswith(("phi-3", "phi-4")):
                 to_names = (weight_map[name_template].format(layer_idx),)
                 params = (param,)
             else:
@@ -282,7 +284,7 @@ def copy_weights_phi(
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
-    if config.name.startswith("Phi-3"):
+    if config.name.lower().startswith(("phi-3", "phi-4")):
         for layer_idx in list(gate_up_proj_weights):
             fc_1_weight = gate_up_proj_weights[layer_idx]["fc_1"]
             fc_2_weight = gate_up_proj_weights[layer_idx]["fc_2"]
@@ -290,6 +292,7 @@ def copy_weights_phi(
             layer_name = f"model.layers.{layer_idx}.mlp.gate_up_proj.weight"
             state_dict[layer_name] = weight
             del gate_up_proj_weights[layer_idx]
+
 
 def copy_weights_qwen_2_5(
     config: Config,
@@ -381,7 +384,7 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_gemma_2, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
-    elif config.name.lower().startswith(("qwen2.5","qwq")):
+    elif config.name.lower().startswith(("qwen2.5", "qwq")):
         copy_fn = partial(copy_weights_qwen_2_5, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name

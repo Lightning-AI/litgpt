@@ -26,7 +26,7 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
     out_dir = tmp_path / "out"
-    setup_args = (fake_checkpoint_dir, )
+    setup_args = (fake_checkpoint_dir,)
     setup_kwargs = dict(
         data=Alpaca(download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0),
         out_dir=out_dir,

@@ -9,7 +9,7 @@ Port for LitGPT
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Type, Optional
+from typing import Any, Dict, Optional, Type
 
 import torch
 import torch.nn as nn
@@ -17,9 +17,9 @@ from typing_extensions import Self
 
 import litgpt
 from litgpt.adapter import GPT as BaseModel
-from litgpt.model import Block as BaseBlock
 from litgpt.adapter import CausalSelfAttention as BaseCausalSelfAttention
 from litgpt.adapter import Config as BaseConfig
+from litgpt.model import Block as BaseBlock
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
 
@@ -69,16 +69,11 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = AdapterV2Linear(
-            config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias
-        )
+        self.lm_head = AdapterV2Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(
-                    Block(config, block_idx)
-                    for block_idx in range(config.n_layer)
-                ),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -117,15 +112,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         super().__init__(config, block_idx)
         # key, query, value projections for all heads, but in a batch
         shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
-        self.qkv = AdapterV2Linear(
-            in_features=config.n_embd,
-            out_features=shape,
-            bias=config.bias or config.attn_bias
-        )
+        self.qkv = AdapterV2Linear(in_features=config.n_embd, out_features=shape, bias=config.bias or config.attn_bias)
         # output projection
-        self.proj = AdapterV2Linear(
-            config.head_size * config.n_head, config.n_embd, bias=config.bias
-        )
+        self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base and/or legacy checkpoints."""
@@ -152,12 +141,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
 class GptNeoxMLP(litgpt.model.GptNeoxMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc = AdapterV2Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.proj = AdapterV2Linear(
-            config.intermediate_size, config.n_embd, bias=config.bias
-        )
+        self.fc = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -175,15 +160,9 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 class LLaMAMLP(litgpt.model.LLaMAMLP):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = AdapterV2Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.fc_2 = AdapterV2Linear(
-            config.n_embd, config.intermediate_size, bias=config.bias
-        )
-        self.proj = AdapterV2Linear(
-            config.intermediate_size, config.n_embd, bias=config.bias
-        )
+        self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:

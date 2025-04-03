@@ -2,13 +2,10 @@
 
 from pathlib import Path
 from pprint import pprint
+
 import torch
 
-from litgpt.utils import (
-    copy_config_files,
-    extend_checkpoint_dir,
-    incremental_save
-)
+from litgpt.utils import copy_config_files, extend_checkpoint_dir, incremental_save
 
 
 @torch.inference_mode()

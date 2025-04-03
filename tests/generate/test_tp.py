@@ -12,6 +12,7 @@ from litgpt import GPT, Config
 from litgpt.generate.tp import tensor_parallel, tensor_parallel_linear
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
+
 from .utils import find_forward_hooks
 
 
@@ -124,7 +125,9 @@ def test_tp(tmp_path):
         "--temperature=0.0",
     ]
     env = {"CUDA_VISIBLE_DEVICES": "0,1"}
-    tp_stdout = subprocess.check_output([sys.executable, "-m", "litgpt", "generate_tp", *args], env=env, cwd=root).decode()
+    tp_stdout = subprocess.check_output(
+        [sys.executable, "-m", "litgpt", "generate_tp", *args], env=env, cwd=root
+    ).decode()
 
     # there is some unaccounted randomness so cannot compare the output with that of `generate/base.py`
     assert "What food do llamas eat?" in tp_stdout
