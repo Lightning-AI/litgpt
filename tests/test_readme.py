@@ -220,7 +220,7 @@ def test_serve():
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=1)
             response_status_code = response.status_code
-        except MaxRetryError:
+        except (MaxRetryError, requests.exceptions.ConnectionError):
             response_status_code = -1
         if response_status_code == 200:
             break
