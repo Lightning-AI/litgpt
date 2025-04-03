@@ -217,8 +217,11 @@ def test_serve():
 
     try:
         for _ in range(30):
-            response = requests.get("http://127.0.0.1:8000")
-            response_status_code = response.status_code
+            try:
+                response = requests.get("http://127.0.0.1:8000")
+                response_status_code = response.status_code
+            except MaxRetryError:
+                response_status_code = -1
             if response_status_code == 200:
                 break
             time.sleep(1)
