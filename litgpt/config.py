@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union
 
 import torch
 import yaml
@@ -60,7 +60,7 @@ class Config:
     sliding_window_size: Optional[int] = None
     sliding_window_layer_placing: Optional[Literal["all", "interleaved"]] = None
     sliding_window_layer_stride: Optional[int] = None
-    sliding_window_type: Optional[Literal["gemma3"]] = None
+    sliding_window_offset: int = 0
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -81,6 +81,9 @@ class Config:
     scale_embeddings: bool = False
     lm_head_bias: bool = False
     final_logit_softcapping: Optional[float] = None
+    # The base period of the RoPE embeddings for local attention.
+    # If not provided, rope_theta will be used for both local and global attention.
+    rope_local_base_freq: Optional[float] = None
 
     def __post_init__(self):
         if not self.name:
@@ -118,10 +121,7 @@ class Config:
                 else self.sliding_window_layer_stride
             )
 
-        SLIDING_WINDOW_TYPE_TO_MAP_FN: dict[Literal["gemma3"], Callable[[int], int]] = {"gemma3": lambda x: x + 1}
-        self.sliding_window_block_idx_map_fn = (
-            lambda x: x if self.sliding_window_type is None else SLIDING_WINDOW_TYPE_TO_MAP_FN[self.sliding_window_type]
-        )
+        self.sliding_window_block_idx_map_fn = lambda x: x + self.sliding_window_offset
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
@@ -1603,6 +1603,26 @@ phi = [
         rope_base=250000,
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
+    ),
+    # https://huggingface.co/microsoft/Phi-4-mini-instruct/blob/main/config.json
+    dict(
+        name="Phi-4-mini-instruct",
+        hf_config=dict(org="microsoft", name="Phi-4-mini-instruct"),
+        vocab_size=200019,
+        padded_vocab_size=200064,
+        block_size=131072,
+        n_embd=3072,
+        n_layer=32,
+        n_head=24,
+        n_query_groups=8,
+        rotary_percentage=0.75,
+        bias=False,
+        norm_class_name="RMSNorm",
+        intermediate_size=8192,
+        mlp_class_name="LLaMAMLP",
+        parallel_residual=False,
+        sliding_window_size=262145,
+        sliding_window_layer_placing="all",
     ),
 ]
 configs.extend(phi)
