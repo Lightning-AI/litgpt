@@ -529,7 +529,9 @@ def test_check_conversion_supported_lora():
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview"))
+@pytest.mark.parametrize(
+    "model_name", ["Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B"]
+)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
