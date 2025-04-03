@@ -63,7 +63,7 @@ class Alpaca(DataModule):
         download_if_missing(self.download_dir / self.file_name, self.file_url)
 
     def setup(self, stage: str = "") -> None:
-        with open(self.download_dir / self.file_name, "r", encoding="utf-8") as file:
+        with open(self.download_dir / self.file_name, encoding="utf-8") as file:
             data = json.load(file)
 
         # Partition the dataset into train and test
