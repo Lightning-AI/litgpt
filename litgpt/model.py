@@ -156,7 +156,14 @@ class GPT(nn.Module):
 
         for block_idx, block in enumerate(self.transformer.h):
             if self.config.rope_indices is not None:
-                x = block(x, cos[..., self.config.rope_indices[block_idx]], sin[..., self.config.rope_indices[block_idx]], mask, input_pos, input_pos_maxp1)
+                x = block(
+                    x,
+                    cos[..., self.config.rope_indices[block_idx]],
+                    sin[..., self.config.rope_indices[block_idx]],
+                    mask,
+                    input_pos,
+                    input_pos_maxp1,
+                )
             else:
                 x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
         x = self.transformer.ln_f(x)
