@@ -10,7 +10,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
@@ -20,8 +20,8 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    auto_download_checkpoint,
     CycleIterator,
+    auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -30,9 +30,9 @@ from litgpt.utils import (
     create_finetuning_performance_report,
     find_resume_path,
     get_default_supported_precision,
-    load_checkpoint,
     init_out_dir,
     instantiate_torch_optimizer,
+    load_checkpoint,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -108,18 +108,12 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=logger
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=logger)
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer)
+    fabric.launch(main, devices, resume, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -134,12 +128,13 @@ def main(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
 
     tokenizer = Tokenizer(checkpoint_dir)
     train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train)
-    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices)
+    steps_per_epoch = len(train_dataloader) // train.gradient_accumulation_iters(devices, num_nodes)
     lr_max_steps = min(train.epochs * steps_per_epoch, (train.max_steps or float("inf")))
 
     fabric.seed_everything(seed)  # same seed for every process to init model (FSDP)
@@ -168,7 +163,20 @@ def main(
         load_checkpoint(fabric, state["model"], checkpoint_path)
 
     train_time = time.perf_counter()
-    token_counts = fit(fabric, state, train_dataloader, val_dataloader, devices, resume, checkpoint_dir, out_dir, train, eval, data)
+    token_counts = fit(
+        fabric=fabric,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        devices=devices,
+        num_nodes=num_nodes,
+        resume=resume,
+        checkpoint_dir=checkpoint_dir,
+        out_dir=out_dir,
+        train=train,
+        eval=eval,
+        data=data,
+    )
     training_time = time.perf_counter() - train_time
     output = create_finetuning_performance_report(training_time, token_counts, fabric.device.type)
     fabric.print(output)
@@ -203,12 +211,15 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     data: DataModule,
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(
+        ConcatDataset([train_dataloader.dataset, val_dataloader.dataset])
+    )
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
@@ -246,7 +257,7 @@ def fit(
             f" {initial_iter}."
         )
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
@@ -259,12 +270,12 @@ def fit(
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             # shift the targets such that output n predicts token n+1
             loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 
@@ -275,7 +286,9 @@ def fit(
             state["step_count"] += 1
 
         token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
-        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += (
+            batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        )
         token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
 
         if state["iter_num"] % train.log_interval == 0:
@@ -328,9 +341,12 @@ def fit(
 
     return total_token_counts
 
+
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()

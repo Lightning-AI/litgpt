@@ -8,7 +8,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union, List, Dict
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -22,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -42,6 +42,13 @@ from litgpt.utils import (
 # support running without installing as a package
 wd = Path(__file__).parent.resolve()
 sys.path.append(str(wd))
+
+
+def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    logits = model(input_ids)
+    # disable chunk_size to enable the unsloth cross entropy kernel
+    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    return loss
 
 
 def setup(
@@ -123,7 +130,10 @@ def setup(
                 from extensions.thunder.strategies import ThunderFSDPStrategy
 
                 strategy = ThunderFSDPStrategy(
-                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", state_dict_type="full", jit=False,
+                    sharding_strategy="ZERO3",
+                    bucketing_strategy="BLOCK",
+                    state_dict_type="full",
+                    jit=False,
                 )
             elif strategy == "ddp":
                 from extensions.thunder.strategies import ThunderDDPStrategy
@@ -141,27 +151,30 @@ def setup(
 
     if compiler is not None:
         global forward_and_loss
-        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        forward_and_loss = (
+            jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        )
 
     fabric.print(pprint.pformat(hparams))
     if logger_name in ("tensorboard", "wandb"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
-        fabric,
-        devices,
-        seed,
-        initial_checkpoint_dir,
-        resume,
-        config,
-        data,
-        out_dir,
-        tokenizer_dir,
-        tokenizer,
-        train,
-        eval,
-        optimizer,
-        compiler,
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        seed=seed,
+        initial_checkpoint_dir=initial_checkpoint_dir,
+        resume=resume,
+        config=config,
+        data=data,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        tokenizer=tokenizer,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
+        compiler=compiler,
     )
 
 
@@ -180,6 +193,7 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     compiler: Optional[Literal["thunder", "torch"]],
+    num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -229,7 +243,19 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    fit(fabric, devices, state, train_dataloader, val_dataloader, out_dir, tokenizer_dir, train, eval, optimizer)
+    fit(
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
+    )
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
 
     # Save final checkpoint
@@ -250,6 +276,7 @@ def fit(
     train: TrainArgs,
     eval: EvalArgs,
     optimizer: Union[str, Dict],
+    num_nodes: int = 1,
 ) -> None:
     model = state["model"]
     optimizer = state["optimizer"]
@@ -260,8 +287,8 @@ def fit(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        model_fwd = lambda: meta_model(x)  # noqa: F821
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -269,18 +296,18 @@ def fit(
     max_tokens_per_device = train.max_tokens // fabric.world_size
     tokens_per_iter = train.micro_batch_size * model.max_seq_length
     max_iters = max_tokens_per_device // tokens_per_iter
-    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices)
+    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices, num_nodes)
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices), sync_on_compute=False).to(
+    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
     total_t0 = time.perf_counter()
     val_loss = "n/a"
 
-    warmup_iters = train.warmup_iters(devices, max_iters, train_dataloader)
+    warmup_iters = train.warmup_iters(devices, num_nodes, max_iters, train_dataloader)
 
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
@@ -297,10 +324,10 @@ def fit(
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices) != 0
+        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             loss = forward_and_loss(model, input_ids, targets)
-            fabric.backward(loss / train.gradient_accumulation_iters(devices))
+            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 
@@ -362,13 +389,6 @@ def fit(
 
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
-
-
-def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    logits = model(input_ids)
-    # disable chunk_size to enable the unsloth cross entropy kernel
-    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-    return loss
 
 
 @torch.no_grad()
@@ -479,8 +499,9 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 
 def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
-    import thunder
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
+
+    import thunder
 
     return thunder.jit(fn, executors=executors)
 

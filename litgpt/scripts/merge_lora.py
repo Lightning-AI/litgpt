@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
+
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Optional, Tuple
@@ -14,9 +15,7 @@ from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: Path,
-    pretrained_checkpoint_dir: Optional[Path] = None,
-    precision: Optional[str] = None
+    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
 ) -> None:
     """Merges the LoRA weights with the base model.
 

@@ -3,7 +3,9 @@ name: CPU tests
 on:
   push:
     branches: [main]
-  pull_request: {}
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, labeled, synchronize]
   workflow_dispatch: {}
 
 concurrency:
@@ -15,7 +17,7 @@ defaults:
     shell: bash
 
 env:
-  HF_HOME: .cache-HF  # Define HF_HOME for caching
+  HF_HOME: .cache-HF # Define HF_HOME for caching
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
@@ -26,18 +28,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ "ubuntu-22.04", "macOS-14", "windows-2022" ]
-        python-version: [ "3.10" ]
+        os: ["ubuntu-22.04", "macOS-14", "windows-2022"]
+        python-version: ["3.10"]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install minimal dependencies
         run: |
-          pip install .
+          pip install . -U
           pip list
 
       - name: Testing package imports
@@ -51,7 +58,6 @@ jobs:
           echo "$modules"
           python -c "$modules"
 
-
   pytester:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -60,46 +66,48 @@ jobs:
         os: ["ubuntu-22.04"]
         python-version: ["3.9", "3.10", "3.11"]
         include:
-          - {os: "macOS-14", python-version: "3.9"}  # without Thunder
-          - {os: "windows-2022", python-version: "3.9"}  # without Thunder
+          - { os: "macOS-14", python-version: "3.9" }
+          - { os: "windows-2022", python-version: "3.9" }
     timeout-minutes: 25
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: pyproject.toml
+      - uses: actions/checkout@v4
+        if: github.event_name != 'pull_request'
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
 
-    # Add caching for HF models and datasets
-    - name: Restore HF cache
-      continue-on-error: true
-      uses: actions/cache/restore@v3
-      with:
-        path: .cache-HF
-        key: ${{ runner.os }}-huggingface
+      # Add caching for HF models and tokenizers
+      - name: HF cache
+        uses: actions/cache@v3
+        continue-on-error: true
+        with:
+          path: .cache-HF
+          key: hf-cache-${{ runner.os }}-${{ matrix.python-version }}
+          restore-keys: |
+            hf-cache-${{ runner.os }}-${{ matrix.python-version }}
+            hf-cache-${{ runner.os }}-
+            hf-cache-
 
-    - name: Install dependencies
-      run: |
-        pip install '.[extra,compiler,test]'
-        pip list
+      - name: Install dependencies
+        run: |
+          pip install '.[extra,compiler,test]' -U
+          pip list
 
-    - name: Run tests
-      run: pytest -v litgpt/ tests/ --timeout 180
+      - name: Run tests
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: pytest -v litgpt/ tests/ --timeout 180
 
-    - name: Show cache
-      run: |
-        pip install -q py-tree
-        python -m py_tree -d 1 .cache-HF
-
-    - name: Dump HF cache
-      if: github.event_name != 'pull_request'
-      continue-on-error: true
-      uses: actions/cache/save@v3
-      with:
-        path: .cache-HF
-        key: ${{ runner.os }}-huggingface
-
+      - name: Show cache
+        run: |
+          pip install -q py-tree
+          python -m py_tree -d 1 .cache-HF
 
   testing-guardian:
     runs-on: ubuntu-latest

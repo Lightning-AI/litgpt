@@ -2,13 +2,13 @@
 import os
 import re
 import subprocess
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from itertools import repeat
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
-import sys
 from typing import Iterable, Iterator
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import torch
@@ -17,12 +17,11 @@ import yaml
 import litgpt.chat.base as chat
 import litgpt.generate.base as generate
 from litgpt import Config, Tokenizer
-from litgpt.utils import save_config, auto_download_checkpoint
-
+from litgpt.utils import auto_download_checkpoint, save_config
 
 skip_in_ci_on_macos = pytest.mark.skipif(
     sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test.",
 )
 
 
@@ -39,6 +38,7 @@ skip_in_ci_on_macos = pytest.mark.skipif(
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
     import lightning as L
+
     L.seed_everything(1234)
 
     input_idx = torch.tensor([5, 3])
@@ -70,9 +70,11 @@ def test_decode():
     checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
     tokenizer = Tokenizer(checkpoint_dir)
 
-    text = ("Hello World! This a bunch of text. Lorem ipsum dolor sit amet, "
-            "consectetur adipiscing elit, sed do eiusmod tempor incididunt "
-            "ut labore et dolore magna aliqua.")
+    text = (
+        "Hello World! This a bunch of text. Lorem ipsum dolor sit amet, "
+        "consectetur adipiscing elit, sed do eiusmod tempor incididunt "
+        "ut labore et dolore magna aliqua."
+    )
 
     encoded: torch.Tensor = tokenizer.encode(text)
     encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(encoded, encoded.shape[0], dim=0)
@@ -123,7 +125,7 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
 
     # decoding is done per each generated item
     assert len(tokenizer_mock.return_value.decode_stream.mock_calls) == 1
-    assert tokenizer_mock.return_value.decode_stream.call_args[0][0] is generate_mock.return_value # Now a Mock
+    assert tokenizer_mock.return_value.decode_stream.call_args[0][0] is generate_mock.return_value  # Now a Mock
 
     # Assert that the generated result is printed to stdout
     assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL), out.getvalue()
@@ -169,7 +171,7 @@ def test_litgpt_chat_endtoend():
     # Patch input() and redirect stdout. Raise to exit the repl.
     simulated_input = Mock(side_effect=["input", KeyboardInterrupt])
     captured_output = StringIO()
-    with patch('builtins.input', simulated_input):
+    with patch("builtins.input", simulated_input):
         with redirect_stdout(captured_output):
             try:
                 main(checkpoint_dir=checkpoint_dir, max_new_tokens=256, top_k=1)
@@ -195,4 +197,6 @@ def test_litgpt_generate_endtoend():
             pass
 
     # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
-    assert "Hello World!" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    assert (
+        "Hello World!" in captured_output.getvalue()
+    ), f"Expected output not found. Got:\n{captured_output.getvalue()}"

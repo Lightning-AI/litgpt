@@ -5,10 +5,11 @@ import os
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Union
+
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import copy_config_files, auto_download_checkpoint
+from litgpt.utils import auto_download_checkpoint, copy_config_files
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -19,9 +20,7 @@ def prepare_results(results, save_filepath, print_results=True):
         if "groups" in results:
             print(make_table(results, "groups"))
 
-    json_result = json.dumps(
-        results, indent=2, ensure_ascii=False, default=str
-    )
+    json_result = json.dumps(results, indent=2, ensure_ascii=False, default=str)
     save_filepath.open("w", encoding="utf-8").write(json_result)
 
 
@@ -60,6 +59,7 @@ def convert_and_evaluate(
     """
     if tasks is None:
         from lm_eval.tasks import TaskManager
+
         taskm = TaskManager()
         print("\n".join(taskm.task_index.keys()))
         print(
@@ -73,7 +73,9 @@ def convert_and_evaluate(
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
 
-    if not (isinstance(batch_size, int) and batch_size > 0) and not (isinstance(batch_size, str) and batch_size.startswith("auto")):
+    if not (isinstance(batch_size, int) and batch_size > 0) and not (
+        isinstance(batch_size, str) and batch_size.startswith("auto")
+    ):
         raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
 
     from lm_eval import evaluator

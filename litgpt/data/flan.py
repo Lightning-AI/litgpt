@@ -8,9 +8,9 @@ from typing import Dict, List, Optional, Set, Union
 import torch
 from torch.utils.data import DataLoader
 
-from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.data.alpaca import download_if_missing
+from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 _URL = "https://huggingface.co/datasets/Muennighoff/flan/resolve/main"

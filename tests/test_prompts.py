@@ -115,10 +115,7 @@ def test_multiturn_prompt():
     assert simple_output == multiturn_output
 
     # override system prompt
-    msgs = [
-        {"role": "system", "content": "You are not a helpful assistant."},
-        {"role": "user", "content": prompt}
-    ]
+    msgs = [{"role": "system", "content": "You are not a helpful assistant."}, {"role": "user", "content": prompt}]
     with_system_multiturn_output = style.apply(msgs)
     assert "You are not a helpful assistant." in with_system_multiturn_output
 
@@ -138,7 +135,9 @@ def test_multiturn_prompt():
     ]
     multiturn_output = style.apply(msgs)
 
-    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    assert (
+        multiturn_output
+        == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
 You are a helpful AI assistant for travel tips and recommendations<|eot_id|><|start_header_id|>user<|end_header_id|>
 
@@ -149,6 +148,7 @@ Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_h
 What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
 """
+    )
 
     # Longer list without "system"
     msgs = [
@@ -158,7 +158,9 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     ]
     multiturn_output = style.apply(msgs)
 
-    assert multiturn_output == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    assert (
+        multiturn_output
+        == """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
 
 You are a helpful assistant.<|eot_id|><|start_header_id|>user<|end_header_id|>
 
@@ -169,12 +171,11 @@ Bonjour! The capital of France is Paris!<|eot_id|><|start_header_id|>user<|end_h
 What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 
 """
+    )
 
     # {random} string format shouldn't lead to key error
     content = "this is {random} {system} {user}"
-    msgs = [
-        {"role": "user", "content": content}
-    ]
+    msgs = [{"role": "user", "content": content}]
     output = style.apply(msgs)
     simple_output = style.apply(content)
     assert output == simple_output

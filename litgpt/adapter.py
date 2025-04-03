@@ -34,16 +34,11 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(
-            config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias
-        )
+        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(
-                    Block(config, block_idx)
-                    for block_idx in range(config.n_layer)
-                ),
+                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )

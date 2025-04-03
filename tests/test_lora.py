@@ -737,8 +737,10 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
             quantize="bnb.nf4-dq",
         )
 
-    args, kwargs = train_mock.call_args
-    fabric, model, optimizer, *_ = args
+    _, kwargs = train_mock.call_args
+    fabric = kwargs["fabric"]
+    model = kwargs["model"]
+    optimizer = kwargs["optimizer"]
     model.transformer.wte = model.transformer.wte.half()
     assert isinstance(fabric.strategy.precision, BitsandbytesPrecision)
     assert isinstance(optimizer, _FabricOptimizer)
@@ -881,18 +883,10 @@ def test_zero_pad_cpu_and_mocked_mps():
             assert torch.allclose(result_cpu, result_mps), "Tensor values mismatch between CPU and MPS"
 
 
-
 def test_load_legacy_state_dict():
     """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
     config = Config(
-        n_embd=32,
-        n_head=4,
-        head_size=8,
-        n_query_groups=4,
-        bias=True,
-        lora_r=8,
-        lora_alpha=16,
-        lora_dropout=0.1
+        n_embd=32, n_head=4, head_size=8, n_query_groups=4, bias=True, lora_r=8, lora_alpha=16, lora_dropout=0.1
     )
 
     attention_1 = CausalSelfAttention(config=config, block_idx=0)
