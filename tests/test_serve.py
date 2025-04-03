@@ -82,7 +82,7 @@ def test_quantize(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -122,7 +122,7 @@ def test_multi_gpu_serve(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
