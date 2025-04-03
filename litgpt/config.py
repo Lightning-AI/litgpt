@@ -1046,6 +1046,37 @@ gemma = [
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
+    dict(
+        name="Gemma-3-27b",
+        hf_config=dict(org="google", name="gemma-3-27b"),  
+        scale_embeddings=True,
+        attention_scores_scalar=168,  
+        vocab_size=262208,  
+        block_size=131072,  
+        sliding_window_size=1024,  
+        # 5 local layers for every global layer
+        sliding_window_indices=[0 if (i+1) % 6 == 0 else 1 for i in range(62)],
+        intermediate_size=21504,  
+        n_embd=5376,  
+        n_layer=62,  
+        n_head=32,  
+        n_query_groups=16,  
+        head_size=128,  
+        rotary_percentage=1.0,
+        rope_adjustments=dict(factor=8.0),  
+        parallel_residual=False,
+        bias=False,  
+        norm_class_name="RMSNorm",  
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",  
+        post_attention_norm=True, 
+        post_mlp_norm=True,  
+        norm_qk=True,  
+        rope_base=1000000,
+        rope_local_base_freq=10000,
+        # 5 local layers for every global layer
+        rope_indices=[0 if (i+1) % 6 == 0 else 1 for i in range(62)],
+    ),
 ]
 configs.extend(gemma)
 for c in gemma:
@@ -1562,7 +1593,6 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
         sliding_window_size=262145,
-        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/config.json
     dict(
@@ -1643,7 +1673,6 @@ configs.append(
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
         sliding_window_size=4096,
-        sliding_window_layer_placing="all",
     )
 )
 
