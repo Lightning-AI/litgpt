@@ -10,6 +10,7 @@ from unittest import mock
 
 import pytest
 import requests
+from urllib3.exceptions import MaxRetryError
 
 from litgpt.utils import _RunIf
 
