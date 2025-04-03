@@ -83,15 +83,16 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       # Add caching for HF models and tokenizers
-      - name: Restore HF cache
-        uses: actions/cache/restore@v3
+      - name: HF cache
+        uses: actions/cache@v3
+        continue-on-error: true
         with:
           path: .cache-HF
-          key: |
+          key: hf-cache-${{ runner.os }}-${{ matrix.python-version }}
+          restore-keys: |
             hf-cache-${{ runner.os }}-${{ matrix.python-version }}
             hf-cache-${{ runner.os }}-
             hf-cache-
-          fail-on-cache-miss: false
 
       - name: Install dependencies
         run: |
@@ -107,13 +108,6 @@ jobs:
         run: |
           pip install -q py-tree
           python -m py_tree -d 1 .cache-HF
-
-      - name: Dump HF cache
-        if: github.event_name != 'pull_request'
-        uses: actions/cache/save@v3
-        with:
-          path: .cache-HF
-          key: hf-cache-${{ runner.os }}-${{ matrix.python-version }}
 
   testing-guardian:
     runs-on: ubuntu-latest
