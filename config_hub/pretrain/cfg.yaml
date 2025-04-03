@@ -17,10 +17,10 @@ model_config:
   norm_class_name: LayerNorm
   norm_qk: false
 
-  # Wether to use latent attention (MLA). (type: bool, default: false)
+  # Whether to use latent attention (MLA). (type: bool, default: false)
   latent_attention: true
   # Whether to use MQA (head_size = 1), MLA (1 < head_size < n_head), or MHA (head_size = n_head).
-  # Not compatible with latent_attention.
+  # Not compatible with latent_attention.
   n_query_groups: 12
 
 # Directory in which to save checkpoints and logs. If running in a Lightning Studio Job, look for it in
