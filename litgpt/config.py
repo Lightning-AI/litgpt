@@ -2267,11 +2267,32 @@ for c in qwen_2_5:
         configs.append(copy)
 
 qwq = [
+    # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
+    dict(
+        name="QwQ-32B",
+        hf_config=dict(org="Qwen", name="QwQ-32B"),
+        block_size=131072,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=64,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=27648,
+        norm_eps=1e-5,
+        rope_base=1000000,
+    ),
     # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
     dict(
         name="QwQ-32B-Preview",
         hf_config=dict(org="Qwen", name="QwQ-32B-Preview"),
-        block_size=131072,
+        block_size=32768,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,
