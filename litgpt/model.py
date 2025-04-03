@@ -324,7 +324,7 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
-        self.apply_sliding_window_attention = False 
+        self.apply_sliding_window_attention = False
         if config.sliding_window_size is not None and config.sliding_window_indices is not None:
             self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
 
