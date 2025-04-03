@@ -35,8 +35,7 @@ def test_simple(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=60)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -76,8 +75,7 @@ def test_quantize(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -117,8 +115,7 @@ def test_multi_gpu_serve(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
