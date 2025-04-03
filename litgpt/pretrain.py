@@ -21,7 +21,7 @@ from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP, MLA
+from litgpt.model import GPT, MLA, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CycleIterator,
     capture_hparams,

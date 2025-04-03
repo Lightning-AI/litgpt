@@ -35,13 +35,13 @@ Overall, results are not as significant as expected due to the small scale of th
 
 ## Notes
 - Pythia was used as model for the experiments because it comes with many versions at different scales.
-- `pythia-160m` (160M parameters) was the largest model that could be trained on a single GPU with 16GB memory. 
+- `pythia-160m` (160M parameters) was the largest model that could be trained on a single GPU with 16GB memory.
 - For the same reason, the `tinystories` dataset was used for the experiments and the models were trained for only 100M tokens (~10k steps).
 - Experiments on larger models, bigger datasets, and longer training are expected to further highlight the benefits of the MLA block.
 - All the tested implementations use FlashAttention (as implemented in torch) by default.
 - The resulting implementation of MLA depends on the `litgpt` codebase (especially the `CausalSelfAttention` class).
 - The implementation of the MLA block is based on the DeepSeekV2 paper and includes support for KV caching (`KVCacheCompressed`) and decoupled RoPE (`apply_rope_mla`).
-- A further improvement would be to optimize the implementation for speed and memory usage (for example, by merging matrices at inference like in LoRA). 
+- A further improvement would be to optimize the implementation for speed and memory usage (for example, by merging matrices at inference like in LoRA).
     > Fortunately, due to the associative law of matrix multiplication, we can absorb $𝑊^{𝑈𝐾}$ into $𝑊^{𝑈𝑄}$ , and $𝑊^{𝑈𝑉}$ into $𝑊^{𝑂}$. Therefore, we do not need to compute keys and values out for each query. Through this optimization, we avoid the computational overhead for recomputing $k^C_t$ and $v^𝐶_𝑡$ during inference.
 
     Unfortunately, this was not implemented due to time constraints.
