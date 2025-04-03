@@ -1561,7 +1561,6 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
         sliding_window_size=262145,
-        sliding_window_layer_placing="all",
     ),
     # https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/config.json
     dict(
@@ -1642,7 +1641,6 @@ configs.append(
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
         sliding_window_size=4096,
-        sliding_window_layer_placing="all",
     )
 )
 
