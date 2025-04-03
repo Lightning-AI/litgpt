@@ -420,7 +420,6 @@ def test_against_mistral_hf_models(device, dtype, model_name):
         padded_vocab_size=10000,
         block_size=T,
         sliding_window_size=T // 2,
-        sliding_window_layer_placing="all",
         n_layer=2,
         n_embd=32,
         n_head=8,
