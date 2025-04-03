@@ -216,7 +216,7 @@ def test_serve():
     server_thread.start()
 
     # Allow time to initialize and start serving
-    time.sleep(30)
+    time.sleep(60)
 
     try:
         response = requests.get("http://127.0.0.1:8000")

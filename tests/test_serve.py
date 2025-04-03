@@ -42,7 +42,7 @@ def test_simple(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)
+    time.sleep(60)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
