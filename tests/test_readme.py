@@ -215,13 +215,14 @@ def test_serve():
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    # Allow time to initialize and start serving
-    time.sleep(30)
-
     try:
-        response = requests.get("http://127.0.0.1:8000")
-        print(response.status_code)
-        assert response.status_code == 200, "Server did not respond as expected."
+        for _ in range(30):
+            response = requests.get("http://127.0.0.1:8000")
+            response_status_code = response.status_code
+            if response_status_code == 200:
+                break
+            time.sleep(1)
+        assert response_status_code == 200, "Server did not respond as expected."
     finally:
         if process:
             process.kill()
