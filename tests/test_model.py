@@ -802,7 +802,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ["gemma-3-27b"])
+@pytest.mark.parametrize("model_name", ["gemma-3-27b-it"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
