@@ -284,6 +284,7 @@ def copy_weights_gemma_2(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
+
 def copy_weights_gemma_3(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],

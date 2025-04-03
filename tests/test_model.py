@@ -23,7 +23,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.models.falcon import FalconConfig, FalconForCausalLM
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
 from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
-from transformers.models.gemma3 import Gemma3TextConfig, Gemma3ForCausalLM
+from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3TextConfig
 from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mistral import MistralConfig, MistralForCausalLM
@@ -800,6 +800,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
 
+
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ["gemma-3-27b"])
 @pytest.mark.parametrize(
@@ -818,7 +819,6 @@ def test_against_original_gemma_2(model_name, device, dtype):
         ),
     ],
 )
-
 def test_against_original_gemma_3(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
@@ -850,10 +850,7 @@ def test_against_original_gemma_3(model_name, device, dtype):
         hidden_act="gelu_pytorch_tanh",
         attn_implementation="eager",
         query_pre_attn_scalar=ours_config.attention_scores_scalar,
-        rope_scaling={
-            "factor": 8.0,
-            "rope_type": "linear"
-        },
+        rope_scaling={"factor": 8.0, "rope_type": "linear"},
         rope_local_base_freq=ours_config.rope_local_base_freq,
     )
 
