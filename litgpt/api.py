@@ -338,6 +338,8 @@ class LLM(torch.nn.Module):
         if precision is None:
             precision = get_default_supported_precision(training=False)
 
+        print(f"Precision set", file=sys.stderr)
+
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
             if "mixed" in precision:
@@ -362,6 +364,8 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
                 check_nvlink_connectivity(fabric)
                 fabric.launch()
+
+        print(f"Fabric launched", file=sys.stderr)
 
         self.kv_cache_initialized = False
         if generate_strategy is None:

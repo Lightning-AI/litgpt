@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import sys
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Literal, Optional
@@ -49,7 +50,7 @@ class BaseLitAPI(LitAPI):
             accelerator = device
             device = 1
 
-        print("Initializing model...")
+        print("Initializing model...", file=sys.stderr)
         self.llm = LLM.load(model=self.checkpoint_dir, distribute=None)
 
         self.llm.distribute(
@@ -59,7 +60,7 @@ class BaseLitAPI(LitAPI):
             precision=self.precision,
             generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None,
         )
-        print("Model successfully initialized.")
+        print("Model successfully initialized.", file=sys.stderr)
 
     def decode_request(self, request: Dict[str, Any]) -> Any:
         # Convert the request payload to your model input.
