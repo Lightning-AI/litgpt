@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 
-from litgpt.data import TinyLlama
+from litgpt.data.tinyllama import TinyLlama
 
 
 @dataclass

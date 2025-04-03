@@ -1,20 +1,20 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from dataclasses import asdict
 import shutil
-
-from lightning.fabric import seed_everything
-import torch
-import requests
 import subprocess
-from litgpt.utils import _RunIf
 import threading
 import time
+from dataclasses import asdict
+
+import requests
+import torch
 import yaml
 import json
 import psutil
+from lightning.fabric import seed_everything
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
+from litgpt.utils import _RunIf
 
 
 def test_simple(tmp_path):
@@ -30,9 +30,7 @@ def test_simple(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path
-    ]
+    run_command = ["litgpt", "serve", tmp_path]
 
     process = None
 
@@ -42,7 +40,7 @@ def test_simple(tmp_path):
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
@@ -77,9 +75,7 @@ def test_quantize(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--quantize", "bnb.nf4"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--quantize", "bnb.nf4"]
 
     process = None
 
@@ -89,12 +85,12 @@ def test_quantize(tmp_path):
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -124,9 +120,7 @@ def test_multi_gpu_serve(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--devices", "2"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--devices", "2"]
 
     process = None
 
@@ -136,12 +130,12 @@ def test_multi_gpu_serve(tmp_path):
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -190,7 +184,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
     try:
         stdout, stderr = run_server()
         output = (stdout or "") + (stderr or "")
@@ -237,7 +231,7 @@ def test_serve_with_openai_spec(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    time.sleep(30)
 
     try:
         # Test server health

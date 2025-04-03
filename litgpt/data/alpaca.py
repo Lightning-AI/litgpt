@@ -10,7 +10,7 @@ import torch
 from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import DataLoader, random_split
 
-from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
+from litgpt.data.base import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 

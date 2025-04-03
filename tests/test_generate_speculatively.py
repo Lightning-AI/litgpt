@@ -32,7 +32,9 @@ def test_speculative_decoding_target_never_accepts_draft_tokens():
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
+    output = generate.speculative_decoding(
+        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+    )
 
     # target model never accepts draft model's output, thus the output of the `speculative_decoding`
     # is a single token sampled from the target model
@@ -56,7 +58,9 @@ def test_speculative_decoding_target_always_accepts_draft_tokens():
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
+    output = generate.speculative_decoding(
+        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+    )
 
     # target model always accepts draft model's output, thus the output of the `speculative_decoding`
     # is 4 tokens (3 accepted draft tokens + 1 sampled from target model's output)
@@ -87,7 +91,9 @@ def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
     sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs)
+    output = generate.speculative_decoding(
+        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+    )
 
     # target model accepts only 2 out of 3 draft model's output, thus the output of the `speculative_decoding`
     # is 3 tokens (2 accepted draft tokens + 1 sampled from adjusted distribution)
@@ -111,7 +117,9 @@ def test_generate(max_seq_length, speculative_k):
         model.set_kv_cache(batch_size=1)
 
     # generate tokens
-    out, acceptance_rate = generate.generate(draft_model, target_model, input_idx, T + max_new_tokens, top_k=1, speculative_k=speculative_k)
+    out, acceptance_rate = generate.generate(
+        draft_model, target_model, input_idx, T + max_new_tokens, top_k=1, speculative_k=speculative_k
+    )
 
     # validate
     assert out.size(0) == T + max_new_tokens - 1, (out.size(0), T + max_new_tokens - 1)
@@ -171,7 +179,19 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value[0])
     assert (
         generate_mock.mock_calls
-        == [call(ANY, ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, stop_tokens=[tokenizer_mock.return_value.eos_id], speculative_k=3)]
+        == [
+            call(
+                ANY,
+                ANY,
+                tensor_like,
+                53,
+                temperature=2.0,
+                top_k=2,
+                top_p=0.9,
+                stop_tokens=[tokenizer_mock.return_value.eos_id],
+                speculative_k=3,
+            )
+        ]
         * num_samples
     )
     expected_output = "foo bar baz\nAcceptance rate: 0.00%\n" * num_samples

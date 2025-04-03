@@ -18,8 +18,8 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.utils import rank_print
+from xla.generate.base import generate  # noqa: E402
+from xla.utils import rank_print  # noqa: E402
 
 
 def setup(

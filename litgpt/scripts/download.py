@@ -1,13 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import os
-from concurrent.futures import ProcessPoolExecutor
-from contextlib import contextmanager
 import importlib.util
+import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import torch
 from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.config import configs
@@ -48,17 +46,22 @@ def download_from_hub(
         return
 
     if model_name is None and repo_id not in options:
-        print(f"Unsupported `repo_id`: {repo_id}."
-        "\nIf you are trying to download alternative "
-        "weights for a supported model, please specify the corresponding model via the `--model_name` option, "
-        "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
-        "\nAlternatively, please choose a valid `repo_id` from the list of supported models, which can be obtained via "
-        "`litgpt download list`.")
+        print(
+            f"Unsupported `repo_id`: {repo_id}."
+            "\nIf you are trying to download alternative "
+            "weights for a supported model, please specify the corresponding model via the `--model_name` option, "
+            "for example, `litgpt download NousResearch/Hermes-2-Pro-Llama-3-8B --model_name Llama-3-8B`."
+            "\nAlternatively, please choose a valid `repo_id` from the list of supported models, which can be obtained via "
+            "`litgpt download list`."
+        )
         return
 
     from huggingface_hub import snapshot_download
+
     if importlib.util.find_spec("hf_transfer") is None:
-        print("It is recommended to install hf_transfer for faster checkpoint download speeds: `pip install hf_transfer`")
+        print(
+            "It is recommended to install hf_transfer for faster checkpoint download speeds: `pip install hf_transfer`"
+        )
 
     download_files = ["tokenizer*", "generation_config.json", "config.json"]
     if not tokenizer_only:

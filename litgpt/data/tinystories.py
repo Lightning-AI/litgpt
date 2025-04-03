@@ -10,10 +10,10 @@ from typing import Optional
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.data import DataModule
 from litgpt.data.alpaca import download_if_missing
 from litgpt.data.text_files import validate_tokenizer
+from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
@@ -90,7 +90,7 @@ class TinyStories(DataModule):
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataset, StreamingDataLoader, TokensLoader
+        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
 
         val_dataset = StreamingDataset(
             input_dir=str(self.data_path_val),

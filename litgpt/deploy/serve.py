@@ -4,13 +4,11 @@ from pathlib import Path
 from pprint import pprint
 from typing import Dict, Any, Optional, Literal, List
 
-from lightning_utilities.core.imports import RequirementCache
 import torch
+from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.api import LLM
-
 from litgpt.utils import auto_download_checkpoint
-
 
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
 _JINJA2_AVAILABLE = RequirementCache("jinja2")
@@ -31,9 +29,8 @@ class BaseLitAPI(LitAPI):
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
-        devices: int = 1
+        devices: int = 1,
     ) -> None:
-
         if not _LITSERVE_AVAILABLE:
             raise ImportError(str(_LITSERVE_AVAILABLE))
 
@@ -56,17 +53,14 @@ class BaseLitAPI(LitAPI):
             device = 1
 
         print("Initializing model...")
-        self.llm = LLM.load(
-            model=self.checkpoint_dir,
-            distribute=None
-        )
+        self.llm = LLM.load(model=self.checkpoint_dir, distribute=None)
 
         self.llm.distribute(
             devices=self.devices,
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None
+            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None,
         )
         print("Model successfully initialized.")
 
@@ -86,7 +80,7 @@ class SimpleLitAPI(BaseLitAPI):
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
-        devices: int = 1
+        devices: int = 1,
     ):
         super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
 
@@ -95,11 +89,7 @@ class SimpleLitAPI(BaseLitAPI):
 
     def predict(self, inputs: str) -> Any:
         output = self.llm.generate(
-            inputs,
-            temperature=self.temperature,
-            top_k=self.top_k,
-            top_p=self.top_p,
-            max_new_tokens=self.max_new_tokens
+            inputs, temperature=self.temperature, top_k=self.top_k, top_p=self.top_p, max_new_tokens=self.max_new_tokens
         )
         return output
 
@@ -118,7 +108,7 @@ class StreamLitAPI(BaseLitAPI):
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
-        devices: int = 1
+        devices: int = 1,
     ):
         super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
 
@@ -133,7 +123,7 @@ class StreamLitAPI(BaseLitAPI):
             top_k=self.top_k,
             top_p=self.top_p,
             max_new_tokens=self.max_new_tokens,
-            stream=True
+            stream=True,
         )
 
     def encode_response(self, output):
@@ -275,6 +265,5 @@ def run_server(
         devices=1,
         stream=stream 
     )
-
-
+    
     server.run(port=port, generate_client_file=False)
