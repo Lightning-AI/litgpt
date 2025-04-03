@@ -203,6 +203,7 @@ class GPT(nn.Module):
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
             extra_config=extra_config,
+            rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
     def set_kv_cache(
@@ -567,6 +568,7 @@ def build_rope_cache(
     base: int = 10000,
     condense_ratio: int = 1,
     extra_config: Optional[dict] = None,
+    rope_local_base_freq: Optional[float] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Enhanced Transformer with Rotary Position Embedding.
@@ -619,6 +621,18 @@ def build_rope_cache(
     # https://github.com/huggingface/transformers/issues/35233
     if idx_theta.shape[-1] > n_elem > 1:
         idx_theta = idx_theta[..., :n_elem]
+
+    # if rope_local_base_freq is given, have a separate rope value for local embedding
+    # For now, we use default RoPE for local embedding
+    if rope_local_base_freq is not None:
+        local_theta = 1.0 / (rope_local_base_freq ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
+        local_idx_theta = torch.outer(seq_idx, local_theta)
+        local_idx_theta = local_idx_theta.repeat(1, 2)
+        print("local_idx_theta.shape", local_idx_theta.shape) # torch.Size([20, 128])
+        if local_idx_theta.shape[-1] > n_elem > 1:
+            local_idx_theta = local_idx_theta[..., :n_elem]
+
+        idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
 
