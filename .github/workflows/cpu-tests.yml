@@ -33,9 +33,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
@@ -71,9 +71,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
