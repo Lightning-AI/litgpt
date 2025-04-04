@@ -1090,6 +1090,38 @@ gemma3 = [
         # 5 local layers for every global layer
         rope_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(26)],
     ),
+    # https://huggingface.co/google/gemma-3-4b-it/blob/main/config.json
+    dict(
+        name="Gemma-3-4b-it",
+        hf_config=dict(org="google", name="gemma-3-4b-it"),
+        scale_embeddings=True,
+        attention_scores_scalar=256,
+        vocab_size=262144,
+        block_size=131072,
+        sliding_window_size=1024,
+        # 5 local layers for every global layer
+        sliding_window_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(34)],
+        intermediate_size=10240,
+        n_embd=2560,
+        n_layer=34,
+        n_head=8,
+        n_query_groups=4,
+        head_size=256,
+        rotary_percentage=1.0,
+        rope_adjustments=dict(factor=8.0),
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
+        norm_qk=True,
+        rope_base=1000000,
+        rope_local_base_freq=10000,
+        # 5 local layers for every global layer
+        rope_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(34)],
+    ),
     # https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json
     dict(
         name="Gemma-3-27b-it",
