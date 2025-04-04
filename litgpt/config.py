@@ -1046,13 +1046,25 @@ gemma = [
         attention_logit_softcapping=50.0,
         final_logit_softcapping=30.0,
     ),
+]
+configs.extend(gemma)
+for c in gemma:
+    copy = deepcopy(c)
+    copy["name"] = f"{c['name']}-it"
+    copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
+    configs.append(copy)
+
+##################
+# Google Gemma 3
+##################
+gemma3 = [
     # https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json
     dict(
         name="Gemma-3-27b-it",
         hf_config=dict(org="google", name="gemma-3-27b-it"),
         scale_embeddings=True,
         attention_scores_scalar=168,
-        vocab_size=262208,
+        vocab_size=262144,
         block_size=131072,
         sliding_window_size=1024,
         # 5 local layers for every global layer
@@ -1079,12 +1091,7 @@ gemma = [
         rope_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(62)],
     ),
 ]
-configs.extend(gemma)
-for c in gemma:
-    copy = deepcopy(c)
-    copy["name"] = f"{c['name']}-it"
-    copy["hf_config"]["name"] = f"{c['hf_config']['name']}-it"
-    configs.append(copy)
+configs.extend(gemma3)
 
 ##################
 # Google CodeGemma

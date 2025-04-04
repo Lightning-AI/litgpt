@@ -823,7 +823,6 @@ def test_against_original_gemma_3(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
     T = 20
-    print(model_name)
     ours_config = Config.from_name(
         model_name,
         block_size=T,
@@ -833,6 +832,7 @@ def test_against_original_gemma_3(model_name, device, dtype):
         n_embd=32,
         intermediate_size=86,
     )
+
     theirs_config = Gemma3TextConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -856,7 +856,6 @@ def test_against_original_gemma_3(model_name, device, dtype):
 
     theirs_model = Gemma3ForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
-    print(theirs_state_dict.keys())
     # Gemma weights are shipped without `lm_head.weight`
     theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
