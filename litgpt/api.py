@@ -368,7 +368,10 @@ class LLM(torch.nn.Module):
         if generate_strategy is None:
             print(f"Debug 1", file=sys.stderr)
             with fabric.init_module(empty_init=(total_devices > 1)):
+                print(f"Debug 1.2", file=sys.stderr)
                 model = GPT(self.config)
+                print(f"Debug 1.3", file=sys.stderr)
+            print(f"Debug 1.5", file=sys.stderr)
             model.eval()
             print(f"Debug 2", file=sys.stderr)
 
