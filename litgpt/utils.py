@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import warnings
+import psutil
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
@@ -846,3 +847,16 @@ def _RunIf(thunder: bool = False, **kwargs):
         reasons.append("Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
+
+def kill_process_tree(pid: int):
+    """
+    Kill a process and all its child processes given the parent PID.
+    """
+    try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass  # Process already exited

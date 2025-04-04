@@ -3,7 +3,6 @@
 import os
 import subprocess
 import sys
-import signal
 import threading
 import time
 from pathlib import Path
@@ -13,7 +12,7 @@ import pytest
 import requests
 from urllib3.exceptions import MaxRetryError
 
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, kill_process_tree
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -209,14 +208,15 @@ def test_serve():
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(90):
+    for _ in range(30):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=1)
             response_status_code = response.status_code
@@ -228,5 +228,5 @@ def test_serve():
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        kill_process_tree(process.pid)
     server_thread.join()

@@ -3,8 +3,6 @@ import shutil
 import subprocess
 import threading
 import time
-import os
-import signal
 from dataclasses import asdict
 
 import requests
@@ -15,7 +13,7 @@ from urllib3.exceptions import MaxRetryError
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, kill_process_tree
 
 
 def test_simple(tmp_path):
@@ -38,7 +36,8 @@ def test_simple(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -63,7 +62,7 @@ def test_simple(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            kill_process_tree(process.pid)
         server_thread.join()
 
 
@@ -88,7 +87,8 @@ def test_quantize(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -112,7 +112,7 @@ def test_quantize(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            kill_process_tree(process.pid)
         server_thread.join()
 
 
@@ -137,7 +137,8 @@ def test_multi_gpu_serve(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -162,5 +163,5 @@ def test_multi_gpu_serve(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            kill_process_tree(process.pid)
         server_thread.join()
