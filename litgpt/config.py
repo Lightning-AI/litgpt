@@ -1058,6 +1058,38 @@ for c in gemma:
 # Google Gemma 3
 ##################
 gemma3 = [
+    # https://huggingface.co/google/gemma-3-1b-it/blob/main/config.json
+    dict(
+        name="Gemma-3-1b-it",
+        hf_config=dict(org="google", name="gemma-3-1b-it"),
+        scale_embeddings=True,
+        attention_scores_scalar=256,
+        vocab_size=262144,
+        block_size=131072,
+        sliding_window_size=512,
+        # 5 local layers for every global layer
+        sliding_window_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(62)],
+        intermediate_size=21504,
+        n_embd=1152,
+        n_layer=26,
+        n_head=4,
+        n_query_groups=1,
+        head_size=256,
+        rotary_percentage=1.0,
+        rope_adjustments=None,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="GemmaMLP",
+        gelu_approximate="tanh",
+        post_attention_norm=True,
+        post_mlp_norm=True,
+        norm_qk=True,
+        rope_base=1000000,
+        rope_local_base_freq=10000,
+        # 5 local layers for every global layer
+        rope_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(26)],
+    ),
     # https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json
     dict(
         name="Gemma-3-27b-it",
@@ -2307,32 +2339,11 @@ for c in qwen_2_5:
         configs.append(copy)
 
 qwq = [
-    # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
-    dict(
-        name="QwQ-32B",
-        hf_config=dict(org="Qwen", name="QwQ-32B"),
-        block_size=131072,
-        vocab_size=151643,
-        padded_vocab_size=152064,
-        n_layer=64,
-        n_head=40,
-        n_embd=5120,
-        n_query_groups=8,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        attn_bias=True,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=27648,
-        norm_eps=1e-5,
-        rope_base=1000000,
-    ),
     # https://huggingface.co/Qwen/QwQ-32B-Preview/blob/main/config.json
     dict(
         name="QwQ-32B-Preview",
         hf_config=dict(org="Qwen", name="QwQ-32B-Preview"),
-        block_size=32768,
+        block_size=131072,
         vocab_size=151643,
         padded_vocab_size=152064,
         n_layer=64,
