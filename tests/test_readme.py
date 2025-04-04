@@ -210,6 +210,8 @@ def test_serve():
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
+            print("Server output:", stdout, file=sys.stderr)
+            print("Server error:", stderr, file=sys.stderr)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
