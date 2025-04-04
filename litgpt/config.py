@@ -1064,7 +1064,7 @@ gemma3 = [
         hf_config=dict(org="google", name="gemma-3-27b-it"),
         scale_embeddings=True,
         attention_scores_scalar=168,
-        vocab_size=262208,
+        vocab_size=262144,
         block_size=131072,
         sliding_window_size=1024,
         # 5 local layers for every global layer
