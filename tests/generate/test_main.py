@@ -174,7 +174,8 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     )
     assert (
         generate_mock.mock_calls
-        == [call(ANY, tensor_like, len_return_value, **sample_kwargs, eos_id=tokenizer_mock.return_value.eos_id)] * num_samples
+        == [call(ANY, tensor_like, len_return_value, **sample_kwargs, eos_id=tokenizer_mock.return_value.eos_id)]
+        * num_samples
     )
     expected_output = "foo bar baz\n" * num_samples
     # Allow for the config to be printed before the expected repeated strings.
@@ -209,9 +210,7 @@ def test_sample(temperature):
     )
     # Note: Both `sample` and `batched_sample` create only 1 sample, not 3.
     # It is like passing `logits[:, 1-:, :]`
-    token = batched_sample(
-        logits, kwargs=dict(temperature=temperature, top_p=0.8)
-    )
+    token = batched_sample(logits, kwargs=dict(temperature=temperature, top_p=0.8))
 
     assert token.shape == (2, 1)
     # sample is batch size 1 only for now - this should be [0, 1] once batched generation is supported

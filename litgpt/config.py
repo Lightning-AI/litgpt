@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, Optional, Type, Union, List
+from typing import Any, Callable, List, Literal, Optional, Type, Union
 
 import torch
 import yaml

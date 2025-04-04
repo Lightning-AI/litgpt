@@ -156,9 +156,7 @@ class MultiHeadSelfAttention:
                 nh_k = self.config.n_query_groups
                 q_per_kv = nh_q // nh_k
                 if q_per_kv > 1:
-                    mask = mask.unsqueeze(2).expand(
-                        -1, -1, q_per_kv, -1, -1
-                    ).reshape(B, nh_q, T, -1)
+                    mask = mask.unsqueeze(2).expand(-1, -1, q_per_kv, -1, -1).reshape(B, nh_q, T, -1)
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.

@@ -32,7 +32,9 @@ def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
     )
     model: GPT = llm.model
     model.set_kv_cache(
-        batch_size=batch_size, max_seq_length=max_seq_length, device=device,
+        batch_size=batch_size,
+        max_seq_length=max_seq_length,
+        device=device,
     )
 
     return llm, model
@@ -89,7 +91,9 @@ def test_batched_equivalence(tmp_path):
     # Switch to batched generation
     model.clear_kv_cache()
     model.set_kv_cache(
-        batch_size=batch_size, max_seq_length=max_seq_length, device=device,
+        batch_size=batch_size,
+        max_seq_length=max_seq_length,
+        device=device,
     )
 
     toks_1: torch.Tensor = batched_next_token(

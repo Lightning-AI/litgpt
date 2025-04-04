@@ -171,7 +171,7 @@ def generate_fn(
 
     prompt_size = prompt.size(0)
     if prompt_size == 0:
-        raise ValueError(f"prompt must not be empty")
+        raise ValueError("prompt must not be empty")
     sample_kwargs = dict(
         temperature=temperature,
         top_k=top_k,
