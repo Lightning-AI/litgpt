@@ -13,13 +13,13 @@ import shutil
 import subprocess
 import sys
 import warnings
-import psutil
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
+import psutil
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -847,6 +847,7 @@ def _RunIf(thunder: bool = False, **kwargs):
         reasons.append("Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
+
 
 def kill_process_tree(pid: int):
     """

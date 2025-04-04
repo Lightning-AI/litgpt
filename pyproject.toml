@@ -31,13 +31,13 @@ dependencies = [
   "jsonargparse[signatures]>=4.37; python_version>'3.9'",             # required to work with python3.12+
   "lightning>=2.5,<2.6",
   "numpy<2",                                                          # for older Torch versions
+  "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.15.2",
   "torch>=2.5,<2.7",
   # convert_hf_checkpoint
   "tqdm>=4.66",
-  "psutil==7.0.0",
 ]
 
 optional-dependencies.compiler = [

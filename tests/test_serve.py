@@ -55,7 +55,6 @@ def test_simple(tmp_path):
         time.sleep(1)
     assert response_status_code == 200, "Server did not respond as expected."
 
-
     try:
         response = requests.get("http://127.0.0.1:8000")
         print(response.status_code)
@@ -155,7 +154,6 @@ def test_multi_gpu_serve(tmp_path):
             break
         time.sleep(1)
     assert response_status_code == 200, "Server did not respond as expected."
-
 
     try:
         response = requests.get("http://127.0.0.1:8000")
