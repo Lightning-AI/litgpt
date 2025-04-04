@@ -107,7 +107,7 @@ class FLAN(DataModule):
 
 def load_jsonl(filename: Path) -> List[Dict[str, str]]:
     data = []
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         for line in f:
             data.append(json.loads(line))
     return data

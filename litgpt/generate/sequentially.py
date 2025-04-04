@@ -11,7 +11,7 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional
+from typing import Literal, Optional, Type
 
 import lightning as L
 import torch
@@ -20,7 +20,6 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
 from lightning_utilities.core.imports import RequirementCache
 from tqdm import tqdm
-from typing_extensions import Type
 
 import litgpt.generate.base as generate_base
 from litgpt.config import Config

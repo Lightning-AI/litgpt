@@ -62,8 +62,7 @@ def test_stream_generate(mock_llm):
 
     def iterator():
         outputs = (prompt + " Mock output").split()
-        for output in outputs:
-            yield output
+        yield from outputs
 
     mock_llm.generate.return_value = iterator()
     output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True)
