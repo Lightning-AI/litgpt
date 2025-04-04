@@ -1,17 +1,14 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import shutil
 import subprocess
-import sys
 import threading
 import time
 from dataclasses import asdict
 
-import psutil
 import requests
 import torch
 import yaml
 from lightning.fabric import seed_everything
-from urllib3.exceptions import MaxRetryError
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
@@ -40,42 +37,22 @@ def test_simple(tmp_path):
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate(timeout=60)
-            print("Server output:", stdout, file=sys.stderr)
-            print("Server error:", stderr, file=sys.stderr)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
-
-    def kill_process_on_port(port):
-        for proc in psutil.process_iter(["pid", "name"]):
-            try:
-                for conn in proc.connections(kind="inet"):
-                    if conn.laddr.port == port:
-                        print(f"Killing process {proc.info['name']} (PID: {proc.info['pid']}) using port {port}")
-                        proc.terminate()
-                        proc.wait()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-
-    # Kill any process using port 8000
-    kill_process_on_port(8000)
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(30):
-        try:
-            response = requests.get("http://127.0.0.1:8000", timeout=1)
-            response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
-            response_status_code = -1
-        if response_status_code == 200:
-            break
-        time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    time.sleep(30)
 
-    if process:
-        process.kill()
-    server_thread.join()
+    try:
+        response = requests.get("http://127.0.0.1:8000")
+        print(response.status_code)
+        assert response.status_code == 200, "Server did not respond as expected."
+    finally:
+        if process:
+            process.kill()
+        server_thread.join()
 
 
 @_RunIf(min_cuda_gpus=1)
@@ -99,41 +76,24 @@ def test_quantize(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
-
-    def kill_process_on_port(port):
-        for proc in psutil.process_iter(["pid", "name"]):
-            try:
-                for conn in proc.connections(kind="inet"):
-                    if conn.laddr.port == port:
-                        print(f"Killing process {proc.info['name']} (PID: {proc.info['pid']}) using port {port}")
-                        proc.terminate()
-                        proc.wait()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-
-    # Kill any process using port 8000
-    kill_process_on_port(8000)
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(30):
-        try:
-            response = requests.get("http://127.0.0.1:8000", timeout=1)
-            response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
-            response_status_code = -1
-        if response_status_code == 200:
-            break
-        time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    time.sleep(10)
 
-    if process:
-        process.kill()
-    server_thread.join()
+    try:
+        response = requests.get("http://127.0.0.1:8000")
+        print(response.status_code)
+        assert response.status_code == 200, "Server did not respond as expected."
+    finally:
+        if process:
+            process.kill()
+        server_thread.join()
 
 
 @_RunIf(min_cuda_gpus=2)
@@ -157,38 +117,21 @@ def test_multi_gpu_serve(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
+            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
-
-    def kill_process_on_port(port):
-        for proc in psutil.process_iter(["pid", "name"]):
-            try:
-                for conn in proc.connections(kind="inet"):
-                    if conn.laddr.port == port:
-                        print(f"Killing process {proc.info['name']} (PID: {proc.info['pid']}) using port {port}")
-                        proc.terminate()
-                        proc.wait()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-
-    # Kill any process using port 8000
-    kill_process_on_port(8000)
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(30):
-        try:
-            response = requests.get("http://127.0.0.1:8000", timeout=1)
-            response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
-            response_status_code = -1
-        if response_status_code == 200:
-            break
-        time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    time.sleep(10)
 
-    if process:
-        process.kill()
-    server_thread.join()
+    try:
+        response = requests.get("http://127.0.0.1:8000")
+        print(response.status_code)
+        assert response.status_code == 200, "Server did not respond as expected."
+    finally:
+        if process:
+            process.kill()
+        server_thread.join()
