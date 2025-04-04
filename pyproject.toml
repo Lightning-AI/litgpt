@@ -37,6 +37,7 @@ dependencies = [
   "torch>=2.5,<2.7",
   # convert_hf_checkpoint
   "tqdm>=4.66",
+  "psutil==7.0.0",
 ]
 
 optional-dependencies.compiler = [
