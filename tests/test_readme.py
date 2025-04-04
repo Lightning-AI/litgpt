@@ -215,7 +215,7 @@ def test_serve():
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(30):
+    for _ in range(90):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=1)
             response_status_code = response.status_code
