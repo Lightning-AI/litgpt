@@ -3,6 +3,8 @@ import shutil
 import subprocess
 import threading
 import time
+import os
+import signal
 from dataclasses import asdict
 
 import requests
@@ -36,7 +38,7 @@ def test_simple(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True)
+            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -61,7 +63,7 @@ def test_simple(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         server_thread.join()
 
 
@@ -86,7 +88,7 @@ def test_quantize(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True)
+            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -110,7 +112,7 @@ def test_quantize(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         server_thread.join()
 
 
@@ -135,7 +137,7 @@ def test_multi_gpu_serve(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True)
+            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -160,5 +162,5 @@ def test_multi_gpu_serve(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         server_thread.join()

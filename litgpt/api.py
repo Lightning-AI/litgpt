@@ -364,23 +364,15 @@ class LLM(torch.nn.Module):
                 fabric.launch()
 
         self.kv_cache_initialized = False
-        print(f"Debug 0", file=sys.stderr)
         if generate_strategy is None:
-            print(f"Debug 1", file=sys.stderr)
             with fabric.init_module(empty_init=(total_devices > 1)):
-                print(f"Debug 1.2", file=sys.stderr)
                 model = GPT(self.config)
-                print(f"Debug 1.3", file=sys.stderr)
-            print(f"Debug 1.5", file=sys.stderr)
             model.eval()
-            print(f"Debug 2", file=sys.stderr)
 
             if self.checkpoint_dir is not None:
                 load_checkpoint(fabric, model, self.checkpoint_dir / "lit_model.pth")
-            print(f"Debug 3", file=sys.stderr)
 
             model = fabric.setup_module(model)
-            print(f"Debug 4", file=sys.stderr)
 
             if fixed_kv_cache_size is not None:
                 if fixed_kv_cache_size is None or fixed_kv_cache_size == "max_model_supported":
@@ -392,7 +384,6 @@ class LLM(torch.nn.Module):
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
         elif generate_strategy in ("sequential", "tensor_parallel"):
-            print(f"Debug 1 1", file=sys.stderr)
             with fabric.init_tensor(), torch.device("meta"):
                 model = GPT(self.config)
             model.eval()
@@ -457,7 +448,7 @@ class LLM(torch.nn.Module):
 
         else:
             raise ValueError(f"Unsupported generate_strategy: {generate_strategy}")
-        print(f"Debug 5", file=sys.stderr)
+
         self.model = model
         self.fabric = fabric
         self.preprocessor.device = fabric.device

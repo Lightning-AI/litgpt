@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import signal
 import threading
 import time
 from pathlib import Path
@@ -208,7 +209,7 @@ def test_serve():
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, text=True)
+            process = subprocess.Popen(run_command, text=True, preexec_fn=os.setsid)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -227,5 +228,5 @@ def test_serve():
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        process.kill()
+        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
     server_thread.join()
