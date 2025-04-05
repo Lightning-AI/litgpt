@@ -9,10 +9,11 @@ import requests
 import torch
 import yaml
 from lightning.fabric import seed_everything
+from urllib3.exceptions import MaxRetryError
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, kill_process_tree
 
 
 def test_simple(tmp_path):
@@ -43,7 +44,16 @@ def test_simple(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)
+    for _ in range(30):
+        try:
+            response = requests.get("http://127.0.0.1:8000", timeout=1)
+            response_status_code = response.status_code
+        except (MaxRetryError, requests.exceptions.ConnectionError):
+            response_status_code = -1
+        if response_status_code == 200:
+            break
+        time.sleep(1)
+    assert response_status_code == 200, "Server did not respond as expected."
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -51,7 +61,7 @@ def test_simple(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            kill_process_tree(process.pid)
         server_thread.join()
 
 
@@ -84,7 +94,16 @@ def test_quantize(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    for _ in range(30):
+        try:
+            response = requests.get("http://127.0.0.1:8000", timeout=1)
+            response_status_code = response.status_code
+        except (MaxRetryError, requests.exceptions.ConnectionError):
+            response_status_code = -1
+        if response_status_code == 200:
+            break
+        time.sleep(1)
+    assert response_status_code == 200, "Server did not respond as expected."
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -92,7 +111,7 @@ def test_quantize(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            kill_process_tree(process.pid)
         server_thread.join()
 
 
@@ -125,7 +144,16 @@ def test_multi_gpu_serve(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    for _ in range(30):
+        try:
+            response = requests.get("http://127.0.0.1:8000", timeout=1)
+            response_status_code = response.status_code
+        except (MaxRetryError, requests.exceptions.ConnectionError):
+            response_status_code = -1
+        if response_status_code == 200:
+            break
+        time.sleep(1)
+    assert response_status_code == 200, "Server did not respond as expected."
 
     try:
         response = requests.get("http://127.0.0.1:8000")
@@ -133,5 +161,5 @@ def test_multi_gpu_serve(tmp_path):
         assert response.status_code == 200, "Server did not respond as expected."
     finally:
         if process:
-            process.kill()
+            kill_process_tree(process.pid)
         server_thread.join()

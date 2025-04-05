@@ -313,7 +313,7 @@ class LLM(torch.nn.Module):
                 total_devices = CUDAAccelerator.auto_device_count()
             else:
                 total_devices = 1
-        elif isinstance(devices, int):
+        elif isinstance(devices, int) and accelerator == "cuda":
             use_devices = calculate_number_of_devices(devices)
             total_devices = CUDAAccelerator.auto_device_count()
             if use_devices > total_devices:
@@ -327,6 +327,8 @@ class LLM(torch.nn.Module):
                 raise NotImplementedError(
                     "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
                 )
+        elif accelerator == "cpu" or accelerator == "mps":
+            total_devices = 1
 
         else:
             raise ValueError(f"devices argument must be an integer or 'auto', got {devices}")
