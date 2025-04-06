@@ -4,8 +4,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from litgpt.data import SFTDataset
 from litgpt.data.alpaca import Alpaca
+from litgpt.data.base import SFTDataset
 
 
 @dataclass

@@ -168,16 +168,15 @@ class Llama2(PromptStyle):
 
 class Llama3(PromptStyle):
     def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
-
         default_system_prompt = "You are a helpful assistant."
 
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
         if isinstance(prompt, str):
             return (
                 "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-                f"{default_system_prompt}<|eot_id|>" # No newline
+                f"{default_system_prompt}<|eot_id|>"  # No newline
                 "<|start_header_id|>user<|end_header_id|>\n\n"
-                f"{prompt}<|eot_id|>" # No newline
+                f"{prompt}<|eot_id|>"  # No newline
                 "<|start_header_id|>assistant<|end_header_id|>\n\n"
             )
         elif isinstance(prompt, list):
@@ -201,8 +200,10 @@ class Llama3(PromptStyle):
             for i, message in enumerate(prompt):
                 if i != 0 and message["role"] == "system":
                     raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
-                if not message["role"] in ["assistant", "user", "system"]:
-                    raise ValueError(f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'.")
+                if message["role"] not in ["assistant", "user", "system"]:
+                    raise ValueError(
+                        f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'."
+                    )
                 tokens.extend(encode_message(message))
             tokens.extend(encode_header("assistant"))
             return "".join(tokens)
@@ -215,6 +216,7 @@ class Llama3(PromptStyle):
             [tokenizer.token_to_id("<|eot_id|>")],
         )
 
+
 class R1Base(PromptStyle):
     def apply(self, prompt: Union[str, List[Dict[str, str]]], **kwargs: str) -> str:
         default_system_prompt = ""
@@ -224,9 +226,7 @@ class R1Base(PromptStyle):
 
         if isinstance(prompt, str):
             return (
-                f"{default_system_prompt}"
-                f"<｜User｜>{prompt}"
-                f"<｜Assistant｜>"  # Prepares for assistant response
+                f"{default_system_prompt}" f"<｜User｜>{prompt}" f"<｜Assistant｜>"  # Prepares for assistant response
             )
         elif isinstance(prompt, list):
 
@@ -265,6 +265,7 @@ class R1Base(PromptStyle):
             [tokenizer.token_to_id("<｜end▁of▁sentence｜>")],
         )
 
+
 class FreeWilly2(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return (
@@ -278,6 +279,7 @@ class FreeWilly2(PromptStyle):
 class Platypus(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"### Instruction:\n\n{prompt}\n\n### Response:\n"
+
 
 class StableCode(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -315,11 +317,13 @@ class Phi2(PromptStyle):
 
 class Phi3(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f'<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n'
+        return f"<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
+
 
 class Phi4(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
-        return f'<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>'
+        return f"<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
+
 
 class TinyLlama(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
@@ -349,25 +353,34 @@ class ChatML(PromptStyle):
     def apply(self, prompt: str, **kwargs: str) -> str:
         return f"<|im_start|>system\n{self.system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
+
 class Qwen2_5(ChatML):
     def __init__(self):
         super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
+
 
 class Qwen2_5_Math(ChatML):
     def __init__(self):
         super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
 
+
 class QwQ(ChatML):
     def __init__(self):
-        super().__init__("You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step.")
+        super().__init__(
+            "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
+        )
+
 
 class SmolLM2(ChatML):
     def __init__(self):
         super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
 
+
 class Salamandra(ChatML):
     def __init__(self):
-        super().__init__("I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit.")
+        super().__init__(
+            "I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit."
+        )
 
 
 # Maps prompt style names to PromptStyle classes
@@ -466,7 +479,7 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)

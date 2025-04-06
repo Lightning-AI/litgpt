@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union, Dict
+from typing import Dict, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -135,13 +135,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=[logger]
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -235,9 +229,16 @@ def main(
 
     train_time = time.perf_counter()
     fit(
-        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
-        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
     )
 
     # Save final checkpoint
@@ -281,7 +282,7 @@ def fit(
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -289,8 +290,8 @@ def fit(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        model_fwd = lambda: meta_model(x)  # noqa: F821
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -400,7 +401,9 @@ def fit(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True
+) -> torch.Tensor:
     fabric.barrier()
     if verbose:
         fabric.print("Validating ...")

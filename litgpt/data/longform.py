@@ -8,9 +8,9 @@ from typing import Optional, Union
 import torch
 from torch.utils.data import DataLoader
 
-from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.data.alpaca import download_if_missing
+from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 _URL = "https://raw.githubusercontent.com/akoksal/LongForm/main/dataset"
@@ -63,7 +63,7 @@ class LongForm(DataModule):
         return self._dataloader("val")
 
     def _dataloader(self, split: str) -> DataLoader:
-        with open(self.download_dir / f"{split}.json", "r", encoding="utf-8") as file:
+        with open(self.download_dir / f"{split}.json", encoding="utf-8") as file:
             data = json.load(file)
 
         dataset = SFTDataset(

@@ -1,29 +1,23 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from collections import OrderedDict
 import os
-from pathlib import Path
+import re
 import sys
+from collections import OrderedDict
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
-import re
 import torch
-from unittest.mock import MagicMock, patch
-from litgpt.utils import _RunIf
-
 from lightning.fabric.accelerators import CUDAAccelerator
-from litgpt.api import (
-    LLM,
-    calculate_number_of_devices,
-    benchmark_dict_to_markdown_table
-)
 
+from litgpt.api import LLM, benchmark_dict_to_markdown_table, calculate_number_of_devices
 from litgpt.scripts.download import download_from_hub
-
+from litgpt.utils import _RunIf
 
 skip_in_ci_on_macos = pytest.mark.skipif(
     sys.platform == "darwin" and os.getenv("GITHUB_ACTIONS") == "true",
-    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test."
+    reason="Skipped on macOS in CI environment because CI machine does not have enough memory to run this test.",
 )
 
 
@@ -68,8 +62,7 @@ def test_stream_generate(mock_llm):
 
     def iterator():
         outputs = (prompt + " Mock output").split()
-        for output in outputs:
-            yield output
+        yield from outputs
 
     mock_llm.generate.return_value = iterator()
     output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True)
@@ -98,11 +91,7 @@ def test_llm_load_random_init(tmp_path):
 
     torch.manual_seed(123)
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(
-            model="pythia-160m",
-            init="random",
-            tokenizer_dir=Path(tmp_path/"EleutherAI/pythia-14m")
-        )
+        llm = LLM.load(model="pythia-160m", init="random", tokenizer_dir=Path(tmp_path / "EleutherAI/pythia-14m"))
 
     input_text = "some text text"
     output_text = llm.generate(input_text, max_new_tokens=15)
@@ -126,10 +115,7 @@ def test_llm_load_random_init(tmp_path):
 def test_llm_load_hub_init(tmp_path):
     torch.manual_seed(123)
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-            init="pretrained"
-        )
+        llm = LLM.load(model="EleutherAI/pythia-14m", init="pretrained")
 
     text_1 = llm.generate("text", max_new_tokens=10, top_k=1)
     assert len(text_1) > 0
@@ -140,35 +126,19 @@ def test_llm_load_hub_init(tmp_path):
 
 
 def test_model_not_initialized(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        init="pretrained",
-        distribute=None
-    )
-    s = (
-        "The model is not initialized yet; use the .distribute() "
-        "or .trainer_setup() method to initialize the model."
-    )
+    llm = LLM.load(model="EleutherAI/pythia-14m", init="pretrained", distribute=None)
+    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        tokenizer_dir="EleutherAI/pythia-14m",
-        init="random",
-        distribute=None
-    )
-    s = (
-        "The model is not initialized yet; use the .distribute() "
-        "or .trainer_setup() method to initialize the model."
-    )
+    llm = LLM.load(model="EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random", distribute=None)
+    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
 
 @_RunIf(min_cuda_gpus=2)
 def test_more_than_1_device_for_sequential_gpu(tmp_path):
-
     device_count = CUDAAccelerator.auto_device_count()
 
     if device_count <= 2:
@@ -180,7 +150,10 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
             model=model_name,
         )
 
-    with pytest.raises(NotImplementedError, match="Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."):
+    with pytest.raises(
+        NotImplementedError,
+        match="Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'.",
+    ):
         llm.distribute(devices=2)
 
     llm.distribute(devices=2, generate_strategy="sequential")
@@ -211,15 +184,15 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
 
 @_RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
-
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-            tokenizer_dir="EleutherAI/pythia-14m",
-            init="random"
-        )
+        llm = LLM.load(model="EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random")
     for strategy in ("sequential", "tensor_parallel"):
-        with pytest.raises(NotImplementedError, match=re.escape("The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights.")):
+        with pytest.raises(
+            NotImplementedError,
+            match=re.escape(
+                "The LLM was initialized with init='random' but .distribute() currently only supports pretrained weights."
+            ),
+        ):
             llm.distribute(devices=1, generate_strategy=strategy)
 
 
@@ -230,23 +203,15 @@ def test_sequential_tp_cpu(tmp_path):
             distribute=None,
         )
     for strategy in ("sequential", "tensor_parallel"):
-        with pytest.raises(NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."):
-            llm.distribute(
-                devices=1,
-                accelerator="cpu",
-                generate_strategy=strategy
-            )
+        with pytest.raises(
+            NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."
+        ):
+            llm.distribute(devices=1, accelerator="cpu", generate_strategy=strategy)
 
 
 def test_initialization_for_trainer(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        distribute=None
-    )
-    s = (
-        "The model is not initialized yet; use the .distribute() "
-        "or .trainer_setup() method to initialize the model."
-    )
+    llm = LLM.load(model="EleutherAI/pythia-14m", distribute=None)
+    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("hello world")
 
@@ -280,10 +245,7 @@ def test_fixed_kv_cache(tmp_path):
 
 
 def test_invalid_accelerator(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        distribute=None
-    )
+    llm = LLM.load(model="EleutherAI/pythia-14m", distribute=None)
     with pytest.raises(ValueError, match="Invalid accelerator"):
         llm.distribute(accelerator="invalid")
 
@@ -312,11 +274,11 @@ def test_returned_benchmark_dir(tmp_path):
 
 def test_benchmark_dict_to_markdown_table_single_values():
     bench_d = {
-        'Inference speed in tokens/sec': [17.617540650112936],
-        'Seconds to first token': [0.6533610639999097],
-        'Seconds total': [1.4758019020000575],
-        'Tokens generated': [26],
-        'Total GPU memory allocated in GB': [5.923729408]
+        "Inference speed in tokens/sec": [17.617540650112936],
+        "Seconds to first token": [0.6533610639999097],
+        "Seconds total": [1.4758019020000575],
+        "Tokens generated": [26],
+        "Total GPU memory allocated in GB": [5.923729408],
     }
 
     expected_output = (
@@ -334,18 +296,55 @@ def test_benchmark_dict_to_markdown_table_single_values():
 
 def test_benchmark_dict_to_markdown_table_multiple_values():
     bench_d_list = {
-        'Inference speed in tokens/sec': [17.034547562152305, 32.8974175404589, 33.04784205046782, 32.445697744648584,
-                                          33.204480197756396, 32.64187570945661, 33.21232058140845, 32.69377798373551,
-                                          32.92351459309756, 32.48909032591177],
-        'Seconds to first token': [0.7403525039999295, 0.022901020000063, 0.02335712100011733, 0.022969672000272112,
-                                   0.022788318000039, 0.02365505999978268, 0.02320190000000366, 0.022791139999753796,
-                                   0.022871761999795126, 0.023060415999680117],
-        'Seconds total': [1.5263099829999192, 0.7903355929997815, 0.7867382069998712, 0.8013389080001616,
-                          0.7830268640000213, 0.7965228539997042, 0.7828420160003589, 0.7952583520000189,
-                          0.7897091279996857, 0.8002686360000553],
-        'Tokens generated': [26, 26, 26, 26, 26, 26, 26, 26, 26, 26],
-        'Total GPU memory allocated in GB': [5.923729408, 5.923729408, 5.923729408, 5.923729408, 5.923729408,
-                                             5.923729408, 5.923729408, 5.923729408, 5.923729408, 5.923729408]
+        "Inference speed in tokens/sec": [
+            17.034547562152305,
+            32.8974175404589,
+            33.04784205046782,
+            32.445697744648584,
+            33.204480197756396,
+            32.64187570945661,
+            33.21232058140845,
+            32.69377798373551,
+            32.92351459309756,
+            32.48909032591177,
+        ],
+        "Seconds to first token": [
+            0.7403525039999295,
+            0.022901020000063,
+            0.02335712100011733,
+            0.022969672000272112,
+            0.022788318000039,
+            0.02365505999978268,
+            0.02320190000000366,
+            0.022791139999753796,
+            0.022871761999795126,
+            0.023060415999680117,
+        ],
+        "Seconds total": [
+            1.5263099829999192,
+            0.7903355929997815,
+            0.7867382069998712,
+            0.8013389080001616,
+            0.7830268640000213,
+            0.7965228539997042,
+            0.7828420160003589,
+            0.7952583520000189,
+            0.7897091279996857,
+            0.8002686360000553,
+        ],
+        "Tokens generated": [26, 26, 26, 26, 26, 26, 26, 26, 26, 26],
+        "Total GPU memory allocated in GB": [
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+            5.923729408,
+        ],
     }
 
     expected_output = (
@@ -367,7 +366,7 @@ def test_state_dict(tmp_path):
             model="EleutherAI/pythia-14m",
         )
     assert isinstance(llm.state_dict(), OrderedDict)
-    assert llm.state_dict()['lm_head.weight'].shape == torch.Size([50304, 128])
+    assert llm.state_dict()["lm_head.weight"].shape == torch.Size([50304, 128])
 
 
 def test_save_method(tmp_path):
@@ -386,7 +385,7 @@ def test_save_method(tmp_path):
         "model_config.yaml",
         "prompt_style.yaml",
         "tokenizer_config.json",
-        "tokenizer.json"
+        "tokenizer.json",
     ]
 
     files_in_directory = os.listdir(target_dir)
@@ -409,11 +408,9 @@ def test_forward_method(tmp_path):
 
 @skip_in_ci_on_macos  # The macOS CI machine segfaults here (it works fine locally though)
 def test_precision_selection(tmp_path):
-    llm = LLM.load(
-        model="EleutherAI/pythia-14m",
-        init="pretrained"
-    )
+    llm = LLM.load(model="EleutherAI/pythia-14m", init="pretrained")
 
     llm.distribute(precision="16-true")
-    assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, \
-        f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
+    assert (
+        llm.model._forward_module.lm_head.weight.dtype == torch.float16
+    ), f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"

@@ -2,46 +2,35 @@
 
 import itertools
 import logging
+import math
 import re
 import sys
 import time
-import math
+import warnings
 from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional
-import warnings
+from typing import Literal, Optional, Type
 
 import lightning as L
-from lightning_utilities.core.imports import RequirementCache
 import torch
 from lightning.fabric.accelerators import CUDAAccelerator
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities.init import _materialize_meta_tensors
-from typing_extensions import Type
+from lightning_utilities.core.imports import RequirementCache
 from tqdm import tqdm
 
-from litgpt.model import GPT
-from litgpt.config import Config
-from litgpt.tokenizer import Tokenizer
 import litgpt.generate.base as generate_base
-from litgpt.model import Block, build_mask_cache
+from litgpt.config import Config
+from litgpt.model import GPT, Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
-from litgpt.utils import (
-    check_valid_checkpoint_dir,
-    extend_checkpoint_dir,
-    get_default_supported_precision
-)
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir, get_default_supported_precision
 
 
 @torch.inference_mode()
-def sequential(
-    model: GPT,
-    root: torch.device,
-    max_seq_length: int,
-    devices: int
-):
+def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int):
     if model.config.n_layer < devices:
         raise ValueError(
             f"The number of layers in the model must be larger than the number of devices, but got"
@@ -76,7 +65,9 @@ def sequential(
             # in case the checkpoint was partial, materialize leftover metas
             _materialize_meta_tensors(submodule, target_device)
             # and build the kv cache
-            submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, model.cos.size(-1), target_device)
+            submodule.attn.kv_cache = submodule.attn.build_kv_cache(
+                1, max_seq_length, model.cos.size(-1), target_device
+            )
     # rebuild odd ends
     with root:
         model.max_seq_length = max_seq_length
@@ -201,8 +192,7 @@ def main(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. "
-                "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. " "This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)
@@ -267,7 +257,13 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate_base.generate(
-            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id
+            model,
+            encoded,
+            max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            eos_id=tokenizer.eos_id,
         )
         t = time.perf_counter() - t0
         for block in model.transformer.h:

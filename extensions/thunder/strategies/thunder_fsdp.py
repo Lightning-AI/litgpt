@@ -30,8 +30,9 @@ from torch import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
-from litgpt.utils import _THUNDER_AVAILABLE
+
 from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
+from litgpt.utils import _THUNDER_AVAILABLE
 
 if TYPE_CHECKING:
     from thunder import Executor

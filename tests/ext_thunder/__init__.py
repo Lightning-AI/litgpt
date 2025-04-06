@@ -7,4 +7,5 @@ if wd.is_dir():
     sys.path.append(str(wd))
 else:
     import warnings
+
     warnings.warn(f"Could not find extensions directory at {wd}")

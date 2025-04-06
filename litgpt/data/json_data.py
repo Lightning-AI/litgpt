@@ -8,8 +8,8 @@ from typing import Any, Optional, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from litgpt.prompts import PromptStyle
 from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
+from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 
@@ -139,10 +139,10 @@ class JSON(DataModule):
 
 def load_split(json_path: Path) -> Any:
     if json_path.suffix == ".json":
-        with open(json_path, "r", encoding="utf-8") as file:
+        with open(json_path, encoding="utf-8") as file:
             return json.load(file)
     if json_path.suffix == ".jsonl":
-        with open(json_path, "r", encoding="utf-8") as file:
+        with open(json_path, encoding="utf-8") as file:
             return [json.loads(line) for line in file]
     else:
         raise ValueError(f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`.")
