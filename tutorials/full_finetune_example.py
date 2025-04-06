@@ -8,29 +8,31 @@ This script is meant to be the simplest possible starting point for full finetun
 - no train/eval args (or any args in general)
 - no logger (only to terminal)
 - no grad accumulation
-and no other fancy stuff. 
+and no other fancy stuff.
 
 To add all the above stuff, you can slowly add them in yourself by looking at the code in litgpt/finetune/full.py or the docs for litgpt/fabric.
 """
 
 import os
+
 import lightning as L
-from litgpt.data import Alpaca
-from litgpt.tokenizer import Tokenizer
-from litgpt.model import GPT, Config
-from litgpt.utils import num_parameters, CycleIterator
 import torch
 import torch.nn as nn
 
+from litgpt.data import Alpaca
+from litgpt.model import GPT, Config
+from litgpt.tokenizer import Tokenizer
+from litgpt.utils import num_parameters
 
 # training params/args
 SEED = 1337
-MODEL_NAME = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T" # try also "stabilityai/stablelm-base-alpha-3b"!
+MODEL_NAME = "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T"  # try also "stabilityai/stablelm-base-alpha-3b"!
 BATCH_SIZE = 4
 LR_WARMUP_STEPS = 100
 MAX_STEPS = 601
 
-def validate(model, val_dataloader): 
+
+def validate(model, val_dataloader):
     model.eval()
     loss = 0
     with torch.no_grad():
@@ -42,8 +44,8 @@ def validate(model, val_dataloader):
             loss += nn.functional.cross_entropy(logits[..., :-1, :], targets[..., 1:])
     fabric.print(f"Validation loss: {loss/len(val_dataloader)}")
 
-def train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader):
 
+def train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader):
     for iter_num, batch in enumerate(train_dataloader):
         input_ids, targets = batch["input_ids"], batch["labels"]
 
@@ -74,9 +76,10 @@ def train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader)
         if iter_num >= MAX_STEPS:
             break
 
+
 def main(fabric):
     fabric.seed_everything(SEED)
-    
+
     # setup data, make tokenizer and make dataloaders
     data = Alpaca()
     tokenizer = Tokenizer(checkpoint_dir=f"checkpoints/{MODEL_NAME}")
@@ -106,9 +109,9 @@ def main(fabric):
 
     # Start training!!!
     train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader)
-    
-if __name__ == "__main__":
 
+
+if __name__ == "__main__":
     # check that the model exists (downloaded to ./checkpoints/)
     if not os.path.exists(f"checkpoints/{MODEL_NAME}"):
         print(f"Model {MODEL_NAME} not found. Please download it using `litgpt download --repo {MODEL_NAME}`")
@@ -117,5 +120,3 @@ if __name__ == "__main__":
     ### Setup and launch
     fabric = L.Fabric(devices="auto", strategy="auto")
     fabric.launch(main)
-
-
