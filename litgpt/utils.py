@@ -391,6 +391,19 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
         model.load_state_dict(state_dict, strict=strict)
 
 
+def load_checkpoint_update(
+    fabric: L.Fabric, adapter_path: Path, model: nn.Module, checkpoint_path: Path, strict: bool = True
+) -> None:
+    if isinstance(fabric.strategy, FSDPStrategy):
+        fabric.load_raw(checkpoint_path, model, strict=strict)
+    else:
+        state_dict = lazy_load(checkpoint_path)
+        state_dict = state_dict.get("model", state_dict)
+        adapter_cp = lazy_load(adapter_path)
+        state_dict.update(adapter_cp)
+        model.load_state_dict(state_dict, strict=strict)
+
+
 def flops_per_param(max_seq_length: int, n_layer: int, n_embd: int, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
     # this assumes that all samples have a fixed length equal to the block size
