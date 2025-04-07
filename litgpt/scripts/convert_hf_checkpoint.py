@@ -602,6 +602,9 @@ def convert_hf_checkpoint(
     elif model_name.lower().startswith("gemma-2"):
         qkv_weights = {}
         copy_fn = partial(copy_weights_gemma_2, qkv_weights)
+    elif model_name.lower().startswith("gemma-3"):
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_gemma_3, qkv_weights)
     elif model_name.lower().startswith("phi"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
