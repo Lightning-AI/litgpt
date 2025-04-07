@@ -17,9 +17,10 @@ from litgpt.utils import _RunIf, kill_process_tree
 
 
 def _wait_and_check_response():
+    response_status_code = -1
     for _ in range(30):
         try:
-            response = requests.get("http://127.0.0.1:8000", timeout=1)
+            response = requests.get("http://127.0.0.1:8000", timeout=10)
             response_status_code = response.status_code
         except (MaxRetryError, requests.exceptions.ConnectionError):
             response_status_code = -1
