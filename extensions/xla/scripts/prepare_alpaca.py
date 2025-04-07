@@ -33,7 +33,7 @@ def prepare(
     which stores the preprocessed and tokenized prompts and labels.
     """
     if max_seq_length is None:
-        with open(checkpoint_dir / "model_config.yaml", "r", encoding="utf-8") as file:
+        with open(checkpoint_dir / "model_config.yaml", encoding="utf-8") as file:
             config = yaml.safe_load(file)
             max_seq_length = config["block_size"]
 
@@ -41,7 +41,7 @@ def prepare(
     data_file_path = destination_path / data_file_name
     print("Loading data file...")
     download_if_missing(data_file_path, data_file_url)
-    with open(data_file_path, "r", encoding="utf-8") as file:
+    with open(data_file_path, encoding="utf-8") as file:
         data = json.load(file)
 
     print("Loading tokenizer...")

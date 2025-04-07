@@ -104,7 +104,7 @@ class TinyStories(DataModule):
 
 
 def tokenize(filename: str, tokenizer: Tokenizer):
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         data = json.load(f)
     global_rank = int(os.environ["DATA_OPTIMIZER_GLOBAL_RANK"])
     num_workers = int(os.environ["DATA_OPTIMIZER_NUM_WORKERS"])

@@ -131,7 +131,7 @@ class TextFiles(DataModule):
 
 
 def tokenize(filename: str, tokenizer: Tokenizer):
-    with open(filename, "r", encoding="utf-8") as file:
+    with open(filename, encoding="utf-8") as file:
         text = file.read()
     text = text.strip()
     yield tokenizer.encode(text, bos=True, eos=False)
