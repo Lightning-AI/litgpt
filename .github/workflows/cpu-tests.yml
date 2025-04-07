@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
 
 defaults:
   run:
@@ -88,11 +88,11 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache-${{ runner.os }}-${{ matrix.python-version }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
           restore-keys: |
-            hf-cache-${{ runner.os }}-${{ matrix.python-version }}
-            hf-cache-${{ runner.os }}-
-            hf-cache-
+            hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+            hf-cache_${{ runner.os }}-
+            hf-cache_
 
       - name: Install dependencies
         run: |

@@ -13,7 +13,7 @@ from urllib3.exceptions import MaxRetryError
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, kill_process_tree
 
 
 def test_simple(tmp_path):
@@ -55,7 +55,7 @@ def test_simple(tmp_path):
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        process.kill()
+        kill_process_tree(process.pid)
     server_thread.join()
 
 
@@ -99,7 +99,7 @@ def test_quantize(tmp_path):
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        process.kill()
+        kill_process_tree(process.pid)
     server_thread.join()
 
 
@@ -143,5 +143,5 @@ def test_multi_gpu_serve(tmp_path):
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        process.kill()
+        kill_process_tree(process.pid)
     server_thread.join()

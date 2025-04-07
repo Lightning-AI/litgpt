@@ -12,7 +12,7 @@ import pytest
 import requests
 from urllib3.exceptions import MaxRetryError
 
-from litgpt.utils import _RunIf
+from litgpt.utils import _RunIf, kill_process_tree
 
 REPO_ID = Path("EleutherAI/pythia-14m")
 CUSTOM_TEXTS_DIR = Path("custom_texts")
@@ -228,5 +228,5 @@ def test_serve():
     assert response_status_code == 200, "Server did not respond as expected."
 
     if process:
-        process.kill()
+        kill_process_tree(process.pid)
     server_thread.join()
