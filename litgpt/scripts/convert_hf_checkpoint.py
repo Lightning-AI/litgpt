@@ -327,7 +327,8 @@ def copy_weights_gemma_3(
         name_template, *ids = layer_template(from_name, num_matches=2)
         to_name = weight_map[name_template]
         param = load_param(param, from_name, dtype, verbose=debug_mode)
-        if to_name == "transformer.wte.weight" and config is not None:
+        # in multimodal models, the text weights are the first part of the weights
+        if is_multimodal and to_name == "transformer.wte.weight" and config is not None:
             param = param[: config.vocab_size]
         if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
             qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
