@@ -33,6 +33,19 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
+def _wait_and_check_response():
+    for _ in range(30):
+        try:
+            response = requests.get("http://127.0.0.1:8000", timeout=1)
+            response_status_code = response.status_code
+        except (MaxRetryError, requests.exceptions.ConnectionError):
+            response_status_code = -1
+        if response_status_code == 200:
+            break
+        time.sleep(1)
+    assert response_status_code == 200, "Server did not respond as expected."
+
+
 @pytest.mark.dependency()
 @pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_download_model():
@@ -216,16 +229,7 @@ def test_serve():
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    for _ in range(30):
-        try:
-            response = requests.get("http://127.0.0.1:8000", timeout=1)
-            response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
-            response_status_code = -1
-        if response_status_code == 200:
-            break
-        time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    _wait_and_check_response()
 
     if process:
         kill_process_tree(process.pid)
