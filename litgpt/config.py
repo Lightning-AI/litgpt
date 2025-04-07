@@ -1069,7 +1069,7 @@ gemma3 = [
         sliding_window_size=512,
         # 5 local layers for every global layer
         sliding_window_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(26)],
-        intermediate_size=21504,
+        intermediate_size=6912,
         n_embd=1152,
         n_layer=26,
         n_head=4,
