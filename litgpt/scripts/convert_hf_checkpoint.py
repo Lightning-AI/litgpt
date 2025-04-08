@@ -4,6 +4,7 @@ import gc
 import json
 import os
 import re
+import warnings
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -320,6 +321,7 @@ def copy_weights_gemma_3(
     # gemma3 4b+ are multimodel models, but we are only loading the text weights
     is_multimodal = any(k.startswith("language_model") for k in hf_weights)
     if is_multimodal:
+        warnings.warn("For Gemma3 models only the text component is supported.")
         weight_map = {f"language_model.{k}": v for k, v in weight_map.items()}
     for from_name, param in hf_weights.items():
         if from_name.startswith("vision_tower") or from_name.startswith("multi_modal_projector"):
