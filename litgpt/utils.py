@@ -173,16 +173,16 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(
-                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
-            ), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), (
+                "Please check for updates"
+            )
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(
-                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
-            ), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), (
+                "Please check for updates"
+            )
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -642,7 +642,7 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
         size = os.path.getsize(checkpoint_path)
         if size > size_limit and str(device) == "cpu":
             warnings.warn(
-                f"The file size of {checkpoint_path} is over {size_limit/1024/1024/1024:.1f} GB. Using a model "
+                f"The file size of {checkpoint_path} is over {size_limit / 1024 / 1024 / 1024:.1f} GB. Using a model "
                 "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
             )
     return size

@@ -214,9 +214,9 @@ def generate(
     prompt_size = prompt.size(0)
     device = prompt.device
 
-    assert (
-        max_returned_tokens > prompt_size
-    ), f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, (
+        f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    )
     if draft_model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(
             f"max_seq_length {draft_model.max_seq_length} needs to be >= {max_returned_tokens - 1}"

@@ -112,7 +112,7 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
 
     train_time = time.perf_counter()
     train(fabric, model, optimizer, train_data, val_data, checkpoint_dir, out_dir)
-    rank_print(fabric, f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    rank_print(fabric, f"Training time: {(time.perf_counter() - train_time):.2f}s")
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "lit_model_adapter_finetuned.pth"

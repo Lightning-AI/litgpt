@@ -42,7 +42,7 @@ def validate(model, val_dataloader):
             logits = logits.reshape(-1, logits.size(-1))
             targets = targets.reshape(-1)
             loss += nn.functional.cross_entropy(logits[..., :-1, :], targets[..., 1:])
-    fabric.print(f"Validation loss: {loss/len(val_dataloader)}")
+    fabric.print(f"Validation loss: {loss / len(val_dataloader)}")
 
 
 def train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader):
