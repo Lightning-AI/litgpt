@@ -157,9 +157,9 @@ def generate_fn(
     prompt_size = prompt.size(0)
     device = prompt.device
 
-    assert (
-        max_returned_tokens > prompt_size
-    ), f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, (
+        f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    )
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
@@ -281,9 +281,9 @@ def batched_generate_fn(
         assert len(sample_args) == batch_size, "sample_args must have the length as the batch size."
 
     # TODO: This check (and the one in generate_fn) is not sufficient. We do the proper checks in LLM.generate().
-    assert (
-        max_returned_tokens > max_prompt_size
-    ), f"Not enough space for {max_prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > max_prompt_size, (
+        f"Not enough space for {max_prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    )
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
@@ -488,7 +488,7 @@ def main(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. " "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)

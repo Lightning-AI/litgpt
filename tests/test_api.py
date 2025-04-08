@@ -127,12 +127,12 @@ def test_llm_load_hub_init(tmp_path):
 
 def test_model_not_initialized(tmp_path):
     llm = LLM.load(model="EleutherAI/pythia-14m", init="pretrained", distribute=None)
-    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
+    s = "The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
     llm = LLM.load(model="EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random", distribute=None)
-    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
+    s = "The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
@@ -166,7 +166,7 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm.distribute(generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
     assert str(llm.model.transformer.h[0].mlp.fc.weight.device) == "cuda:0"
-    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count-1}"
+    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count - 1}"
 
 
 @_RunIf(min_cuda_gpus=2)
@@ -211,7 +211,7 @@ def test_sequential_tp_cpu(tmp_path):
 
 def test_initialization_for_trainer(tmp_path):
     llm = LLM.load(model="EleutherAI/pythia-14m", distribute=None)
-    s = "The model is not initialized yet; use the .distribute() " "or .trainer_setup() method to initialize the model."
+    s = "The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("hello world")
 
@@ -411,6 +411,6 @@ def test_precision_selection(tmp_path):
     llm = LLM.load(model="EleutherAI/pythia-14m", init="pretrained")
 
     llm.distribute(precision="16-true")
-    assert (
-        llm.model._forward_module.lm_head.weight.dtype == torch.float16
-    ), f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
+    assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, (
+        f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
+    )
