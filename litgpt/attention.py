@@ -136,9 +136,9 @@ class MultiHeadSelfAttention:
         if use_mask:
             # Special case requires building a mask. `mask_cache` is only needed
             # then.
-            assert (
-                self.mask_cache is not None
-            ), "mask_cache must be given if sliding window attention is used, or if input_pos given and T > 1"
+            assert self.mask_cache is not None, (
+                "mask_cache must be given if sliding window attention is used, or if input_pos given and T > 1"
+            )
             if is_causal:
                 mask = self.mask_cache[:T, :T].view(1, 1, T, T)
                 is_causal = False
@@ -156,9 +156,7 @@ class MultiHeadSelfAttention:
                 nh_k = self.config.n_query_groups
                 q_per_kv = nh_q // nh_k
                 if q_per_kv > 1:
-                    mask = mask.unsqueeze(2).expand(
-                        -1, -1, q_per_kv, -1, -1
-                    ).reshape(B, nh_q, T, -1)
+                    mask = mask.unsqueeze(2).expand(-1, -1, q_per_kv, -1, -1).reshape(B, nh_q, T, -1)
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
