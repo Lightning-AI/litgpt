@@ -146,9 +146,7 @@ class Llama2FunctionCalling(PromptStyle):
         # replace the curly braces with double curly braces to escape them
         function_list = dumps(function_metadata).replace("{", "{{").replace("}", "}}")
         return (
-            f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}"
-            f"{system_prompt.strip()}"
-            f"{e_sys}{prompt}{e_inst}\n\n"
+            f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{prompt}{e_inst}\n\n"
         )
 
 
@@ -225,9 +223,7 @@ class R1Base(PromptStyle):
         eos_token = ""
 
         if isinstance(prompt, str):
-            return (
-                f"{default_system_prompt}" f"<｜User｜>{prompt}" f"<｜Assistant｜>"  # Prepares for assistant response
-            )
+            return f"{default_system_prompt}<｜User｜>{prompt}<｜Assistant｜>"  # Prepares for assistant response
         elif isinstance(prompt, list):
 
             def encode_message(message: Dict[str, str]) -> str:

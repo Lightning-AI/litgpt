@@ -197,6 +197,6 @@ def test_litgpt_generate_endtoend():
             pass
 
     # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
-    assert (
-        "Hello World!" in captured_output.getvalue()
-    ), f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    assert "Hello World!" in captured_output.getvalue(), (
+        f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    )
