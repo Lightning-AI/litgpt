@@ -17,8 +17,8 @@ jobs:
       # Step 2: Set up Python
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-          cache: 'pip'
+          python-version: "3.x"
+          cache: "pip"
 
       # Step 3: Install MkDocs and dependencies
       - run: pip install mkdocs mkdocs-material
