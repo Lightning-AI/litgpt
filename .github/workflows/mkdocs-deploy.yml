@@ -24,4 +24,4 @@ jobs:
       - run: pip install mkdocs mkdocs-material
 
       # Step 4: Deploy to GitHub Pages
-      - run: mkdocs gh-deploy --force --site-dir=tutorials --theme=material
+      - run: mkdocs gh-deploy --force --config-file="tutorials/mkdocs.yml" --site-dir="tutorials" --theme="material"
