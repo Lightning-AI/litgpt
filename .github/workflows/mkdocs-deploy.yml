@@ -21,12 +21,12 @@ jobs:
           cache: "pip"
 
       # Step 3: Install MkDocs and dependencies
-      - run: pip install mkdocs mkdocs-material
-
+      - run: pip install mkdocs mkdocs-material mkdocs-pagetree-plugin
       # Step 4: Deploy to GitHub Pages
       - run: |
-          mkdir gh-pages
-          cp tutorials/mkdocs.yml gh-pages/mkdocs.yml
-          mkdir gh-pages/docs
+          mkdir -p gh-pages/docs
           cp -r tutorials/* gh-pages/docs
-          mkdocs gh-deploy --force --site-dir="gh-pages"
+          cd gh-pages
+          mv docs/mkdocs.yml mkdocs.yml
+          echo "{{ pagetree }}" > docs/index.md
+          mkdocs gh-deploy --force
