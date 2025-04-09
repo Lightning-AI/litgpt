@@ -1,0 +1,17 @@
+site_name: My Docs
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    toggle:
+      icon: material/toggle-switch
+      name: Switch to dark mode
+    accent: default
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.expand
+    - navigation.sections.expand
+    - navigation.sections.sticky
+    - navigation.sections.sticky.scrollable
