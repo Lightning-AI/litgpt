@@ -1,0 +1,32 @@
+name: Deploy MkDocs
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      # Step 1: Checkout the repository
+      - uses: actions/checkout@v4
+
+      # Step 2: Set up Python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: "pip"
+
+      # Step 3: Install MkDocs and dependencies
+      - run: pip install mkdocs mkdocs-material mkdocs-pagetree-plugin
+      # Step 4: Deploy to GitHub Pages
+      - run: |
+          mkdir -p gh-pages/docs
+          cp -r tutorials/* gh-pages/docs
+          cd gh-pages
+          mv docs/mkdocs.yml mkdocs.yml
+          echo "{{ pagetree }}" > docs/index.md
+          mkdocs gh-deploy --force
