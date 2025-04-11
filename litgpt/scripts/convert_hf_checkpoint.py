@@ -4,6 +4,7 @@ import gc
 import json
 import os
 import re
+import warnings
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -294,6 +295,7 @@ def copy_weights_gemma_3(
     pbar: Optional[tqdm] = None,
     progress_per_file: Optional[float] = None,
     debug_mode: Optional[bool] = False,
+    config: Optional[Config] = None,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -316,11 +318,20 @@ def copy_weights_gemma_3(
 
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
-
+    # gemma3 4b+ are multimodel models, but we are only loading the text weights
+    is_multimodal = any(k.startswith("language_model") for k in hf_weights)
+    if is_multimodal:
+        warnings.warn("For Gemma3 models only the text component is supported.")
+        weight_map = {f"language_model.{k}": v for k, v in weight_map.items()}
     for from_name, param in hf_weights.items():
+        if from_name.startswith("vision_tower") or from_name.startswith("multi_modal_projector"):
+            continue
         name_template, *ids = layer_template(from_name, num_matches=2)
         to_name = weight_map[name_template]
         param = load_param(param, from_name, dtype, verbose=debug_mode)
+        # in multimodal models, the text weights are the first part of the weights
+        if is_multimodal and to_name == "transformer.wte.weight" and config is not None:
+            param = param[: config.vocab_size]
         if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
             qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
             weight_name, weight_type = from_name.split(".")[-2:]
@@ -604,7 +615,7 @@ def convert_hf_checkpoint(
         copy_fn = partial(copy_weights_gemma_2, qkv_weights)
     elif model_name.lower().startswith("gemma-3"):
         qkv_weights = {}
-        copy_fn = partial(copy_weights_gemma_3, qkv_weights)
+        copy_fn = partial(copy_weights_gemma_3, qkv_weights, config=config)
     elif model_name.lower().startswith("phi"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
