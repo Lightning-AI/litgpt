@@ -11,6 +11,7 @@ from typing_extensions import Self
 
 from litgpt.utils import find_multiple
 
+
 @dataclass
 class MLAConfig:
     q_proj_dim: Optional[int] = None

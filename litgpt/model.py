@@ -535,7 +535,9 @@ class MLA(nn.Module):
 
         # q projections (bottleneck)
         self.dq = nn.Linear(config.n_embd, self.q_proj_dim, bias=False)  # down-projection
-        self.uq = nn.Linear(self.q_proj_dim, config.n_head * (self.qk_rope_dim + self.qk_nope_dim), bias=False)  # up-projection
+        self.uq = nn.Linear(
+            self.q_proj_dim, config.n_head * (self.qk_rope_dim + self.qk_nope_dim), bias=False
+        )  # up-projection
 
         # kv projections
         self.dkv = nn.Linear(

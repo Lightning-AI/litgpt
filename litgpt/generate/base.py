@@ -435,7 +435,7 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
-    num_samples: int =  1,
+    num_samples: int = 1,
     max_new_tokens: int = 50,
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
