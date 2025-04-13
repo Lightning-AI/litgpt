@@ -3,7 +3,6 @@
 import warnings
 
 import torch
-import torch._dynamo  # fallback to eager mode if torchscript fails
 from jsonargparse import CLI, set_config_read_mode, set_docstring_parse_options
 
 from litgpt.chat.base import main as chat_fn
@@ -28,8 +27,6 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-
-torch._dynamo.config.suppress_errors = True
 
 
 def main() -> None:
