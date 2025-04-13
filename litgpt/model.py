@@ -524,27 +524,29 @@ class MLA(nn.Module):
         super().__init__()
 
         # key-value (2/3) and query (1/2) projection dimensions
-        self.q_proj_dim = config.n_embd // 2
-        self.kv_proj_dim = 2 * config.n_embd // 3
+        self.q_proj_dim = config.mla.q_proj_dim or config.n_embd // 2
+        self.kv_proj_dim = config.mla.kv_proj_dim or 2 * config.n_embd // 3
 
         # qk channel division for RoPE (50%-50%)
-        self.qk_rope_dim = config.head_size // 2
-        self.qk_nope_dim = config.head_size // 2  # no positional embedding
+        self.qk_rope_dim = config.mla.qk_rope_dim or config.head_size // 2
+        self.qk_nope_dim = config.mla.qk_nope_dim or config.head_size // 2  # no positional embedding
+
+        self.v_dim = config.v_dim or config.head_size
 
         # q projections (bottleneck)
         self.dq = nn.Linear(config.n_embd, self.q_proj_dim, bias=False)  # down-projection
-        self.uq = nn.Linear(self.q_proj_dim, config.n_embd, bias=False)  # up-projection
+        self.uq = nn.Linear(self.q_proj_dim, config.n_head * (self.qk_rope_dim + self.qk_nope_dim), bias=False)  # up-projection
 
         # kv projections
         self.dkv = nn.Linear(
             config.n_embd, self.kv_proj_dim + self.qk_rope_dim, bias=False
         )  # latent dimension for kv + shared key for RoPE
         self.ukv = nn.Linear(
-            self.kv_proj_dim, config.n_embd + (config.n_head * self.qk_nope_dim), bias=False
+            self.kv_proj_dim, config.n_head * (self.v_dim + self.qk_nope_dim), bias=False
         )  # up-projection only for LoRA part
 
         # output projection
-        self.proj = nn.Linear(config.n_embd, config.n_embd, bias=False)  # unchanged
+        self.proj = nn.Linear(config.n_head * self.v_dim, config.n_embd, bias=False)  # unchanged
 
         # cache is disabled by default
         self.kv_cache: Optional[KVCacheCompressed] = None
@@ -614,7 +616,7 @@ class MLA(nn.Module):
         if self.norm_q:
             latent_q = self.norm_q(latent_q)
         q = self.uq(latent_q)
-        q = q.view(B, T, self.config.n_head, self.config.head_size)  # (B, T, nh_q, hs)
+        q = q.view(B, T, self.config.n_head, self.qk_rope_dim + self.qk_nope_dim)  # (B, T, nh_q, hs)
         q, q_for_rope = torch.split(q, [self.qk_nope_dim, self.qk_rope_dim], dim=-1)  # split channels for RoPE
 
         # q decoupled for RoPE
@@ -653,8 +655,8 @@ class MLA(nn.Module):
         # Split qkv into query, key and value matrices.
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
-        kv = kv.view(B, -1, self.config.n_head, self.config.head_size + self.qk_nope_dim).transpose(1, 2)
-        k, v = torch.split(kv, [self.qk_nope_dim, self.config.head_size], dim=-1)
+        kv = kv.view(B, -1, self.config.n_head, self.v_dim + self.qk_nope_dim).transpose(1, 2)
+        k, v = torch.split(kv, [self.qk_nope_dim, self.v_dim], dim=-1)
 
         # k Rope
         k_for_rope = k_for_rope.view(B, -1, 1, self.qk_rope_dim)  # reshape to make it a 1-head tensor
@@ -678,7 +680,7 @@ class MLA(nn.Module):
         y = self.scaled_dot_product_attention(q, k, v, mask)
 
         # Re-assemble all head outputs side by side.
-        y = y.reshape(B, T, self.config.head_size * self.config.n_head)
+        y = y.reshape(B, T, self.v_dim * self.config.n_head)
 
         # Output projection
         return self.proj(y)  # (B, T, C)
@@ -686,7 +688,7 @@ class MLA(nn.Module):
     def scaled_dot_product_attention(
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or (self.qk_rope_dim + self.qk_nope_dim))
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
