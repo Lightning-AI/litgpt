@@ -114,8 +114,7 @@ def process_prompt(
     for block in model.transformer.h:
         block.attn.kv_cache.reset_parameters()
     fabric.print(
-        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-        f" {tokens_generated} tokens",
+        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec, {tokens_generated} tokens",
         file=sys.stderr,
     )
     fabric.print()
