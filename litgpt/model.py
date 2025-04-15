@@ -84,7 +84,7 @@ class GPT(nn.Module):
         self,
         idx: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
         lm_head_chunk_size: int = 0,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
@@ -291,7 +291,7 @@ class Block(nn.Module):
         sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
@@ -361,7 +361,7 @@ class CausalSelfAttention(nn.Module):
         sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size

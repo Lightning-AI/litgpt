@@ -77,7 +77,7 @@ def next_token(
     model: GPT,
     input_pos: torch.Tensor,
     x: torch.Tensor,
-    input_pos_maxp1: Optional[torch.Tensor] = None,
+    input_pos_maxp1: Optional[int] = None,
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
     logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
