@@ -59,7 +59,7 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:
@@ -307,7 +307,7 @@ def fit(
             if isinstance(val_loss, torch.Tensor):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"

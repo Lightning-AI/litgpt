@@ -154,8 +154,18 @@ class GPT(nn.Module):
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
-        for block in self.transformer.h:
-            x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
+        for block_idx, block in enumerate(self.transformer.h):
+            if self.config.rope_indices is not None:
+                x = block(
+                    x,
+                    cos[..., self.config.rope_indices[block_idx]],
+                    sin[..., self.config.rope_indices[block_idx]],
+                    mask,
+                    input_pos,
+                    input_pos_maxp1,
+                )
+            else:
+                x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
         x = self.transformer.ln_f(x)
         clamp_head = (
             partial(do_softcapping, thresh=self.config.final_logit_softcapping)
@@ -186,6 +196,10 @@ class GPT(nn.Module):
             elif num_params_present == 4:
                 # These parameters should always be used together so that we don't interfere with standard rope
                 extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+            elif "factor" in self.config.rope_adjustments:
+                # linear RoPE
+                adjusted_params_required = ["factor"]
+                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
                 # Some but not all parameters are specified; raise an error
                 missing_params = [
@@ -215,7 +229,10 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            rope_cache_length = self.cos.size(-1)
+            if len(self.cos.shape) == 2:
+                rope_cache_length = self.cos.size(-1)
+            else:
+                rope_cache_length = self.cos[..., 0].size(-1)
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -324,14 +341,13 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
-        self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None
-            and config.sliding_window_block_idx_map_fn(block_idx) % config.sliding_window_layer_stride == 0
-        )
+        self.apply_sliding_window_attention = False
+        if config.sliding_window_size is not None and config.sliding_window_indices is not None:
+            self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
 
         if config.norm_qk:
-            self.norm_q = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
-            self.norm_k = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
+            self.norm_q = config.norm_class(config.head_size, eps=config.norm_eps)
+            self.norm_k = config.norm_class(config.head_size, eps=config.norm_eps)
         else:
             self.norm_q = self.norm_k = None
 
@@ -371,10 +387,6 @@ class CausalSelfAttention(nn.Module):
         # Split qkv into query, key and value matrices.
         q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
-        if self.config.norm_qk:
-            q = self.norm_q(q)
-            k = self.norm_k(k)
-
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
         q = q.view(B, T, n_head, head_size)  # (B, T, nh_q, hs)
@@ -387,6 +399,10 @@ class CausalSelfAttention(nn.Module):
         q = q.transpose(1, 2)  # (B, nh_q, T, hs)
         k = k.transpose(1, 2)  # (B, nh_k, T, hs)
         v = v.transpose(1, 2)  # (B, nh_v, T, hs)
+
+        if self.config.norm_qk:
+            q = self.norm_q(q)
+            k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
         q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)

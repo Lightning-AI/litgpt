@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
+import psutil
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -27,7 +28,7 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
 from lightning_utilities.core.imports import module_available
 from packaging import version
 from torch.serialization import normalize_storage_type
@@ -173,16 +174,16 @@ class SavingProxyForTensor:
         if reduce_args[0] == torch._utils._rebuild_tensor_v2:
             # for Tensors with Python attributes
             (a0, a1, (storage, *a2_other), *other_reduce_args) = reduce_args
-            assert isinstance(
-                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
-            ), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), (
+                "Please check for updates"
+            )
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (a0, a1, (storage_proxy, *a2_other), *other_reduce_args)
         else:
             (storage, *other_reduce_args) = reduce_args
-            assert isinstance(
-                storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)
-            ), "Please check for updates"
+            assert isinstance(storage, (torch.storage.TypedStorage, torch.storage.UntypedStorage)), (
+                "Please check for updates"
+            )
             storage_proxy = SavingProxyForStorage(storage, saver, protocol_version=protocol_version)
             self.reduce_args = (storage_proxy, *other_reduce_args)
 
@@ -391,6 +392,19 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
         model.load_state_dict(state_dict, strict=strict)
 
 
+def load_checkpoint_update(
+    fabric: L.Fabric, adapter_path: Path, model: nn.Module, checkpoint_path: Path, strict: bool = True
+) -> None:
+    if isinstance(fabric.strategy, FSDPStrategy):
+        fabric.load_raw(checkpoint_path, model, strict=strict)
+    else:
+        state_dict = lazy_load(checkpoint_path)
+        state_dict = state_dict.get("model", state_dict)
+        adapter_cp = lazy_load(adapter_path)
+        state_dict.update(adapter_cp)
+        model.load_state_dict(state_dict, strict=strict)
+
+
 def flops_per_param(max_seq_length: int, n_layer: int, n_embd: int, n_params: int) -> int:
     flops_per_token = 2 * n_params  # each parameter is used for a MAC (2 FLOPS) per network operation
     # this assumes that all samples have a fixed length equal to the block size
@@ -531,7 +545,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 
 
 def choose_logger(
-    logger_name: Literal["csv", "tensorboard", "wandb"],
+    logger_name: Literal["csv", "tensorboard", "wandb", "mlflow"],
     out_dir: Path,
     name: str,
     log_interval: int = 1,
@@ -544,6 +558,8 @@ def choose_logger(
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
+    if logger_name == "mlflow":
+        return MLFlowLogger(experiment_name=name, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 
@@ -629,7 +645,7 @@ def check_file_size_on_cpu_and_warn(checkpoint_path, device, size_limit=4_509_71
         size = os.path.getsize(checkpoint_path)
         if size > size_limit and str(device) == "cpu":
             warnings.warn(
-                f"The file size of {checkpoint_path} is over {size_limit/1024/1024/1024:.1f} GB. Using a model "
+                f"The file size of {checkpoint_path} is over {size_limit / 1024 / 1024 / 1024:.1f} GB. Using a model "
                 "with more than 1B parameters on a CPU can be slow, it is recommended to switch to a GPU."
             )
     return size
@@ -846,3 +862,17 @@ def _RunIf(thunder: bool = False, **kwargs):
         reasons.append("Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
+
+
+def kill_process_tree(pid: int):
+    """
+    Kill a process and all its child processes given the parent PID.
+    """
+    try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass  # Process already exited
