@@ -683,7 +683,7 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
                 mean_str = "N/A"
                 std_dev_str = "N/A"
 
-            markdown_table += f"| {key:<36} | {first_iteration:<15} | " f"{mean_str:<17} | {std_dev_str:<23} |\n"
+            markdown_table += f"| {key:<36} | {first_iteration:<15} | {mean_str:<17} | {std_dev_str:<23} |\n"
         print(markdown_table)
 
     import subprocess
