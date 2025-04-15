@@ -205,6 +205,8 @@ def test_serve_with_openai_spec(tmp_path):
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate(timeout=60)
+            print(stdout, stderr)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
