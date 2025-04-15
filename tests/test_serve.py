@@ -7,7 +7,6 @@ import threading
 import time
 from dataclasses import asdict
 
-import psutil
 import pytest
 import requests
 import torch
