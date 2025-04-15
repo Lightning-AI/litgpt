@@ -1,10 +1,12 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import platform
 import shutil
 import subprocess
 import threading
 import time
 from dataclasses import asdict
 
+import pytest
 import requests
 import torch
 import yaml
@@ -30,6 +32,8 @@ def _wait_and_check_response():
     assert response_status_code == 200, "Server did not respond as expected."
 
 
+# todo: try to resolve this issue
+@pytest.mark.xfail(condition=platform.system() == "Darwin", reason="it passes locally but having some issues on CI")
 def test_simple(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
