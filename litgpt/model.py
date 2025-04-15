@@ -154,8 +154,18 @@ class GPT(nn.Module):
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
-        for block in self.transformer.h:
-            x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
+        for block_idx, block in enumerate(self.transformer.h):
+            if self.config.rope_indices is not None:
+                x = block(
+                    x,
+                    cos[..., self.config.rope_indices[block_idx]],
+                    sin[..., self.config.rope_indices[block_idx]],
+                    mask,
+                    input_pos,
+                    input_pos_maxp1,
+                )
+            else:
+                x = block(x, cos, sin, mask, input_pos, input_pos_maxp1)
         x = self.transformer.ln_f(x)
         clamp_head = (
             partial(do_softcapping, thresh=self.config.final_logit_softcapping)
@@ -186,6 +196,10 @@ class GPT(nn.Module):
             elif num_params_present == 4:
                 # These parameters should always be used together so that we don't interfere with standard rope
                 extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+            elif "factor" in self.config.rope_adjustments:
+                # linear RoPE
+                adjusted_params_required = ["factor"]
+                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
                 # Some but not all parameters are specified; raise an error
                 missing_params = [
@@ -203,6 +217,7 @@ class GPT(nn.Module):
             condense_ratio=self.config.rope_condense_ratio,
             base=self.config.rope_base,
             extra_config=extra_config,
+            rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
     def set_kv_cache(
@@ -214,7 +229,10 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            rope_cache_length = self.cos.size(-1)
+            if len(self.cos.shape) == 2:
+                rope_cache_length = self.cos.size(-1)
+            else:
+                rope_cache_length = self.cos[..., 0].size(-1)
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -323,13 +341,13 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
-        self.apply_sliding_window_attention = (
-            config.sliding_window_size is not None and block_idx % config.sliding_window_layer_stride == 0
-        )
+        self.apply_sliding_window_attention = False
+        if config.sliding_window_size is not None and config.sliding_window_indices is not None:
+            self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
 
         if config.norm_qk:
-            self.norm_q = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
-            self.norm_k = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
+            self.norm_q = config.norm_class(config.head_size, eps=config.norm_eps)
+            self.norm_k = config.norm_class(config.head_size, eps=config.norm_eps)
         else:
             self.norm_q = self.norm_k = None
 
@@ -369,10 +387,6 @@ class CausalSelfAttention(nn.Module):
         # Split qkv into query, key and value matrices.
         q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
-        if self.config.norm_qk:
-            q = self.norm_q(q)
-            k = self.norm_k(k)
-
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
         q = q.view(B, T, n_head, head_size)  # (B, T, nh_q, hs)
@@ -385,6 +399,10 @@ class CausalSelfAttention(nn.Module):
         q = q.transpose(1, 2)  # (B, nh_q, T, hs)
         k = k.transpose(1, 2)  # (B, nh_k, T, hs)
         v = v.transpose(1, 2)  # (B, nh_v, T, hs)
+
+        if self.config.norm_qk:
+            q = self.norm_q(q)
+            k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
         q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
@@ -566,6 +584,7 @@ def build_rope_cache(
     base: int = 10000,
     condense_ratio: int = 1,
     extra_config: Optional[dict] = None,
+    rope_local_base_freq: Optional[float] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Enhanced Transformer with Rotary Position Embedding.
@@ -587,19 +606,22 @@ def build_rope_cache(
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
     if extra_config is not None:
-        orig_context_len = extra_config["original_max_seq_len"]
         factor = extra_config["factor"]
-        low_freq_factor = extra_config["low_freq_factor"]
-        high_freq_factor = extra_config["high_freq_factor"]
+        if "original_max_seq_len" in extra_config:
+            orig_context_len = extra_config["original_max_seq_len"]
+            low_freq_factor = extra_config["low_freq_factor"]
+            high_freq_factor = extra_config["high_freq_factor"]
 
-        wavelen = 2 * torch.pi / theta
-        ratio = orig_context_len / wavelen
-        smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
-        smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
+            wavelen = 2 * torch.pi / theta
+            ratio = orig_context_len / wavelen
+            smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+            smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
 
-        # Compute adjusted_theta without masked indexing
-        adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
-        theta = adjusted_theta
+            # Compute adjusted_theta without masked indexing
+            adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
+            theta = adjusted_theta
+        else:
+            theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
     seq_idx = torch.arange(seq_len, device=device) / condense_ratio
@@ -615,6 +637,17 @@ def build_rope_cache(
     # https://github.com/huggingface/transformers/issues/35233
     if idx_theta.shape[-1] > n_elem > 1:
         idx_theta = idx_theta[..., :n_elem]
+
+    # if rope_local_base_freq is given, have a separate rope value for local embedding
+    # For now, we use default RoPE for local embedding
+    if rope_local_base_freq is not None:
+        local_theta = 1.0 / (rope_local_base_freq ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
+        local_idx_theta = torch.outer(seq_idx, local_theta)
+        local_idx_theta = local_idx_theta.repeat(1, 2)
+        if local_idx_theta.shape[-1] > n_elem > 1:
+            local_idx_theta = local_idx_theta[..., :n_elem]
+
+        idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
     return torch.cos(idx_theta), torch.sin(idx_theta)
 

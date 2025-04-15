@@ -146,9 +146,7 @@ class Llama2FunctionCalling(PromptStyle):
         # replace the curly braces with double curly braces to escape them
         function_list = dumps(function_metadata).replace("{", "{{").replace("}", "}}")
         return (
-            f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}"
-            f"{system_prompt.strip()}"
-            f"{e_sys}{prompt}{e_inst}\n\n"
+            f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{prompt}{e_inst}\n\n"
         )
 
 
@@ -225,9 +223,7 @@ class R1Base(PromptStyle):
         eos_token = ""
 
         if isinstance(prompt, str):
-            return (
-                f"{default_system_prompt}" f"<｜User｜>{prompt}" f"<｜Assistant｜>"  # Prepares for assistant response
-            )
+            return f"{default_system_prompt}<｜User｜>{prompt}<｜Assistant｜>"  # Prepares for assistant response
         elif isinstance(prompt, list):
 
             def encode_message(message: Dict[str, str]) -> str:
@@ -479,7 +475,7 @@ def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> N
 
 
 def load_prompt_style(checkpoint_dir: Path) -> PromptStyle:
-    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     # Support loading the full module path for user-defined prompt classes
     full_module_path, cls_name = config["class_path"].rsplit(".", 1)

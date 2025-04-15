@@ -265,7 +265,7 @@ def test_save_hyperparameters(tmp_path):
     with mock.patch("sys.argv", ["any.py", str(tmp_path), "--foo", "True"]):
         CLI(_test_function)
 
-    with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
+    with open(tmp_path / "hyperparameters.yaml", encoding="utf-8") as file:
         hparams = yaml.full_load(file)
 
     assert hparams["out_dir"] == str(tmp_path)
@@ -293,7 +293,7 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
     with mock.patch("sys.argv", [*command.split(" "), str(tmp_path), "--foo", "True"]):
         save_hyperparameters(_test_function2, tmp_path)
 
-    with open(tmp_path / "hyperparameters.yaml", "r", encoding="utf-8") as file:
+    with open(tmp_path / "hyperparameters.yaml", encoding="utf-8") as file:
         hparams = yaml.full_load(file)
 
     assert hparams["out_dir"] == str(tmp_path)
@@ -332,9 +332,9 @@ def test_init_out_dir(path_type, input_path, expected):
         if "LIGHTNING_ARTIFACTS_DIR" not in os.environ:
             assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
         else:
-            assert (
-                result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected
-            ), f"Failed for {path_type} with input {input_path} (result {result})"
+            assert result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected, (
+                f"Failed for {path_type} with input {input_path} (result {result})"
+            )
 
 
 def test_find_resume_path(tmp_path):

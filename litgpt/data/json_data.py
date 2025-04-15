@@ -139,10 +139,10 @@ class JSON(DataModule):
 
 def load_split(json_path: Path) -> Any:
     if json_path.suffix == ".json":
-        with open(json_path, "r", encoding="utf-8") as file:
+        with open(json_path, encoding="utf-8") as file:
             return json.load(file)
     if json_path.suffix == ".jsonl":
-        with open(json_path, "r", encoding="utf-8") as file:
+        with open(json_path, encoding="utf-8") as file:
             return [json.loads(line) for line in file]
     else:
         raise ValueError(f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`.")
