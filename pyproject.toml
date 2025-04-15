@@ -31,6 +31,7 @@ dependencies = [
   "jsonargparse[signatures]>=4.37; python_version>'3.9'",             # required to work with python3.12+
   "lightning>=2.5,<2.6",
   "numpy<2",                                                          # for older Torch versions
+  "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.15.2",
@@ -53,7 +54,7 @@ optional-dependencies.extra = [
   "huggingface-hub[hf-transfer]>=0.21",
   "litdata==0.2.17",
   # litgpt.deploy:
-  "litserve<=0.2.4",
+  "litserve<=0.2.7",
   "lm-eval>=0.4.2",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
