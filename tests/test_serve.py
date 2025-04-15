@@ -139,7 +139,7 @@ def test_multi_gpu_serve(tmp_path):
     server_thread.join()
 
 
-@_RunIf(min_cuda_gpus=1)
+# @_RunIf(min_cuda_gpus=1)
 def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
@@ -161,9 +161,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         nonlocal process
         try:
             process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=60)
             print(stdout, stderr)
-            return stdout, stderr
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
         return None, None
@@ -171,7 +169,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    _wait_and_check_response()
+    time.sleep(30)  # Give the server some time to start and raise the error
 
     try:
         stdout = process.stdout.read().decode().strip() if process.stdout else ""
@@ -186,7 +184,7 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         server_thread.join()
 
 
-@_RunIf(min_cuda_gpus=1)
+# @_RunIf(min_cuda_gpus=1)
 def test_serve_with_openai_spec(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("SmolLM2-135M-Instruct")
