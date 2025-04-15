@@ -176,9 +176,9 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     try:
         stdout, stderr = run_server()
         output = (stdout or "") + (stderr or "")
-        assert (
-            "ValueError: chat_template not found in tokenizer config file." in output
-        ), "Expected ValueError for missing chat_template not found."
+        assert "ValueError: chat_template not found in tokenizer config file." in output, (
+            "Expected ValueError for missing chat_template not found."
+        )
     finally:
         if process and psutil.pid_exists(process.pid):
             # Kill the process and any child processes if it exists
@@ -235,15 +235,15 @@ def test_serve_with_openai_spec(tmp_path):
                 "messages": [{"role": "user", "content": "Hello!"}],
             },
         )
-        assert (
-            response.status_code == 200
-        ), f"Non-streaming chat completion failed with status code {response.status_code}"
+        assert response.status_code == 200, (
+            f"Non-streaming chat completion failed with status code {response.status_code}"
+        )
         response_json = response.json()
         assert "choices" in response_json, "Response JSON does not contain 'choices'."
         assert "message" in response_json["choices"][0], "Response JSON does not contain 'message' in 'choices'."
-        assert (
-            "content" in response_json["choices"][0]["message"]
-        ), "Response JSON does not contain 'content' in 'message'."
+        assert "content" in response_json["choices"][0]["message"], (
+            "Response JSON does not contain 'content' in 'message'."
+        )
         assert response_json["choices"][0]["message"]["content"], "Content is empty in the response."
 
         # Test streaming chat completion
@@ -255,9 +255,9 @@ def test_serve_with_openai_spec(tmp_path):
                 "stream": True,
             },
         )
-        assert (
-            stream_response.status_code == 200
-        ), f"Streaming chat completion failed with status code {stream_response.status_code}"
+        assert stream_response.status_code == 200, (
+            f"Streaming chat completion failed with status code {stream_response.status_code}"
+        )
         for line in stream_response.iter_lines():
             decoded = line.decode("utf-8").replace("data: ", "").replace("[DONE]", "").strip()
             if decoded:
