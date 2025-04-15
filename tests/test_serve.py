@@ -172,20 +172,18 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)
+    _wait_and_check_response()
+
     try:
-        stdout, stderr = run_server()
+        stdout = process.stdout.read().decode().strip() if process.stdout else ""
+        stderr = process.stderr.read().decode().strip() if process.stderr else ""
         output = (stdout or "") + (stderr or "")
         assert "ValueError: chat_template not found in tokenizer config file." in output, (
             "Expected ValueError for missing chat_template not found."
         )
     finally:
-        if process and psutil.pid_exists(process.pid):
-            # Kill the process and any child processes if it exists
-            parent = psutil.Process(process.pid)
-            for child in parent.children(recursive=True):
-                child.kill()
-            process.kill()
+        if process:
+            kill_process_tree(process.pid)
         server_thread.join()
 
 
@@ -219,7 +217,7 @@ def test_serve_with_openai_spec(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)
+    _wait_and_check_response()
 
     try:
         # Test server health
@@ -266,10 +264,6 @@ def test_serve_with_openai_spec(tmp_path):
                 assert "delta" in data["choices"][0], "Response JSON does not contain 'delta' in 'choices'."
                 assert "content" in data["choices"][0]["delta"], "Response JSON does not contain 'content' in 'delta'."
     finally:
-        if process and psutil.pid_exists(process.pid):
-            # Kill the process and any child processes if it exists
-            parent = psutil.Process(process.pid)
-            for child in parent.children(recursive=True):
-                child.kill()
-            process.kill()
+        if process:
+            kill_process_tree(process.pid)
         server_thread.join()
