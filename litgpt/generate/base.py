@@ -180,10 +180,7 @@ def generate_fn(
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     # input_pos_maxp1 introduces data-dependent shapes and control flow.
     # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
-    if not any(m.__class__.__name__ == "ThunderModule" for m in model.modules()):
-        input_pos_maxp1 = torch.tensor(prompt_size, device=device)
-    else:
-        input_pos_maxp1 = None
+    input_pos_maxp1 = prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in model.modules()) else None
     for current_idx in range(max_returned_tokens - prompt_size):
         # Generate the token
         token = next_token(
@@ -231,7 +228,7 @@ def generate_fn(
         else:
             input_pos.add_(1)
         if input_pos_maxp1 is not None:
-            input_pos_maxp1.add_(1)
+            input_pos_maxp1 += 1
 
     # Yield any remaining tokens
     if yielded_idx < len(tokens):
