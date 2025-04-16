@@ -929,11 +929,10 @@ def test_against_multimodal_gemma_3(model_name, device, dtype):
 
     theirs_model = Gemma3ForConditionalGeneration(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
-    # Gemma weights are shipped without `lm_head.weight`
-    theirs_state_dict.pop("lm_head.weight")
+
     state_dict = {}
 
-    copy_weights_gemma_3({}, state_dict, theirs_state_dict, ours_config)
+    copy_weights_gemma_3({}, state_dict, theirs_state_dict, config=ours_config)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
