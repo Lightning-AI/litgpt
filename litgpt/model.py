@@ -791,8 +791,10 @@ class KVCache(nn.Module):
 
         """
         # move the buffer to the activation dtype for when AMP is used
-        self.k = self.k.to(k.dtype)
-        self.v = self.v.to(v.dtype)
+        if self.k.dtype != k.dtype:
+            self.k = self.k.to(k.dtype)
+        if self.v.dtype != v.dtype:
+            self.v = self.v.to(v.dtype)
         # update the cache
         bs = k.size(0)
         k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
