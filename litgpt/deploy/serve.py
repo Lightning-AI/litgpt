@@ -148,6 +148,9 @@ class OpenAISpecLitAPI(BaseLitAPI):
 
     def setup(self, device: str):
         super().setup(device)
+        if not _JINJA2_AVAILABLE:
+            raise ImportError(str(_JINJA2_AVAILABLE))
+        from jinja2 import Template
 
         config_path = self.checkpoint_dir / "tokenizer_config.json"
         if not config_path.is_file():
@@ -159,10 +162,6 @@ class OpenAISpecLitAPI(BaseLitAPI):
             if chat_template is None:
                 raise ValueError("chat_template not found in tokenizer config file.")
             self.chat_template = chat_template
-
-        if not _JINJA2_AVAILABLE:
-            raise ImportError(str(_JINJA2_AVAILABLE))
-        from jinja2 import Template
 
         self.template = Template(self.chat_template)
 
