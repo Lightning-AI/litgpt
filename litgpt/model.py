@@ -333,12 +333,6 @@ class CausalSelfAttention(nn.Module):
         if config.sliding_window_size is not None and config.sliding_window_indices is not None:
             self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
 
-        self.q_norm = None
-        self.k_norm = None
-        if config.norm_qk:
-            self.q_norm = config.norm_class(config.head_size * config.n_head, eps=config.norm_eps)
-            self.k_norm = config.norm_class(config.head_size * config.n_query_groups, eps=config.norm_eps)
-
         self.config = config
         self.block_idx = block_idx
 
@@ -376,8 +370,10 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
         if self.config.norm_qk:
-            q = self.q_norm(q)
-            k = self.k_norm(k)
+            norm_q = self.config.norm_class(head_size * n_head, eps=self.config.norm_eps)
+            norm_k = self.config.norm_class(head_size * n_query_groups, eps=self.config.norm_eps)
+            q = norm_q(q)
+            k = norm_k(k)
 
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
