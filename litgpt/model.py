@@ -580,6 +580,9 @@ class MLA(nn.Module):
             raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
         if cos.shape != sin.shape:
             raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+        print("x shape:", x.shape)
+        print("cos shape:", cos.shape)
+        print("sin shape:", sin.shape)
         head_size_half = x.size(-1) // 2
         x1 = x[..., :head_size_half]  # (B, ..., T, head_size/2)
         x2 = x[..., head_size_half:]  # (B, ..., T, head_size/2)
@@ -588,6 +591,7 @@ class MLA(nn.Module):
         if dims_diff > 0:
             # Ensure that shapes of `x`, `cos`, `sin` align
             new_shape = cos.shape[0:2] + (1,) * dims_diff + cos.shape[2:]
+            print("new_shape:", new_shape)
             cos = cos.view(*new_shape)
             sin = sin.view(*new_shape)
 
@@ -612,14 +616,22 @@ class MLA(nn.Module):
         # - hs         | head size
 
         B, T, _ = x.size()  # batch size, sequence length
+        print("B:", B)
+        print("T:", T)
 
         # q projections
         latent_q = self.dq(x)
+        print("latent_q shape:", latent_q.shape)
         if self.norm_q:
             latent_q = self.norm_q(latent_q)
         q = self.uq(latent_q)
         q = q.view(B, T, self.config.n_head, self.qk_rope_dim + self.qk_nope_dim)  # (B, T, nh_q, hs)
         q, q_for_rope = torch.split(q, [self.qk_nope_dim, self.qk_rope_dim], dim=-1)  # split channels for RoPE
+
+        print("q shape:", q.shape)
+        print("cos shape:", cos.shape)
+        print("sin shape:", sin.shape)
+        
 
         # q decoupled for RoPE
         q_for_rope = self.apply_rope_mla(q_for_rope[..., : self.config.rope_n_elem], cos, sin)
@@ -629,9 +641,11 @@ class MLA(nn.Module):
             new_kv = self.dkv(x)
             latent_kv = self.kv_cache(input_pos, new_kv)
 
-            old_kv = latent_kv[..., : input_pos[0], :]
+            if input_pos_maxp1 is not None:
+                old_kv = latent_kv[..., : input_pos_maxp1, :]
+            else:
+                old_kv = latent_kv
             old_kv, old_k_for_rope = torch.split(old_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1)
-
             new_kv, new_k_for_rope = torch.split(new_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1)
 
             if self.norm_kv:  # normalized separately as in the original implementation
