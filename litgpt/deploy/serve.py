@@ -160,9 +160,15 @@ class OpenAISpecLitAPI(BaseLitAPI):
                 raise ValueError("chat_template not found in tokenizer config file.")
             self.chat_template = chat_template
 
+        if not _JINJA2_AVAILABLE:
+            raise ImportError(str(_JINJA2_AVAILABLE))
+        from jinja2 import Template
+
+        self.template = Template(self.chat_template)
+
     def decode_request(self, request: "ChatCompletionRequest") -> Any:
-        prompt = self.apply_chat_template(request.messages)
-        return prompt
+        # Apply template to request messages
+        return self.template.render(request.messages)
 
     def predict(self, inputs: str, context: dict) -> Any:
         # Extract parameters from context with fallback to instance attributes
@@ -174,17 +180,6 @@ class OpenAISpecLitAPI(BaseLitAPI):
         yield from self.llm.generate(
             inputs, temperature=temperature, top_k=self.top_k, top_p=top_p, max_new_tokens=max_new_tokens, stream=True
         )
-
-    def apply_chat_template(self, messages: List["ChatMessage"]) -> str:
-        if not _JINJA2_AVAILABLE:
-            raise ImportError(
-                "apply_chat_template requires jinja2 to be installed. Please install it using `pip install jinja2`."
-            )
-
-        from jinja2 import Template
-
-        template = Template(self.chat_template)
-        return template.render(messages=messages)
 
 
 def run_server(
