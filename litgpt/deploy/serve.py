@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 import torch
 from lightning_utilities.core.imports import RequirementCache
@@ -15,7 +15,7 @@ _LITSERVE_AVAILABLE = RequirementCache("litserve")
 _JINJA2_AVAILABLE = RequirementCache("jinja2")
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
-    from litserve.specs.openai import ChatCompletionRequest, ChatMessage, OpenAISpec
+    from litserve.specs.openai import ChatCompletionRequest, OpenAISpec
 else:
     LitAPI, LitServer = object, object
 
