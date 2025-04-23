@@ -2216,7 +2216,7 @@ qwen_2_5_long_context = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=13824,
         norm_eps=1e-5,
-        rope_base=10000000
+        rope_base=10000000,
     ),
     # https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-1M/blob/main/config.json
     dict(
@@ -2237,7 +2237,7 @@ qwen_2_5_long_context = [
         mlp_class_name="LLaMAMLP",
         intermediate_size=18944,
         norm_eps=1e-5,
-        rope_base=10000000
+        rope_base=10000000,
     ),
 ]
 
