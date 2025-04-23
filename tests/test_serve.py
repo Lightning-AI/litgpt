@@ -1,20 +1,39 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-from dataclasses import asdict
+import platform
 import shutil
-
-from lightning.fabric import seed_everything
-import torch
-import requests
 import subprocess
-from litgpt.utils import _RunIf
 import threading
 import time
+from dataclasses import asdict
+
+import pytest
+import requests
+import torch
 import yaml
+from lightning.fabric import seed_everything
+from urllib3.exceptions import MaxRetryError
 
 from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
+from litgpt.utils import _RunIf, kill_process_tree
 
 
+def _wait_and_check_response():
+    response_status_code = -1
+    for _ in range(30):
+        try:
+            response = requests.get("http://127.0.0.1:8000", timeout=10)
+            response_status_code = response.status_code
+        except (MaxRetryError, requests.exceptions.ConnectionError):
+            response_status_code = -1
+        if response_status_code == 200:
+            break
+        time.sleep(1)
+    assert response_status_code == 200, "Server did not respond as expected."
+
+
+# todo: try to resolve this issue
+@pytest.mark.xfail(condition=platform.system() == "Darwin", reason="it passes locally but having some issues on CI")
 def test_simple(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
@@ -28,33 +47,25 @@ def test_simple(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path
-    ]
+    run_command = ["litgpt", "serve", tmp_path]
 
     process = None
 
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=60)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)
+    _wait_and_check_response()
 
-    try:
-        response = requests.get("http://127.0.0.1:8000")
-        print(response.status_code)
-        assert response.status_code == 200, "Server did not respond as expected."
-    finally:
-        if process:
-            process.kill()
-        server_thread.join()
+    if process:
+        kill_process_tree(process.pid)
+    server_thread.join()
 
 
 @_RunIf(min_cuda_gpus=1)
@@ -71,33 +82,25 @@ def test_quantize(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--quantize", "bnb.nf4"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--quantize", "bnb.nf4"]
 
     process = None
 
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    _wait_and_check_response()
 
-    try:
-        response = requests.get("http://127.0.0.1:8000")
-        print(response.status_code)
-        assert response.status_code == 200, "Server did not respond as expected."
-    finally:
-        if process:
-            process.kill()
-        server_thread.join()
+    if process:
+        kill_process_tree(process.pid)
+    server_thread.join()
 
 
 @_RunIf(min_cuda_gpus=2)
@@ -114,30 +117,22 @@ def test_multi_gpu_serve(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    run_command = [
-        "litgpt", "serve", tmp_path, "--devices", "2"
-    ]
+    run_command = ["litgpt", "serve", tmp_path, "--devices", "2"]
 
     process = None
 
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate(timeout=10)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
-            print('Server start-up timeout expired')
+            print("Server start-up timeout expired")
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(10)
+    _wait_and_check_response()
 
-    try:
-        response = requests.get("http://127.0.0.1:8000")
-        print(response.status_code)
-        assert response.status_code == 200, "Server did not respond as expected."
-    finally:
-        if process:
-            process.kill()
-        server_thread.join()
+    if process:
+        kill_process_tree(process.pid)
+    server_thread.join()

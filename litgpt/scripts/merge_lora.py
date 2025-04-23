@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 """This script merges the LoRA weights with the base model"""
+
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Dict, Optional, Tuple
@@ -14,9 +15,7 @@ from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: Path,
-    pretrained_checkpoint_dir: Optional[Path] = None,
-    precision: Optional[str] = None
+    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
 ) -> None:
     """Merges the LoRA weights with the base model.
 
@@ -93,7 +92,7 @@ def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Opti
             f" the `litgpt/finetune/lora.py` script."
         )
 
-    with open(hparams_file, "r", encoding="utf-8") as file:
+    with open(hparams_file, encoding="utf-8") as file:
         hparams = yaml.safe_load(file)
 
     lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}

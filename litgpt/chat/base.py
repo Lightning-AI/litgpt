@@ -10,12 +10,11 @@ import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
-from litgpt.model import GPT
 from litgpt.config import Config
-from litgpt.prompts import PromptStyle
-from litgpt.tokenizer import Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style
+from litgpt.model import GPT
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
@@ -61,6 +60,7 @@ def generate(
         stop_tokens: If specified, stop generating any more token once one of this list is generated.
     """
     from litgpt.generate.base import generate_fn
+
     return generate_fn(
         include_prompt=False,
         include_eos=False,
@@ -70,11 +70,13 @@ def generate(
         temperature=temperature,
         top_k=top_k,
         top_p=top_p,
-        stop_tokens=stop_tokens
+        stop_tokens=stop_tokens,
     )
 
 
-def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
+def process_prompt(
+    prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens
+):
     prompt = prompt_style.apply(prompt=prompt)
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
 
@@ -88,7 +90,13 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
             model.set_kv_cache(batch_size=1, device=fabric.device)
 
     y: Iterator[torch.Tensor] = generate(
-        model, encoded_prompt, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, stop_tokens=stop_tokens
+        model,
+        encoded_prompt,
+        max_returned_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        stop_tokens=stop_tokens,
     )
     token_generator: Iterator[str] = tokenizer.decode_stream(y, device=fabric.device)
 
@@ -106,8 +114,7 @@ def process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, 
     for block in model.transformer.h:
         block.attn.kv_cache.reset_parameters()
     fabric.print(
-        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec,"
-        f" {tokens_generated} tokens",
+        f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec, {tokens_generated} tokens",
         file=sys.stderr,
     )
     fabric.print()
@@ -135,7 +142,9 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max
         if not prompt or prompt in ("!quit", "!exit"):
             break
 
-        process_prompt(prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens)
+        process_prompt(
+            prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens
+        )
 
 
 @torch.inference_mode()
@@ -256,7 +265,7 @@ def main(
         max_new_tokens=(None if compile else max_new_tokens),
         top_k=top_k,
         top_p=top_p,
-        stop_tokens=stop_tokens
+        stop_tokens=stop_tokens,
     )
 
     if fabric.device.type == "cuda":

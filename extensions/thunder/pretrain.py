@@ -8,7 +8,7 @@ import time
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union, List, Dict
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -22,7 +22,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, CausalSelfAttention, Config, LLaMAMLP, Block
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -42,6 +42,13 @@ from litgpt.utils import (
 # support running without installing as a package
 wd = Path(__file__).parent.resolve()
 sys.path.append(str(wd))
+
+
+def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    logits = model(input_ids)
+    # disable chunk_size to enable the unsloth cross entropy kernel
+    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    return loss
 
 
 def setup(
@@ -67,7 +74,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
     seed: int = 42,
     compiler: Optional[Literal["thunder", "torch"]] = "thunder",
     executors: Optional[List[str]] = ("sdpa", "torchcompile", "nvfuser", "torch"),
@@ -123,7 +130,10 @@ def setup(
                 from extensions.thunder.strategies import ThunderFSDPStrategy
 
                 strategy = ThunderFSDPStrategy(
-                    sharding_strategy="ZERO3", bucketing_strategy="BLOCK", state_dict_type="full", jit=False,
+                    sharding_strategy="ZERO3",
+                    bucketing_strategy="BLOCK",
+                    state_dict_type="full",
+                    jit=False,
                 )
             elif strategy == "ddp":
                 from extensions.thunder.strategies import ThunderDDPStrategy
@@ -141,10 +151,12 @@ def setup(
 
     if compiler is not None:
         global forward_and_loss
-        forward_and_loss = jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        forward_and_loss = (
+            jit(forward_and_loss, executors) if compiler == "thunder" else torch.compile(forward_and_loss)
+        )
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
+    if logger_name in ("tensorboard", "wandb", "mlflow"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
@@ -232,11 +244,19 @@ def main(
 
     train_time = time.perf_counter()
     fit(
-        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
-        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval, optimizer=optimizer
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
+        optimizer=optimizer,
     )
-    fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
+    fabric.print(f"Training time: {(time.perf_counter() - train_time):.2f}s")
 
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
@@ -267,8 +287,8 @@ def fit(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        model_fwd = lambda: meta_model(x)  # noqa: F821
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -344,7 +364,7 @@ def fit(
             if isinstance(val_loss, float):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
@@ -369,13 +389,6 @@ def fit(
 
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
             save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
-
-
-def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
-    logits = model(input_ids)
-    # disable chunk_size to enable the unsloth cross entropy kernel
-    loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-    return loss
 
 
 @torch.no_grad()
@@ -486,8 +499,9 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
 
 def jit(fn: Callable, executors: List[str]) -> Any:
     assert executors is not None
-    import thunder
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
+
+    import thunder
 
     return thunder.jit(fn, executors=executors)
 

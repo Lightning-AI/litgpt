@@ -11,6 +11,7 @@ from transformers import AutoConfig, AutoModelForCausalLM
 from transformers.models.falcon import FalconConfig, FalconForCausalLM
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
 from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
+from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3TextConfig
 from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
@@ -27,6 +28,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
     convert_lit_checkpoint,
     copy_weights_falcon,
     copy_weights_gemma_2,
+    copy_weights_gemma_3,
     copy_weights_gpt_neox,
     copy_weights_llama,
     copy_weights_phi,
@@ -368,7 +370,7 @@ def test_against_original_stablelm_zephyr_3b():
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
-    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True)
+    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True, torch_dtype=torch.float32)
     theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
@@ -512,6 +514,79 @@ def test_against_original_gemma_2(model_name, device, dtype):
     torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
 
 
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"))
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                _RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_gemma_3(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        sliding_window_size=T // 2,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Gemma3TextConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        sliding_window=ours_config.sliding_window_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        attention_bias=ours_config.bias,
+        tie_word_embeddings=True,
+        hidden_act="gelu_pytorch_tanh",
+        attn_logit_softcapping=ours_config.attention_logit_softcapping,
+        final_logit_softcapping=ours_config.final_logit_softcapping,
+        initializer_range=1.0,  # to make the affect of attention_logit_softcapping more prominent
+        attn_implementation="eager",
+        query_pre_attn_scalar=ours_config.attention_scores_scalar,
+    )
+
+    assert ours_config.intermediate_size == theirs_config.intermediate_size
+
+    ours_model = GPT(ours_config).to(device)
+    # tie weights
+    ours_model.lm_head.weight = ours_model.transformer.wte.weight
+    ours_state_dict = ours_model.state_dict()
+    theirs_state_dict = {}
+    copy_weights_gemma_3(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    theirs_model = Gemma3ForCausalLM(theirs_config).to(device)
+    keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
+
+
 def test_check_conversion_supported_adapter():
     lit_weights = {"some.key.name": ANY, "error.key.gating_factor": ANY}
     with pytest.raises(NotImplementedError, match="Converting adapter"):
@@ -527,8 +602,9 @@ def test_check_conversion_supported_lora():
     with pytest.raises(ValueError, match=r"LoRA.*cannot be converted"):
         check_conversion_supported(lit_weights=lit_weights)
 
+
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "Qwen2.5-14B-Instruct-1M"))
+@pytest.mark.parametrize("model_name", ("Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B", "Qwen2.5-14B-Instruct-1M"))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -590,6 +666,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
 
 def test_qkv_reassemble():
     # MHA

@@ -10,7 +10,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 import lightning as L
 import torch
 from lightning.fabric.strategies import FSDPStrategy
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, TrainArgs
@@ -20,8 +20,8 @@ from litgpt.model import GPT, Block, Config
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    auto_download_checkpoint,
     CycleIterator,
+    auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -30,9 +30,9 @@ from litgpt.utils import (
     create_finetuning_performance_report,
     find_resume_path,
     get_default_supported_precision,
-    load_checkpoint,
     init_out_dir,
     instantiate_torch_optimizer,
+    load_checkpoint,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -59,7 +59,7 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:
@@ -108,13 +108,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=logger
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=logger)
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -223,7 +217,9 @@ def fit(
     optimizer = state["optimizer"]
     scheduler = state["scheduler"]
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(
+        ConcatDataset([train_dataloader.dataset, val_dataloader.dataset])
+    )
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
@@ -290,7 +286,9 @@ def fit(
             state["step_count"] += 1
 
         token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
-        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += (
+            batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        )
         token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
 
         if state["iter_num"] % train.log_interval == 0:
@@ -309,7 +307,7 @@ def fit(
             if isinstance(val_loss, torch.Tensor):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
@@ -322,8 +320,17 @@ def fit(
             val_loss = validate(fabric, model, val_dataloader, eval)
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
-            fabric.print(f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
-            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+
+            val_loss_tensor = val_loss.detach().clone().to(fabric.device)
+            val_time_tensor = torch.tensor(t1, device=fabric.device, dtype=torch.float32)
+
+            fabric.all_reduce(val_loss_tensor, reduce_op="mean")
+            fabric.all_reduce(val_time_tensor, reduce_op="mean")
+
+            fabric.print(
+                f"iter {state['iter_num']}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
+            )
+            metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
@@ -343,9 +350,12 @@ def fit(
 
     return total_token_counts
 
+
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()

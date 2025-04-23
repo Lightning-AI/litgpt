@@ -2,10 +2,10 @@
 
 import sys
 import time
+import warnings
 from pathlib import Path
 from pprint import pprint
 from typing import Literal, Optional
-import warnings
 
 import lightning as L
 import torch
@@ -21,7 +21,7 @@ from litgpt.utils import (
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
-    lazy_load
+    lazy_load,
 )
 
 
@@ -83,8 +83,7 @@ def main(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. "
-                "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
@@ -132,7 +131,9 @@ def main(
 
     L.seed_everything(1234)
     t0 = time.perf_counter()
-    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
+    y = generate(
+        model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id
+    )
     t = time.perf_counter() - t0
 
     output = tokenizer.decode(y)

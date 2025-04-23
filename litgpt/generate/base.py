@@ -2,10 +2,10 @@
 
 import sys
 import time
+import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Literal, Optional, Tuple, List, Union, Iterator, Dict
-import warnings
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -14,16 +14,16 @@ import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning_utilities.core.imports import RequirementCache
 
-from litgpt.model import GPT
 from litgpt.config import Config
+from litgpt.model import GPT
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
-from litgpt.prompts import has_prompt_style, load_prompt_style, PromptStyle
 from litgpt.utils import (
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
-    load_checkpoint
+    load_checkpoint,
 )
 
 
@@ -87,10 +87,14 @@ def next_token(
 
 def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tensor:
     assert len(logits) == len(kwargs), "logits and kwargs must have the same length."
-    return torch.stack([sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0)
+    return torch.stack(
+        [sample(l, **sample_args).to(dtype=torch.int64) for sample_args, l in zip(kwargs, logits)], dim=0
+    )
 
 
-def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]) -> torch.Tensor:
+def batched_next_token(
+    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]
+) -> torch.Tensor:
     # Where:
     # input_pos is a 1d tensor of shape [seq_length...]
     # x is context tokens to add to the kvcache.
@@ -150,12 +154,12 @@ def generate_fn(
         include_eos: Whether to output the stop tokens if generation stops early.
     """
 
-
-
     prompt_size = prompt.size(0)
     device = prompt.device
 
-    assert max_returned_tokens > prompt_size, f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > prompt_size, (
+        f"Not enough space for {prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    )
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
@@ -176,12 +180,11 @@ def generate_fn(
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     # input_pos_maxp1 introduces data-dependent shapes and control flow.
     # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
-    if not any(m.__class__.__name__ == 'ThunderModule' for m in model.modules()):
+    if not any(m.__class__.__name__ == "ThunderModule" for m in model.modules()):
         input_pos_maxp1 = torch.tensor(prompt_size, device=device)
     else:
         input_pos_maxp1 = None
     for current_idx in range(max_returned_tokens - prompt_size):
-
         # Generate the token
         token = next_token(
             model,
@@ -214,10 +217,10 @@ def generate_fn(
         if stop_tokens:
             safe_idx = len(tokens) - max(stop_progress)
         else:
-            safe_idx = current_idx + 1 # include the token just generated
+            safe_idx = current_idx + 1  # include the token just generated
 
         if yielded_idx < safe_idx:
-            y_tokens = tokens[yielded_idx : safe_idx]
+            y_tokens = tokens[yielded_idx:safe_idx]
             yield from y_tokens
             yielded_idx = safe_idx
 
@@ -278,7 +281,9 @@ def batched_generate_fn(
         assert len(sample_args) == batch_size, "sample_args must have the length as the batch size."
 
     # TODO: This check (and the one in generate_fn) is not sufficient. We do the proper checks in LLM.generate().
-    assert max_returned_tokens > max_prompt_size, f"Not enough space for {max_prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    assert max_returned_tokens > max_prompt_size, (
+        f"Not enough space for {max_prompt_size} prompt tokens in a context length of {max_returned_tokens}."
+    )
     if model.max_seq_length < max_returned_tokens - 1:
         raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
 
@@ -288,7 +293,7 @@ def batched_generate_fn(
         for i in range(max_prompt_size):
             yield [prompt[i].view(-1) for prompt in prompts]
 
-    stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)] # [batch_size, ~len(stop_tokens)]
+    stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)]  # [batch_size, ~len(stop_tokens)]
     stop_idxes = [-1] * batch_size
     yielded_idx = 0
 
@@ -301,7 +306,6 @@ def batched_generate_fn(
     prefill_token = True
     input_pos = torch.arange(0, max_prompt_size, device=device, dtype=torch.int64)
     for current_idx in range(max_returned_tokens - max_prompt_size):
-
         # Generate the next token for each prompt in the batch.
         # This is of shape [batch_size, 1].
         tokens = batched_next_token(model, input_pos, tokens, sample_args)
@@ -332,12 +336,15 @@ def batched_generate_fn(
         if len(stop_tokens) != 0:
             safe_idxes = [len(token_lists[i]) - max(stop_progresses[i]) for i in range(batch_size)]
         else:
-            safe_idxes = [current_idx + 1] # include the token just generated
+            safe_idxes = [current_idx + 1]  # include the token just generated
         safe_idx = min(safe_idxes)
 
         if yielded_idx < safe_idx:
             for idx in range(yielded_idx, safe_idx):
-                y_tokens = [token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)]
+                y_tokens = [
+                    token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None
+                    for i in range(batch_size)
+                ]
                 if all(y is None for y in y_tokens):
                     return
                 yield y_tokens
@@ -357,7 +364,9 @@ def batched_generate_fn(
     max_token_lists = max(len(l) for l in token_lists)
     if yielded_idx < max_token_lists:
         for idx in range(yielded_idx, max_token_lists):
-            y_tokens = [token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)]
+            y_tokens = [
+                token_lists[i][idx] if (stop_idxes[i] == -1 or idx < stop_idxes[i]) else None for i in range(batch_size)
+            ]
             if all(y is None for y in y_tokens):
                 return
             yield y_tokens
@@ -404,17 +413,19 @@ def generate(
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
     """
 
-    token_list = list(generate_fn(
-        include_prompt=include_prompt,
-        include_eos=True,
-        model=model,
-        prompt=prompt,
-        max_returned_tokens=max_returned_tokens,
-        temperature=temperature,
-        top_k=top_k,
-        top_p=top_p,
-        stop_tokens=(([eos_id],) if eos_id is not None else ())
-    ))
+    token_list = list(
+        generate_fn(
+            include_prompt=include_prompt,
+            include_eos=True,
+            model=model,
+            prompt=prompt,
+            max_returned_tokens=max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            stop_tokens=(([eos_id],) if eos_id is not None else ()),
+        )
+    )
 
     return torch.cat(token_list) if not len(token_list) == 0 else torch.Tensor()
 
@@ -477,8 +488,7 @@ def main(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. "
-                "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
@@ -530,7 +540,15 @@ def main(
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
+        y = generate(
+            model,
+            encoded,
+            max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            eos_id=tokenizer.eos_id,
+        )
         t = time.perf_counter() - t0
         for block in model.transformer.h:
             block.attn.kv_cache.reset_parameters()
