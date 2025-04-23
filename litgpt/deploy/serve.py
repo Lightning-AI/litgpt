@@ -167,7 +167,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
         self.template = Template(self.chat_template)
 
     def decode_request(self, request: "ChatCompletionRequest") -> Any:
-        # Apply template to request messages
+        # Apply chat template to request messages
         return self.template.render(request.messages)
 
     def predict(self, inputs: str, context: dict) -> Any:
