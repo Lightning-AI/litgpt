@@ -631,7 +631,6 @@ class MLA(nn.Module):
         print("q shape:", q.shape)
         print("cos shape:", cos.shape)
         print("sin shape:", sin.shape)
-        
 
         # q decoupled for RoPE
         q_for_rope = self.apply_rope_mla(q_for_rope[..., : self.config.rope_n_elem], cos, sin)
@@ -642,7 +641,7 @@ class MLA(nn.Module):
             latent_kv = self.kv_cache(input_pos, new_kv)
 
             if input_pos_maxp1 is not None:
-                old_kv = latent_kv[..., : input_pos_maxp1, :]
+                old_kv = latent_kv[..., :input_pos_maxp1, :]
             else:
                 old_kv = latent_kv
             old_kv, old_k_for_rope = torch.split(old_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1)
