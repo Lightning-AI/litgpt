@@ -232,10 +232,13 @@ def main(
     # work around PyTorch issue https://github.com/pytorch/pytorch/issues/152162
     # which does not like the lazy initialization to be called in dynamo.
     # Happens with PyTorch 2.7.
-    if (torch.__version__.startswith('2.7.') and
-        (model._forward_module.__class__.__name__ == 'OptimizedModule') and
-        (model._forward_module._orig_mod.__class__.__name__ == 'FullyShardedDataParallel')):
+    if (
+        torch.__version__.startswith("2.7.")
+        and (model._forward_module.__class__.__name__ == "OptimizedModule")
+        and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
+    ):
         from torch.distributed.fsdp._runtime_utils import _root_pre_forward
+
         _root_pre_forward(model._forward_module._orig_mod, model._forward_module._orig_mod, [], {})
 
     fit(
