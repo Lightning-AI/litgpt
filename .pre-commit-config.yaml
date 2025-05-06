@@ -26,8 +26,8 @@ repos:
     rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
-        exclude: README.md
       - id: trailing-whitespace
+        exclude: README.md
       - id: check-yaml
       - id: check-toml
       #- id: check-docstring-first
