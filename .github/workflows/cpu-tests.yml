@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-22.04"]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
           - { os: "macOS-14", python-version: "3.9" }
           - { os: "windows-2022", python-version: "3.9" }
