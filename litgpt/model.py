@@ -84,7 +84,7 @@ class GPT(nn.Module):
         self,
         idx: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
         lm_head_chunk_size: int = 0,
     ) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
@@ -291,7 +291,7 @@ class Block(nn.Module):
         sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
@@ -325,8 +325,6 @@ class Block(nn.Module):
         else:
             x = attention_output + x
             x_normed = self.norm_2(x)
-        print("mlp output", self.mlp(x_normed))
-        print("attention output ", self.post_mlp_norm(self.mlp(x_normed)) + x)
         return self.post_mlp_norm(self.mlp(x_normed)) + x
 
 
@@ -363,7 +361,7 @@ class CausalSelfAttention(nn.Module):
         sin: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size
@@ -401,14 +399,14 @@ class CausalSelfAttention(nn.Module):
         q = q.transpose(1, 2)  # (B, nh_q, T, hs)
         k = k.transpose(1, 2)  # (B, nh_k, T, hs)
         v = v.transpose(1, 2)  # (B, nh_v, T, hs)
-        
+
         if self.config.norm_qk:
             q = self.norm_q(q)
             k = self.norm_k(k)
+
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
         q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
         k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
-        
         q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
         k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
@@ -455,6 +453,7 @@ class CausalSelfAttention(nn.Module):
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
         # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
         y = self.scaled_dot_product_attention(q, k, v, mask)
+
         # Re-assemble all head outputs side by side.
         y = y.reshape(B, T, head_size * n_head)
 
