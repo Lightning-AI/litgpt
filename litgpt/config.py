@@ -13,6 +13,15 @@ from litgpt.utils import find_multiple
 
 
 @dataclass
+class MLAConfig:
+    q_proj_dim: Optional[int] = None
+    kv_proj_dim: Optional[int] = None
+    qk_rope_dim: Optional[int] = None
+    qk_nope_dim: Optional[int] = None
+    v_dim: Optional[int] = None
+
+
+@dataclass
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
@@ -34,6 +43,8 @@ class Config:
     # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
+    latent_attention: Optional[bool] = False
+    mla: MLAConfig = field(default_factory=MLAConfig)
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
