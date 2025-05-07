@@ -2449,6 +2449,59 @@ qwq = [
 
 configs.extend(qwq)
 
+#############
+# Qwen3
+#############
+qwen3 = [
+    dict(
+        name="Qwen3-8B",
+        hf_config=dict(org="Qwen", name="Qwen3-8B"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        head_size=128,
+        parallel_residual=False,
+        rotary_percentage=1.0,
+        bias=False,
+        attn_bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=12288,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+    ),
+    dict(
+        name="Qwen3-235B-A22B",
+        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=94,
+        n_head=64,
+        n_embd=4096,
+        n_query_groups=4,
+        head_size=128,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=12288,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    )
+]
+
+configs.extend(qwen3)
 
 #############
 # Salamandra
