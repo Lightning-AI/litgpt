@@ -600,7 +600,7 @@ def copy_weights_qwen_3(
 
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
-                
+
 
 def qkv_reassemble(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config

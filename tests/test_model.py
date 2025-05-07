@@ -43,7 +43,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_hf_llama,
     copy_weights_phi,
     copy_weights_qwen_2_5,
-    copy_weights_qwen_3
+    copy_weights_qwen_3,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
@@ -1011,9 +1011,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    "model_name", ["Qwen3-8B"]
-)
+@pytest.mark.parametrize("model_name", ["Qwen3-8B"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -1034,15 +1032,8 @@ def test_against_original_qwen_3(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
     T = 20
-    ours_config = Config.from_name(
-        model_name,
-        block_size=T,
-        n_layer=1,
-        n_head=16,
-        n_embd=32,
-        intermediate_size=86
-    )
-    
+    ours_config = Config.from_name(model_name, block_size=T, n_layer=1, n_head=16, n_embd=32, intermediate_size=86)
+
     theirs_config = Qwen3Config(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -1054,8 +1045,7 @@ def test_against_original_qwen_3(model_name, device, dtype):
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
         rope_theta=ours_config.rope_base,
-        attention_bias=ours_config.attn_bias
-
+        attention_bias=ours_config.attn_bias,
     )
     print(ours_config)
     print(theirs_config)
@@ -1074,6 +1064,7 @@ def test_against_original_qwen_3(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
+
 
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("salamandra-2b", "salamandra-7b"))

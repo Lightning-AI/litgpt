@@ -2498,7 +2498,7 @@ qwen3 = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
-    )
+    ),
 ]
 
 configs.extend(qwen3)
