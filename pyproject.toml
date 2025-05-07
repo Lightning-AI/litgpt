@@ -75,7 +75,6 @@ optional-dependencies.extra = [
 optional-dependencies.test = [
   "einops>=0.7",
   "protobuf>=4.23.4",
-  "pydantic>=2.11",
   "pytest>=8.1.1",
   "pytest-benchmark>=5.1",
   "pytest-dependency>=0.6",
