@@ -1011,7 +1011,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ["Qwen3-8B"])
+@pytest.mark.parametrize("model_name", ["Qwen3-0.6B", "Qwen3-1.7B", "Qwen3-4B", "Qwen3-8B", "Qwen3-14B", "Qwen3-32B"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
