@@ -1032,8 +1032,14 @@ def test_against_original_qwen_3(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
     T = 20
-    ours_config = Config.from_name(model_name, block_size=T, n_layer=1, n_head=16, n_embd=32, intermediate_size=86)
-
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
     theirs_config = Qwen3Config(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -1047,8 +1053,6 @@ def test_against_original_qwen_3(model_name, device, dtype):
         rope_theta=ours_config.rope_base,
         attention_bias=ours_config.attn_bias,
     )
-    print(ours_config)
-    print(theirs_config)
 
     theirs_model = Qwen3ForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
