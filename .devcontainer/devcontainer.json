@@ -1,0 +1,104 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.194.0/containers/python-3
+{
+  "name": "Python 3 (litgpt)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "VARIANT": "3.11-bookworm"
+    }
+  },
+  "runArgs": [
+    // Enable GPU passthrough, requires WSL2 on Windows
+    //"--gpus=all",
+    // One of the following options is required for torch multiprocessing
+    //"--ipc=host",
+    //"--shm-size=4gb",
+  ],
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {},
+    //"ghcr.io/devcontainers/features/nvidia-cuda:1": {},
+    "ghcr.io/devcontainers-extra/features/actionlint:1": {},
+    "ghcr.io/devcontainers-extra/features/pre-commit:2": {},
+    "ghcr.io/dhoeric/features/act:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  // Set *default* container specific settings.json values on container create.
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.tabSize": 4,
+        "editor.renderWhitespace": "all",
+        "editor.formatOnSave": true,
+        "editor.rulers": [120],
+        "files.exclude": {
+          "**/__pycache__": true
+        },
+        "python.pythonPath": "/usr/local/bin/python",
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.languageServer": "Pylance",
+        "python.autoComplete.addBrackets": true,
+        "python.analysis.autoImportCompletions": true,
+        "python.analysis.completeFunctionParens": true,
+        "python.analysis.autoSearchPaths": true,
+        "python.analysis.useImportHeuristic": true,
+        "python.sortImports": true,
+        "isort.args": ["--settings-path=${workspaceFolder}/pyproject.toml"],
+        "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
+        "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": ["--config=${workspaceFolder}/pyproject.toml"],
+        "python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
+        "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+        "python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
+        "python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
+        "python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
+        "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": true,
+        "python.linting.flake8Args": ["--config=${workspaceFolder}/setup.cfg", "--verbose"],
+        "python.testing.pytestArgs": ["tests"],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "esbonio.sphinx.confDir": "${workspaceFolder}/docs/source",
+        "esbonio.sphinx.buildDir": "${workspaceFolder}/docs/build",
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "always",
+            "source.fixAll": "always"
+          }
+        }
+      },
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "visualstudioexptteam.vscodeintellicode",
+        "kevinrose.vsc-python-indent",
+        "littlefoxteam.vscode-python-test-adapter",
+        "hbenl.vscode-test-explorer",
+        "medo64.render-crlf",
+        "shardulm94.trailing-spaces",
+        "njqdev.vscode-python-typehint",
+        "lextudio.restructuredtext",
+        "trond-snekvik.simple-rst"
+      ]
+    }
+  },
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  "postCreateCommand": "pre-commit install && pip install '.[extra,compiler,test]' -U",
+  // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+  "remoteUser": "vscode"
+}
