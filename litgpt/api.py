@@ -461,6 +461,7 @@ class LLM(torch.nn.Module):
     def generate(
         self,
         prompt: str,
+        sys_prompt: Optional[str] = None,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
         top_k: Optional[int] = None,
@@ -474,6 +475,7 @@ class LLM(torch.nn.Module):
         Arguments:
             model: The model to use.
             prompt: The prompt string to use for generating the samples.
+            sys_prompt: The system prompt string to use for generating the samples.
             max_new_tokens: The maximum number of new tokens to return.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
@@ -501,7 +503,7 @@ class LLM(torch.nn.Module):
                 "The model is not initialized yet; use the .distribute() "
                 "or .trainer_setup() method to initialize the model."
             )
-        input_ids = self._text_to_token_ids(prompt)
+        input_ids = self._text_to_token_ids(prompt, sys_prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
@@ -564,9 +566,9 @@ class LLM(torch.nn.Module):
         else:
             return self.preprocessor.decode(outputs)
 
-    def _text_to_token_ids(self, prompt):
+    def _text_to_token_ids(self, prompt: str, sys_prompt: Optional[str] = None) -> torch.Tensor:
         """Utility method to convert a prompt text to token IDs"""
-        prompt = self.prompt_style.apply(prompt)
+        prompt = self.prompt_style.apply(prompt, sys_prompt=sys_prompt)
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
