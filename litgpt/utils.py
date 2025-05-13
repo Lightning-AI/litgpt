@@ -63,13 +63,6 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
     return resume_path
 
 
-def find_multiple(n: int, k: int) -> int:
-    assert k > 0
-    if n % k == 0:
-        return n
-    return n + k - (n % k)
-
-
 def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
     total = 0
     for p in module.parameters():
