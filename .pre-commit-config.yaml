@@ -16,27 +16,8 @@ default_language_version:
   python: python3
 
 ci:
-  autofix_prs: true
-  autoupdate_commit_msg: "[pre-commit.ci] pre-commit suggestions"
-  autoupdate_schedule: quarterly
-  # submodules: true
 
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-        exclude: README.md
-      - id: check-yaml
-      - id: check-toml
-      #- id: check-docstring-first
-      #- id: check-executables-have-shebangs
-      - id: check-case-conflict
-      - id: check-added-large-files
-        args: ["--maxkb=250", "--enforce-all"]
-      - id: detect-private-key
-
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:
@@ -70,13 +51,6 @@ repos:
         # https://prettier.io/docs/en/options.html#print-width
         args: ["--print-width=140"]
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.4
-    hooks:
-      - id: ruff
-        args: ["--fix"]
-      - id: ruff-format
-      - id: ruff
 
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: v2.5.1
