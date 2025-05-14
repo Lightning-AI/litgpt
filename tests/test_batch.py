@@ -1,10 +1,8 @@
 import warnings
 from pathlib import Path
-
 import lightning as L
 import pytest
 import torch
-
 import litgpt
 from litgpt.api import GPT, LLM
 from litgpt.generate.base import (
