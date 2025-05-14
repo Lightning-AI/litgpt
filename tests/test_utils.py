@@ -147,22 +147,30 @@ def test_chunked_cross_entropy(ignore_index, B):
     )
 
     ignore_index = ignore_index if ignore_index is not None else -100
-    regular_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=0, ignore_index=ignore_index)
+    regular_loss = chunked_cross_entropy(
+        regular_logits, targets, chunk_size=0, ignore_index=ignore_index
+    )
     assert torch.equal(baseline_loss, regular_loss)
     assert regular_loss.numel() == 1
 
-    chunked_loss = chunked_cross_entropy(regular_logits, targets, chunk_size=10, ignore_index=ignore_index)
+    chunked_loss = chunked_cross_entropy(
+        regular_logits, targets, chunk_size=10, ignore_index=ignore_index
+    )
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
     logit_chunk_size = 6
     assert T % logit_chunk_size != 0  # ensure leftover
     chunked_logits = list(regular_logits.split(logit_chunk_size, dim=1))
-    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=0, ignore_index=ignore_index)
+    chunked_loss = chunked_cross_entropy(
+        chunked_logits, targets, chunk_size=0, ignore_index=ignore_index
+    )
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
-    chunked_loss = chunked_cross_entropy(chunked_logits, targets, chunk_size=10, ignore_index=ignore_index)
+    chunked_loss = chunked_cross_entropy(
+        chunked_logits, targets, chunk_size=10, ignore_index=ignore_index
+    )
     torch.testing.assert_close(chunked_loss, regular_loss)
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
@@ -181,7 +189,9 @@ def test_num_parameters():
 
 
 @_RunIf(min_cuda_gpus=1)
-@pytest.mark.parametrize("mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"])
+@pytest.mark.parametrize(
+    "mode", ["nf4", "nf4-dq", "fp4", "fp4-dq", "int8", "int8-training"]
+)
 def test_num_parameters_bitsandbytes(mode):
     plugin = BitsandbytesPrecision(mode=mode)
     fabric = Fabric(plugins=plugin, accelerator="cuda", devices=1)
@@ -304,11 +314,17 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
 def test_choose_logger(tmp_path):
     assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
     if RequirementCache("tensorboard"):
-        assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
+        assert isinstance(
+            choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger
+        )
     if RequirementCache("wandb"):
-        assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
+        assert isinstance(
+            choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger
+        )
     if RequirementCache("mlflow") or RequirementCache("mlflow-skinny"):
-        assert isinstance(choose_logger("mlflow", out_dir=tmp_path, name="wandb"), MLFlowLogger)
+        assert isinstance(
+            choose_logger("mlflow", out_dir=tmp_path, name="wandb"), MLFlowLogger
+        )
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
 
@@ -326,11 +342,15 @@ def test_init_out_dir(path_type, input_path, expected):
     if path_type.startswith("env_"):
         with mock.patch.dict(os.environ, {"LIGHTNING_ARTIFACTS_DIR": "prefix"}):
             result = init_out_dir(input_path)
-            assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
+            assert result == Path(expected), (
+                f"Failed for {path_type} with input {input_path} (result {result})"
+            )
     else:
         result = init_out_dir(input_path)
         if "LIGHTNING_ARTIFACTS_DIR" not in os.environ:
-            assert result == Path(expected), f"Failed for {path_type} with input {input_path} (result {result})"
+            assert result == Path(expected), (
+                f"Failed for {path_type} with input {input_path} (result {result})"
+            )
         else:
             assert result == Path(os.getenv("LIGHTNING_ARTIFACTS_DIR")) / expected, (
                 f"Failed for {path_type} with input {input_path} (result {result})"
@@ -339,18 +359,26 @@ def test_init_out_dir(path_type, input_path, expected):
 
 def test_find_resume_path(tmp_path):
     assert find_resume_path(resume=None, out_dir=Path("does/not/exist")) is None
-    assert find_resume_path(resume=Path("does/not/exist"), out_dir=Path("does/not/matter")) == Path("does/not/exist")
-    assert find_resume_path(resume=(tmp_path / "checkpoint.pt"), out_dir=Path("does/not/matter")) == (
-        tmp_path / "checkpoint.pt"
-    )
+    assert find_resume_path(
+        resume=Path("does/not/exist"), out_dir=Path("does/not/matter")
+    ) == Path("does/not/exist")
+    assert find_resume_path(
+        resume=(tmp_path / "checkpoint.pt"), out_dir=Path("does/not/matter")
+    ) == (tmp_path / "checkpoint.pt")
 
     # `resume='auto'` does not enforce the checkpoint to exist
     assert find_resume_path(resume="auto", out_dir=Path("does/not/exist")) is None
 
     # `resume=True` requires a checkpoint to exist
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
+    with pytest.raises(
+        FileNotFoundError,
+        match="You passed `--resume=True`, but no checkpoint file was found",
+    ):
         find_resume_path(resume=True, out_dir=Path("does/not/exist"))
-    with pytest.raises(FileNotFoundError, match="You passed `--resume=True`, but no checkpoint file was found"):
+    with pytest.raises(
+        FileNotFoundError,
+        match="You passed `--resume=True`, but no checkpoint file was found",
+    ):
         find_resume_path(resume=True, out_dir=tmp_path)
 
     (tmp_path / "step-001").mkdir()
@@ -360,8 +388,12 @@ def test_find_resume_path(tmp_path):
     (tmp_path / "step-003").mkdir()
     (tmp_path / "step-003" / "lit_model.pth").touch()
 
-    assert find_resume_path(resume=True, out_dir=tmp_path) == (tmp_path / "step-003" / "lit_model.pth")
-    assert find_resume_path(resume="auto", out_dir=tmp_path) == (tmp_path / "step-003" / "lit_model.pth")
+    assert find_resume_path(resume=True, out_dir=tmp_path) == (
+        tmp_path / "step-003" / "lit_model.pth"
+    )
+    assert find_resume_path(resume="auto", out_dir=tmp_path) == (
+        tmp_path / "step-003" / "lit_model.pth"
+    )
 
 
 @pytest.fixture
@@ -372,7 +404,9 @@ def model_parameters():
 def test_instantiate_bnb_optimizer_with_str(model_parameters):
     import bitsandbytes as bnb
 
-    with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
+    with mock.patch(
+        "litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}
+    ):
         optimizer = instantiate_bnb_optimizer("AdamW", model_parameters)
         assert isinstance(optimizer, bnb.optim.adamw.PagedAdamW)
 
@@ -381,7 +415,9 @@ def test_instantiate_bnb_optimizer_with_dict(model_parameters):
     import bitsandbytes as bnb
 
     optimizer_dict = {"class_path": "AdamW", "init_args": {"lr": 0.01}}
-    with mock.patch("litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}):
+    with mock.patch(
+        "litgpt.utils.get_argument_names", return_value={"lr", "eps", "weight_decay"}
+    ):
         optimizer = instantiate_bnb_optimizer(optimizer_dict, model_parameters)
         assert isinstance(optimizer, bnb.optim.adamw.PagedAdamW)
         assert optimizer.param_groups[0]["lr"] == 0.01
@@ -400,7 +436,9 @@ def test_instantiate_torch_optimizer_with_str(model_parameters):
 
 def test_instantiate_torch_optimizer_with_class(model_parameters):
     optimizer = instantiate_torch_optimizer(
-        {"class_path": "torch.optim.Adam", "init_args": {"lr": 123}}, model_parameters, lr=0.02
+        {"class_path": "torch.optim.Adam", "init_args": {"lr": 123}},
+        model_parameters,
+        lr=0.02,
     )
     assert isinstance(optimizer, torch.optim.Adam)
     # init args gets overridden
@@ -503,7 +541,9 @@ def mock_nvidia_device_properties(monkeypatch):
     """Fixture to mock torch.cuda.get_device_properties() for NVIDIA GPUs."""
     mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
     mock_device_properties.name = "NVIDIA RTX A6000"
-    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(
+        torch.cuda, "get_device_properties", lambda idx: mock_device_properties
+    )
 
 
 @pytest.fixture
@@ -511,7 +551,9 @@ def mock_amd_device_properties(monkeypatch):
     """Fixture to mock torch.cuda.get_device_properties() for AMD GPUs."""
     mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
     mock_device_properties.name = "AMD Instinct MI250X"
-    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(
+        torch.cuda, "get_device_properties", lambda idx: mock_device_properties
+    )
 
 
 @pytest.fixture
@@ -528,7 +570,10 @@ GPU3	NV12	NV12	NV12	X""",
 
 @mock.patch("subprocess.run")
 def test_all_nvlink_connected(
-    mock_run, all_nvlink_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties
+    mock_run,
+    all_nvlink_connected_output,
+    mock_cuda_is_available_true,
+    mock_nvidia_device_properties,
 ):
     mock_run.return_value = all_nvlink_connected_output
     with mock.patch("builtins.print") as mock_print:
@@ -555,7 +600,10 @@ Legend:
 
 @mock.patch("subprocess.run")
 def test_nvlink_partially_connected_output(
-    mock_run, nvlink_partially_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties
+    mock_run,
+    nvlink_partially_connected_output,
+    mock_cuda_is_available_true,
+    mock_nvidia_device_properties,
 ):
     mock_run.return_value = nvlink_partially_connected_output
     with mock.patch("builtins.print") as mock_print:
@@ -590,7 +638,10 @@ Legend:
 
 @mock.patch("subprocess.run")
 def test_nvlink_not_connected_output(
-    mock_run, nvlink_not_connected_output, mock_cuda_is_available_true, mock_nvidia_device_properties
+    mock_run,
+    nvlink_not_connected_output,
+    mock_cuda_is_available_true,
+    mock_nvidia_device_properties,
 ):
     mock_run.return_value = nvlink_not_connected_output
     with mock.patch("builtins.print") as mock_print:
@@ -689,7 +740,10 @@ Legend:
 
 @mock.patch("subprocess.run")
 def test_check_nvlink_connectivity__returns_fully_connected_when_nvidia_all_nvlink_two_gpus(
-    mock_run, nvidia_smi_nvlink_output_dual_gpu_no_numa, mock_cuda_is_available_true, mock_nvidia_device_properties
+    mock_run,
+    nvidia_smi_nvlink_output_dual_gpu_no_numa,
+    mock_cuda_is_available_true,
+    mock_nvidia_device_properties,
 ):
     mock_run.return_value = nvidia_smi_nvlink_output_dual_gpu_no_numa
     with mock.patch("builtins.print") as mock_print:
@@ -723,7 +777,10 @@ GPU7   XGMI         XGMI         XGMI         XGMI         XGMI         XGMI    
 
 @mock.patch("subprocess.run")
 def test_check_nvlink_connectivity__returns_fully_connected_when_amd_all_xgmi_8_gpus(
-    mock_run, rocm_smi_xgmi_output_multi_gpu, mock_cuda_is_available_true, mock_amd_device_properties
+    mock_run,
+    rocm_smi_xgmi_output_multi_gpu,
+    mock_cuda_is_available_true,
+    mock_amd_device_properties,
 ):
     mock_run.return_value = rocm_smi_xgmi_output_multi_gpu
     with mock.patch("builtins.print") as mock_print:
@@ -745,10 +802,14 @@ def test_check_nvlink_connectivity__returns_unrecognized_vendor_when_unrecognize
 ):
     mock_device_properties = mock.MagicMock(name="GPU Device", spec=["name"])
     mock_device_properties.name = "GARAGE DIY HYPERSCALER GPU"
-    monkeypatch.setattr(torch.cuda, "get_device_properties", lambda idx: mock_device_properties)
+    monkeypatch.setattr(
+        torch.cuda, "get_device_properties", lambda idx: mock_device_properties
+    )
     with mock.patch("builtins.print") as mock_print:
         check_nvlink_connectivity()
-        mock_print.assert_any_call("Unrecognized GPU vendor: GARAGE DIY HYPERSCALER GPU")
+        mock_print.assert_any_call(
+            "Unrecognized GPU vendor: GARAGE DIY HYPERSCALER GPU"
+        )
 
 
 def test_fix_and_load_json():
@@ -809,8 +870,18 @@ def test_select_sft_generate_example():
     eval_mock = mock.MagicMock()
     data_mock = mock.MagicMock()
 
-    test_dataset = {"data": [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]}
-    train_dataset = {"data": [{"instruction": "Train instruction 1"}, {"instruction": "Train instruction 2"}]}
+    test_dataset = {
+        "data": [
+            {"instruction": "Test instruction 1"},
+            {"instruction": "Test instruction 2"},
+        ]
+    }
+    train_dataset = {
+        "data": [
+            {"instruction": "Train instruction 1"},
+            {"instruction": "Train instruction 2"},
+        ]
+    }
 
     data_mock.test_dataset.data = test_dataset["data"]
     data_mock.train_dataset.data = train_dataset["data"]
@@ -827,7 +898,10 @@ def test_select_sft_generate_example():
 
     # Test random selection from test dataset
     eval_mock.evaluate_example = "random"
-    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]
+    data_mock.test_dataset.data = [
+        {"instruction": "Test instruction 1"},
+        {"instruction": "Test instruction 2"},
+    ]
     with mock.patch("random.randint", return_value=1):
         instruction = select_sft_generate_example(eval_mock, data_mock)
         assert instruction == "Test instruction 2"
@@ -840,7 +914,10 @@ def test_select_sft_generate_example():
 
     # Test specific index from test dataset
     eval_mock.evaluate_example = 1
-    data_mock.test_dataset.data = [{"instruction": "Test instruction 1"}, {"instruction": "Test instruction 2"}]
+    data_mock.test_dataset.data = [
+        {"instruction": "Test instruction 1"},
+        {"instruction": "Test instruction 2"},
+    ]
     instruction = select_sft_generate_example(eval_mock, data_mock)
     assert instruction == "Test instruction 2"
 

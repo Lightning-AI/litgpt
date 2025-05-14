@@ -13,7 +13,9 @@ class Tokenizer:
     def __init__(self, checkpoint_dir: Union[Path, str]) -> None:
         checkpoint_dir = Path(checkpoint_dir)
         if not checkpoint_dir.exists():
-            raise NotADirectoryError(f"The checkpoint directory does not exist: {str(checkpoint_dir)}")
+            raise NotADirectoryError(
+                f"The checkpoint directory does not exist: {str(checkpoint_dir)}"
+            )
 
         self.model_name = checkpoint_dir.stem
         self.use_bos = self.check_if_bos_token_used(checkpoint_dir)
@@ -27,7 +29,9 @@ class Tokenizer:
             self.processor = HFTokenizer.from_file(str(vocabulary_path))
             self.backend = "huggingface"
 
-            if (special_tokens_path := checkpoint_dir / "tokenizer_config.json").is_file():
+            if (
+                special_tokens_path := checkpoint_dir / "tokenizer_config.json"
+            ).is_file():
                 with open(special_tokens_path, encoding="utf-8") as fp:
                     config = json.load(fp)
                 bos_token = config.get("bos_token")
@@ -36,13 +40,21 @@ class Tokenizer:
                     bos_token = bos_token.get("content")
                 if eos_token is not None and isinstance(eos_token, dict):
                     eos_token = eos_token.get("content")
-                self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
-                self.eos_id = self.token_to_id(eos_token) if eos_token is not None else None
-            if (special_tokens_path := checkpoint_dir / "generation_config.json").is_file():
+                self.bos_id = (
+                    self.token_to_id(bos_token) if bos_token is not None else None
+                )
+                self.eos_id = (
+                    self.token_to_id(eos_token) if eos_token is not None else None
+                )
+            if (
+                special_tokens_path := checkpoint_dir / "generation_config.json"
+            ).is_file():
                 try:
                     with open(special_tokens_path, encoding="utf-8") as fp:
                         config = json.load(fp)
-                except json.JSONDecodeError:  # Some files like the Llama 3.2 one have bugs
+                except (
+                    json.JSONDecodeError
+                ):  # Some files like the Llama 3.2 one have bugs
                     with open(special_tokens_path, encoding="utf-8") as fp:
                         json_string = fp.read()
                         config = fix_and_load_json(json_string)
@@ -67,7 +79,9 @@ class Tokenizer:
         self.apply_decoding_fix = None
         if (config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             with open(config_path, encoding="utf-8") as fp:
-                self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+                self.apply_decoding_fix = (
+                    "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+                )
 
     @property
     def vocab_size(self) -> int:
@@ -89,7 +103,9 @@ class Tokenizer:
         return id_
 
     def check_if_bos_token_used(self, checkpoint_dir: Path) -> bool:
-        if not (tokenizer_config_path := checkpoint_dir / "tokenizer_config.json").is_file():
+        if not (
+            tokenizer_config_path := checkpoint_dir / "tokenizer_config.json"
+        ).is_file():
             return False
         with open(tokenizer_config_path, encoding="utf-8") as fp:
             config = json.load(fp)
@@ -97,7 +113,9 @@ class Tokenizer:
         # `PreTrainedTokenizerFast`
         if checkpoint_dir.stem.startswith(("Meta-Llama-3", "Llama-3")):
             return True
-        if checkpoint_dir.stem.startswith("SmolLM2") and checkpoint_dir.name.endswith("Instruct"):
+        if checkpoint_dir.stem.startswith("SmolLM2") and checkpoint_dir.name.endswith(
+            "Instruct"
+        ):
             return True
         if "add_bos_token" in config:
             return config["add_bos_token"]
@@ -124,7 +142,9 @@ class Tokenizer:
 
         if bos or (bos is None and self.use_bos):
             if self.bos_id is None:
-                raise NotImplementedError("This tokenizer does not have a defined bos token.")
+                raise NotImplementedError(
+                    "This tokenizer does not have a defined bos token."
+                )
             if not tokens or tokens[0] != self.bos_id:
                 tokens = [self.bos_id] + tokens
         # if the processor misbehaves and adds `bos` token no matter what
@@ -153,7 +173,9 @@ class Tokenizer:
         return self.processor.decode(tokens)
 
     def decode_stream(
-        self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None
+        self,
+        token_stream: Iterable[torch.Tensor],
+        device: Optional[torch.device] = None,
     ) -> Iterator[str]:
         if self.backend == "huggingface":
             try:

@@ -33,24 +33,43 @@ class LitData(DataModule):
     def __post_init__(self) -> None:
         super().__init__()
         if self.split_names is not None and len(self.split_names) != 2:
-            raise ValueError("If provided `split_names` must be a tuple of two strings, for example: ('train', 'val').")
+            raise ValueError(
+                "If provided `split_names` must be a tuple of two strings, for example: ('train', 'val')."
+            )
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.batch_size = batch_size
-        self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.seq_length = (
+            max_seq_length + 1
+        )  # Increase by one because we need the next token as well
 
     def train_dataloader(self) -> DataLoader:
-        input_dir = os.path.join(self.data_path, self.split_names[0]) if self.split_names else str(self.data_path)
+        input_dir = (
+            os.path.join(self.data_path, self.split_names[0])
+            if self.split_names
+            else str(self.data_path)
+        )
         return self._dataloader(input_dir=input_dir, train=True)
 
     def val_dataloader(self) -> DataLoader:
-        input_dir = os.path.join(self.data_path, self.split_names[1]) if self.split_names else str(self.data_path)
+        input_dir = (
+            os.path.join(self.data_path, self.split_names[1])
+            if self.split_names
+            else str(self.data_path)
+        )
         return self._dataloader(input_dir=input_dir, train=False)
 
     def _dataloader(self, input_dir: str, train: bool):
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         dataset = StreamingDataset(
             input_dir=input_dir,
@@ -59,6 +78,10 @@ class LitData(DataModule):
             seed=self.seed,
         )
         dataloader = StreamingDataLoader(
-            dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return dataloader

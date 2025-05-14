@@ -11,7 +11,11 @@ import pytest
 import torch
 from lightning.fabric.accelerators import CUDAAccelerator
 
-from litgpt.api import LLM, benchmark_dict_to_markdown_table, calculate_number_of_devices
+from litgpt.api import (
+    LLM,
+    benchmark_dict_to_markdown_table,
+    calculate_number_of_devices,
+)
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
 
@@ -65,7 +69,9 @@ def test_stream_generate(mock_llm):
         yield from outputs
 
     mock_llm.generate.return_value = iterator()
-    output = mock_llm.generate(prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True)
+    output = mock_llm.generate(
+        prompt, max_new_tokens=10, temperature=0.8, top_k=5, stream=True
+    )
     result = "".join([out for out in output])
     assert len(result) > len(prompt)
 
@@ -87,15 +93,23 @@ def test_calculate_number_of_devices():
 
 
 def test_llm_load_random_init(tmp_path):
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
 
     torch.manual_seed(123)
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(model="pythia-160m", init="random", tokenizer_dir=Path(tmp_path / "EleutherAI/pythia-14m"))
+        llm = LLM.load(
+            model="pythia-160m",
+            init="random",
+            tokenizer_dir=Path(tmp_path / "EleutherAI/pythia-14m"),
+        )
 
     input_text = "some text text"
     output_text = llm.generate(input_text, max_new_tokens=15)
-    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(
+        llm.preprocessor.tokenizer.encode(input_text)
+    )
     assert ln <= 15
 
     # The following below tests that generate works with different prompt lengths
@@ -103,12 +117,16 @@ def test_llm_load_random_init(tmp_path):
 
     input_text = "some text"
     output_text = llm.generate(input_text, max_new_tokens=15)
-    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(
+        llm.preprocessor.tokenizer.encode(input_text)
+    )
     assert ln <= 15
 
     input_text = "some text text text"
     output_text = llm.generate(input_text, max_new_tokens=15)
-    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(llm.preprocessor.tokenizer.encode(input_text))
+    ln = len(llm.preprocessor.tokenizer.encode(output_text)) - len(
+        llm.preprocessor.tokenizer.encode(input_text)
+    )
     assert ln <= 15
 
 
@@ -131,7 +149,12 @@ def test_model_not_initialized(tmp_path):
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
 
-    llm = LLM.load(model="EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random", distribute=None)
+    llm = LLM.load(
+        model="EleutherAI/pythia-14m",
+        tokenizer_dir="EleutherAI/pythia-14m",
+        init="random",
+        distribute=None,
+    )
     s = "The model is not initialized yet; use the .distribute() or .trainer_setup() method to initialize the model."
     with pytest.raises(AttributeError, match=re.escape(s)):
         llm.generate("text")
@@ -166,7 +189,10 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
     llm.distribute(generate_strategy="sequential")
     assert isinstance(llm.generate("What do llamas eat?"), str)
     assert str(llm.model.transformer.h[0].mlp.fc.weight.device) == "cuda:0"
-    assert str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device) == f"cuda:{device_count - 1}"
+    assert (
+        str(llm.model.transformer.h[last_layer_idx].mlp.fc.weight.device)
+        == f"cuda:{device_count - 1}"
+    )
 
 
 @_RunIf(min_cuda_gpus=2)
@@ -185,7 +211,11 @@ def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
 @_RunIf(min_cuda_gpus=1)
 def test_sequential_tp_incompatibility_with_random_weights(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(model="EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random")
+        llm = LLM.load(
+            model="EleutherAI/pythia-14m",
+            tokenizer_dir="EleutherAI/pythia-14m",
+            init="random",
+        )
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(
             NotImplementedError,
@@ -204,7 +234,8 @@ def test_sequential_tp_cpu(tmp_path):
         )
     for strategy in ("sequential", "tensor_parallel"):
         with pytest.raises(
-            NotImplementedError, match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'."
+            NotImplementedError,
+            match=f"generate_strategy='{strategy}' is only supported for accelerator='cuda'|'gpu'.",
         ):
             llm.distribute(devices=1, accelerator="cpu", generate_strategy=strategy)
 
@@ -240,7 +271,10 @@ def test_fixed_kv_cache(tmp_path):
     llm.distribute(devices=1, fixed_kv_cache_size=100)
 
     # Request too many tokens
-    with pytest.raises(NotImplementedError, match="max_seq_length 512 needs to be >= 9223372036854775809"):
+    with pytest.raises(
+        NotImplementedError,
+        match="max_seq_length 512 needs to be >= 9223372036854775809",
+    ):
         _ = llm.generate("hello world", max_new_tokens=2**63)
 
 
@@ -390,7 +424,9 @@ def test_save_method(tmp_path):
 
     files_in_directory = os.listdir(target_dir)
     for file_name in expected_files:
-        assert file_name in files_in_directory, f"{file_name} is missing from {target_dir}"
+        assert file_name in files_in_directory, (
+            f"{file_name} is missing from {target_dir}"
+        )
 
 
 def test_forward_method(tmp_path):
@@ -398,7 +434,9 @@ def test_forward_method(tmp_path):
         llm = LLM.load(
             model="EleutherAI/pythia-14m",
         )
-    inputs = torch.ones(6, 128, dtype=torch.int64).to(next(llm.model.parameters()).device)
+    inputs = torch.ones(6, 128, dtype=torch.int64).to(
+        next(llm.model.parameters()).device
+    )
 
     assert llm(inputs).shape == torch.Size([6, 128, 50304])
     logits, loss = llm(inputs, target_ids=inputs)

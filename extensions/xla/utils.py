@@ -7,13 +7,18 @@ from typing import Any, Callable
 
 import lightning as L
 import torch
-from lightning.fabric.strategies.xla_fsdp import XLAFSDPStrategy, _activation_checkpointing_auto_wrapper
+from lightning.fabric.strategies.xla_fsdp import (
+    XLAFSDPStrategy,
+    _activation_checkpointing_auto_wrapper,
+)
 from lightning_utilities.core.rank_zero import rank_prefixed_message
 
 from litgpt import GPT
 
 
-def rank_print(fabric: L.Fabric, message: object, *, flush: bool = True, **kwargs: Any) -> None:
+def rank_print(
+    fabric: L.Fabric, message: object, *, flush: bool = True, **kwargs: Any
+) -> None:
     if fabric.local_rank == 0:
         message = str(message)
         # let each host print, but only on rank 0
@@ -25,7 +30,10 @@ def rank_print(fabric: L.Fabric, message: object, *, flush: bool = True, **kwarg
 def materialize_parameters(module: torch.nn.Module, device: torch.device) -> None:
     for module_name, module in module.named_modules():
         if any(
-            param.is_meta for param in itertools.chain(module.parameters(recurse=False), module.buffers(recurse=False))
+            param.is_meta
+            for param in itertools.chain(
+                module.parameters(recurse=False), module.buffers(recurse=False)
+            )
         ):
             module.to_empty(device=device, recurse=False)
             module.reset_parameters()
@@ -44,7 +52,9 @@ def sequential_load_and_fsdp_wrap(
     # TODO: this could be made faster by broadcasting in separate process groups for each host
     if fabric.local_rank == 0:
         # load the full checkpoint on a single rank to limit the system memory usage
-        state_dict = torch.load(checkpoint_path, map_location="cpu", mmap=False)  # mmap=True hangs
+        state_dict = torch.load(
+            checkpoint_path, map_location="cpu", mmap=False
+        )  # mmap=True hangs
     else:
         # XLA cannot broadcast different number of tensors or different shapes in each rank. To get around this
         # limitation, we need to load the checkpoint on meta device to get the correct number of tensors and materialize
@@ -57,7 +67,9 @@ def sequential_load_and_fsdp_wrap(
         wrap = fsdp_kwargs.pop("auto_wrapper_callable")
     else:
         wrap = partial(_activation_checkpointing_auto_wrapper, set())
-    fsdp_kwargs.pop("auto_wrap_policy", None)  # this needs to be removed or else root wrapping would error
+    fsdp_kwargs.pop(
+        "auto_wrap_policy", None
+    )  # this needs to be removed or else root wrapping would error
 
     for i, block in enumerate(model.transformer.h):
         rank_print(fabric, f"Broadcasting transformer block {i}")
@@ -80,7 +92,9 @@ def sequential_load_and_fsdp_wrap(
         assert not keys.unexpected_keys
 
         # materialize any leftover meta parameters, regular FSDP does it automatically
-        materialize_parameters(block, torch.device("cpu"))  # init on CPU, FSDP will shard and move it
+        materialize_parameters(
+            block, torch.device("cpu")
+        )  # init on CPU, FSDP will shard and move it
 
         # XLA FSDP only supports fp32 parameters. If the checkpoint had a different dtype, this needs to be converted
         # since we are loading with assign=True

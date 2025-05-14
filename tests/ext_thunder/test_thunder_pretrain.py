@@ -16,11 +16,15 @@ if _THUNDER_AVAILABLE:
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
 def test_pretrain_thunder(tmp_path, monkeypatch):
-    model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = Config(
+        block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8
+    )
 
     dataset = torch.tensor([[0, 1, 2], [3, 4, 5], [0, 1, 2]])
     dataloader = DataLoader(dataset)
-    monkeypatch.setattr(thunder_pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader)))
+    monkeypatch.setattr(
+        thunder_pretrain, "get_dataloaders", Mock(return_value=(dataloader, dataloader))
+    )
     monkeypatch.setattr(thunder_pretrain, "save_hyperparameters", Mock())
 
     out_dir = tmp_path / "out"
@@ -30,18 +34,32 @@ def test_pretrain_thunder(tmp_path, monkeypatch):
             devices=1,
             model_config=model_config,
             out_dir=out_dir,
-            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            train=TrainArgs(
+                global_batch_size=2,
+                max_tokens=16,
+                save_interval=1,
+                micro_batch_size=1,
+                max_norm=1.0,
+            ),
             eval=EvalArgs(interval=1, max_iters=1),
             optimizer="AdamW",
         )
 
     out_dir_contents = set(os.listdir(out_dir))
-    checkpoint_dirs = {"step-00000001", "step-00000002", "step-00000003", "step-00000004"}
+    checkpoint_dirs = {
+        "step-00000001",
+        "step-00000002",
+        "step-00000003",
+        "step-00000004",
+    }
     assert checkpoint_dirs.issubset(out_dir_contents)
     assert all((out_dir / p).is_dir() for p in checkpoint_dirs)
     for checkpoint_dir in checkpoint_dirs:
         # the `tokenizer_dir` is None by default, so only 'lit_model.pth' shows here
-        assert set(os.listdir(out_dir / checkpoint_dir)) == {"lit_model.pth", "model_config.yaml"}
+        assert set(os.listdir(out_dir / checkpoint_dir)) == {
+            "lit_model.pth",
+            "model_config.yaml",
+        }
 
     assert (out_dir / "logs" / "tensorboard" / "version_0").is_dir()
 

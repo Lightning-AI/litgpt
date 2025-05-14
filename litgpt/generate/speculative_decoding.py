@@ -105,7 +105,9 @@ def speculative_decoding(
     draft_token = token
     for idx in range(speculative_k):
         logits = draft_model(
-            idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1
+            idx=draft_token.unsqueeze(0),
+            input_pos=draft_input_pos,
+            input_pos_maxp1=draft_input_pos_maxp1,
         )
         draft_token, draft_prob = sample(logits, **sample_kwargs)
         draft_input_pos.add_(1)
@@ -117,10 +119,14 @@ def speculative_decoding(
     # Step 2: Get target model predictions for comparison
     # Feed both original token and draft tokens to get target probabilities
     candidate_tokens = torch.cat((token, draft_tokens))
-    candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)
+    candidate_input_pos = input_pos + torch.arange(
+        0, speculative_k + 1, device=input_pos.device
+    )
     candidate_input_pos_maxp1 = input_pos_maxp1 + speculative_k
     target_logits = target_model(
-        idx=candidate_tokens.unsqueeze(0), input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1
+        idx=candidate_tokens.unsqueeze(0),
+        input_pos=candidate_input_pos,
+        input_pos_maxp1=candidate_input_pos_maxp1,
     )
 
     # Step 3: Convert target logits to probabilities using same sampling params
@@ -157,13 +163,19 @@ def speculative_decoding(
         adjusted_distribution = target_probs[idx] - draft_probs[idx]
         adjusted_distribution = torch.clamp(adjusted_distribution, 0.0)
         adjusted_distribution = adjusted_distribution / adjusted_distribution.sum()
-        new_token, _ = sample(adjusted_distribution[None, None, ...], apply_softmax=False, **sample_kwargs)
+        new_token, _ = sample(
+            adjusted_distribution[None, None, ...], apply_softmax=False, **sample_kwargs
+        )
         return torch.cat((*accepted_tokens, new_token))
 
     # If all draft tokens were accepted:
     # 1. Update draft model's key-value cache
     # 2. Sample one more token from target model
-    draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
+    draft_model(
+        idx=draft_token.unsqueeze(0),
+        input_pos=draft_input_pos,
+        input_pos_maxp1=draft_input_pos_maxp1,
+    )
     new_token, _ = sample(target_logits, **sample_kwargs)
     return torch.cat((*accepted_tokens, new_token))
 
@@ -230,7 +242,9 @@ def generate(
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
     # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
     input_pos_maxp1 = (
-        prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in target_model.modules()) else None
+        prompt_size
+        if all(m.__class__.__name__ != "ThunderModule" for m in target_model.modules())
+        else None
     )
     next_token(
         draft_model,
@@ -259,7 +273,9 @@ def generate(
     total_generated, total_accepted = 0, 0  # Track acceptance statistics
     while input_pos < max_returned_tokens - 1:
         # Calculate speculative tokens to generate
-        _speculative_k = min(speculative_k, (max_returned_tokens - input_pos - 1).item())
+        _speculative_k = min(
+            speculative_k, (max_returned_tokens - input_pos - 1).item()
+        )
 
         # Get new tokens via speculative decoding
         new_tokens = speculative_decoding(
@@ -277,7 +293,9 @@ def generate(
         # Update statistics
         accepted_tokens_len = len(new_tokens)
         total_generated += _speculative_k
-        total_accepted += accepted_tokens_len - 1  # accepted +1 sampled from a target model
+        total_accepted += (
+            accepted_tokens_len - 1
+        )  # accepted +1 sampled from a target model
 
         # Process tokens and check for stop condition
         should_break = False
@@ -337,7 +355,9 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+    quantize: Optional[
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]
+    ] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -390,7 +410,11 @@ def main(
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+        dtype = {
+            "16-true": torch.float16,
+            "bf16-true": torch.bfloat16,
+            "32-true": torch.float32,
+        }[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
@@ -398,7 +422,9 @@ def main(
 
     # Load model configs and checkpoints
     draft_config, draft_checkpoint_path = load_model(draft_model_checkpoint_dir, fabric)
-    target_config, target_checkpoint_path = load_model(target_model_checkpoint_dir, fabric)
+    target_config, target_checkpoint_path = load_model(
+        target_model_checkpoint_dir, fabric
+    )
 
     # Setup tokenizer and validate
     draft_tokenizer = Tokenizer(draft_model_checkpoint_dir)
@@ -419,12 +445,21 @@ def main(
     max_returned_tokens = prompt_length + max_new_tokens
 
     # Initialize models
-    fabric.print(f"Loading draft model {str(draft_checkpoint_path)!r} with {draft_config.__dict__}", file=sys.stderr)
-    fabric.print(f"Loading target model {str(target_checkpoint_path)!r} with {target_config.__dict__}", file=sys.stderr)
+    fabric.print(
+        f"Loading draft model {str(draft_checkpoint_path)!r} with {draft_config.__dict__}",
+        file=sys.stderr,
+    )
+    fabric.print(
+        f"Loading target model {str(target_checkpoint_path)!r} with {target_config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     draft_model = setup_model(draft_config, max_returned_tokens, fabric)
     target_model = setup_model(target_config, max_returned_tokens, fabric)
-    fabric.print(f"Time to instantiate models: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(
+        f"Time to instantiate models: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     # Setup compilation if needed
     if compile:
@@ -438,7 +473,10 @@ def main(
     t0 = time.perf_counter()
     load_checkpoint(fabric, draft_model, draft_checkpoint_path)
     load_checkpoint(fabric, target_model, target_checkpoint_path)
-    fabric.print(f"Time to load the models weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(
+        f"Time to load the models weights: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     # Generate samples
     L.seed_everything(1234)
@@ -467,8 +505,12 @@ def main(
         tokens_generated = y.size(0) - prompt_length
         print(f"Acceptance rate: {acceptance_rate * 100:.2f}%")
         fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+            file=sys.stderr,
         )
 
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(
+            f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB",
+            file=sys.stderr,
+        )

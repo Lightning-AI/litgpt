@@ -127,15 +127,29 @@ def setup(
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
-        logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval
+        logger_name,
+        out_dir,
+        name=f"pretrain-{config.name}",
+        resume=bool(resume),
+        log_interval=train.log_interval,
     )
 
     if devices * num_nodes > 1:
-        strategy = FSDPStrategy(auto_wrap_policy={Block}, state_dict_type="full", sharding_strategy="HYBRID_SHARD")
+        strategy = FSDPStrategy(
+            auto_wrap_policy={Block},
+            state_dict_type="full",
+            sharding_strategy="HYBRID_SHARD",
+        )
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
+    fabric = L.Fabric(
+        devices=devices,
+        num_nodes=num_nodes,
+        strategy=strategy,
+        precision=precision,
+        loggers=[logger],
+    )
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -205,11 +219,17 @@ def main(
     model = fabric.setup(model)
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
-    optimizer = instantiate_torch_optimizer(optimizer, model.parameters(), **extra_kwargs)
+    optimizer = instantiate_torch_optimizer(
+        optimizer, model.parameters(), **extra_kwargs
+    )
     optimizer = fabric.setup_optimizers(optimizer)
 
-    train_dataloader, val_dataloader = get_dataloaders(fabric, data, tokenizer, train, model.max_seq_length)
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    train_dataloader, val_dataloader = get_dataloaders(
+        fabric, data, tokenizer, train, model.max_seq_length
+    )
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(
+        train_dataloader, val_dataloader
+    )
 
     if initial_checkpoint_dir:
         fabric.load_raw(initial_checkpoint_dir / "lit_model.pth", model)
@@ -235,11 +255,16 @@ def main(
     if (
         torch.__version__.startswith("2.7.")
         and (model._forward_module.__class__.__name__ == "OptimizedModule")
-        and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
+        and (
+            model._forward_module._orig_mod.__class__.__name__
+            == "FullyShardedDataParallel"
+        )
     ):
         from torch.distributed.fsdp._runtime_utils import _root_pre_forward
 
-        _root_pre_forward(model._forward_module._orig_mod, model._forward_module._orig_mod, [], {})
+        _root_pre_forward(
+            model._forward_module._orig_mod, model._forward_module._orig_mod, [], {}
+        )
 
     fit(
         fabric=fabric,
@@ -257,7 +282,12 @@ def main(
     # Save final checkpoint
     save_checkpoint(fabric, state, tokenizer_dir, out_dir / "final" / "lit_model.pth")
 
-    total_tokens = state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size
+    total_tokens = (
+        state["iter_num"]
+        * train.micro_batch_size
+        * model.max_seq_length
+        * fabric.world_size
+    )
 
     # Print formatted output
     separator = "-" * 40
@@ -295,7 +325,9 @@ def fit(
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)  # sanity check
+        validate(
+            fabric, model, val_dataloader, max_iters=2, verbose=False
+        )  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -306,19 +338,24 @@ def fit(
         model_fwd = lambda: meta_model(x)  # noqa: F821
         model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
-        fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        fabric.print(
+            f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}"
+        )
         del meta_model, x
 
     max_tokens_per_device = train.max_tokens // fabric.world_size
     tokens_per_iter = train.micro_batch_size * model.max_seq_length
     max_iters = max_tokens_per_device // tokens_per_iter
-    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices, num_nodes)
+    log_iter_interval = train.log_interval * train.gradient_accumulation_iters(
+        devices, num_nodes
+    )
     initial_iter = state["iter_num"]
     train_iterator = CycleIterator(train_dataloader)
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
-        fabric.device
-    )
+    running_loss = RunningMean(
+        window=train.gradient_accumulation_iters(devices, num_nodes),
+        sync_on_compute=False,
+    ).to(fabric.device)
     fabric.barrier()
     total_t0 = time.perf_counter()
 
@@ -329,7 +366,13 @@ def fit(
             break
 
         # determine and set the learning rate for this iteration
-        lr = get_lr(optimizer.defaults["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
+        lr = get_lr(
+            optimizer.defaults["lr"],
+            state["iter_num"],
+            warmup_iters,
+            max_iters,
+            train.min_lr,
+        )
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -339,11 +382,16 @@ def fit(
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
         targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
 
-        is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
+        is_accumulating = (
+            state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes)
+            != 0
+        )
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             loss = chunked_cross_entropy(logits, targets)
-            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
+            fabric.backward(
+                loss / train.gradient_accumulation_iters(devices, num_nodes)
+            )
 
         running_loss.update(loss.detach())
 
@@ -354,14 +402,18 @@ def fit(
             state["step_count"] += 1
 
         if state["iter_num"] % log_iter_interval == 0:
-            loss = running_loss.compute().item()  # expensive device-to-host synchronization
+            loss = (
+                running_loss.compute().item()
+            )  # expensive device-to-host synchronization
             t1 = time.perf_counter()
             throughput.update(
                 time=(t1 - total_t0),
                 flops=(measured_flops * log_iter_interval),
                 batches=state["iter_num"],
                 samples=(state["iter_num"] * train.micro_batch_size),
-                lengths=(state["iter_num"] * train.micro_batch_size * model.max_seq_length),
+                lengths=(
+                    state["iter_num"] * train.micro_batch_size * model.max_seq_length
+                ),
             )
             metrics = {
                 "loss": loss,
@@ -370,10 +422,19 @@ def fit(
                 "epoch": train_iterator.epoch,
                 "iter_time": t1 - iter_t0,
                 "remaining_time": (
-                    (t1 - total_t0) / (state["iter_num"] - initial_iter) * (max_iters - state["iter_num"])
+                    (t1 - total_t0)
+                    / (state["iter_num"] - initial_iter)
+                    * (max_iters - state["iter_num"])
                 ),
-                "tokens": state["iter_num"] * train.micro_batch_size * model.max_seq_length,
-                "total_tokens": (state["iter_num"] * train.micro_batch_size * model.max_seq_length * fabric.world_size),
+                "tokens": state["iter_num"]
+                * train.micro_batch_size
+                * model.max_seq_length,
+                "total_tokens": (
+                    state["iter_num"]
+                    * train.micro_batch_size
+                    * model.max_seq_length
+                    * fabric.world_size
+                ),
                 "learning_rate": lr,
             }
             if isinstance(val_loss, float):
@@ -391,31 +452,52 @@ def fit(
             metrics.update(throughput_metrics)
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
 
-        if val_dataloader is not None and not is_accumulating and state["step_count"] % eval.interval == 0:
+        if (
+            val_dataloader is not None
+            and not is_accumulating
+            and state["step_count"] % eval.interval == 0
+        ):
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
             val_loss = val_loss.item()
             td = time.perf_counter() - t0
 
-            fabric.print(f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms")
+            fabric.print(
+                f"iter {state['iter_num']}: val loss {val_loss:.4f}, val time: {td * 1000:.2f} ms"
+            )
             metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=state["iter_num"] - 1)
             fabric.barrier()
 
-        if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
-            save_checkpoint(fabric, state, tokenizer_dir, out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth")
+        if (
+            train.save_interval is not None
+            and not is_accumulating
+            and state["step_count"] % train.save_interval == 0
+        ):
+            save_checkpoint(
+                fabric,
+                state,
+                tokenizer_dir,
+                out_dir / f"step-{state['step_count']:08d}" / "lit_model.pth",
+            )
 
     # Final validation
     if eval.final_validation:
         val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
         metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
         fabric.log_dict(metrics, step=state["iter_num"])
-        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+        fabric.print(
+            f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}"
+        )
 
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True
+    fabric: L.Fabric,
+    model: nn.Module,
+    val_dataloader: DataLoader,
+    max_iters: int,
+    verbose: bool = True,
 ) -> torch.Tensor:
     fabric.barrier()
     if verbose:
@@ -439,9 +521,17 @@ def validate(
 
 
 def get_dataloaders(
-    fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
+    fabric: L.Fabric,
+    data: DataModule,
+    tokenizer: Tokenizer,
+    train: TrainArgs,
+    block_size: int,
 ) -> Tuple[DataLoader, DataLoader]:
-    data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
+    data.connect(
+        tokenizer=tokenizer,
+        batch_size=train.micro_batch_size,
+        max_seq_length=block_size,
+    )
     with fabric.rank_zero_first():
         data.prepare_data()
     data.setup()
@@ -451,7 +541,9 @@ def get_dataloaders(
 
 
 # learning rate decay scheduler (cosine with linear warmup)
-def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float) -> float:
+def get_lr(
+    learning_rate: float, it: int, warmup_iters: int, max_iters: int, min_lr: float
+) -> float:
     # 1) linear warmup for warmup_iters steps
     if it < warmup_iters:
         return learning_rate * it / warmup_iters
@@ -476,12 +568,16 @@ def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) 
 
     for mod in model.modules():
         if isinstance(mod, (nn.Embedding, nn.Linear)):
-            mod.reset_parameters = partial(init_weights, mod, std=math.sqrt(2.0 / 5 / n_embd))
+            mod.reset_parameters = partial(
+                init_weights, mod, std=math.sqrt(2.0 / 5 / n_embd)
+            )
 
     # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
         if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
-            mod.proj.reset_parameters = partial(init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer))
+            mod.proj.reset_parameters = partial(
+                init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer)
+            )
 
     if not isinstance(fabric.strategy, FSDPStrategy):
         reset_parameters(model)
@@ -499,19 +595,27 @@ def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
         save_config(model.config, checkpoint_file.parent)
 
 
-def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
+def validate_args(
+    train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume
+) -> None:
     issues = []
     unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
-                issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+                issues.append(
+                    f"{__file__} doesn't support the {name!r} argument. This is set in {args}"
+                )
     required = [(train, ["max_tokens", "max_norm"])]
     for args, names in required:
         for name in names:
             if getattr(args, name) is None:
-                issues.append(f"{__file__} requires the {name!r} argument. This is set in {args}")
+                issues.append(
+                    f"{__file__} requires the {name!r} argument. This is set in {args}"
+                )
     if initial_checkpoint_dir and resume:
-        issues.append("Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one.")
+        issues.append(
+            "Can't provide both `--resume` and `--initial_checkpoint_dir`. Choose one."
+        )
     if issues:
         raise ValueError("\n".join(issues))

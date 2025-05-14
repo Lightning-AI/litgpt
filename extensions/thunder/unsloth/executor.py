@@ -33,7 +33,9 @@ register_executor(unsloth_ex)
 """
 
 
-def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> Tuple[TensorProxy, TensorProxy]:
+def unsloth_cross_entropy_meta(
+    logits: TensorProxy, labels: TensorProxy
+) -> Tuple[TensorProxy, TensorProxy]:
     return (
         TensorProxy(
             shape=(logits.shape[0],),
@@ -42,28 +44,44 @@ def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> Tupl
             device=logits.device,
             requires_grad=logits.requires_grad,
         ),
-        TensorProxy(shape=(logits.shape[0],), dtype=thunder.dtypes.float32, device=logits.device, requires_grad=False),
+        TensorProxy(
+            shape=(logits.shape[0],),
+            dtype=thunder.dtypes.float32,
+            device=logits.device,
+            requires_grad=False,
+        ),
     )
 
 
 unsloth_cross_entropy = unsloth_ex.register_operator(
-    "unsloth_cross_entropy", meta=unsloth_cross_entropy_meta, fn=kernels.cross_entropy_loss._cross_entropy_forward_impl
+    "unsloth_cross_entropy",
+    meta=unsloth_cross_entropy_meta,
+    fn=kernels.cross_entropy_loss._cross_entropy_forward_impl,
 )
 
 
-def unsloth_cross_entropy_backward_impl(dlosses: Tensor, logits: Tensor, labels: Tensor, logsumexp: Tensor) -> Tensor:
+def unsloth_cross_entropy_backward_impl(
+    dlosses: Tensor, logits: Tensor, labels: Tensor, logsumexp: Tensor
+) -> Tensor:
     # clone() because the kernel writes the grads in the logits
-    return kernels.cross_entropy_loss._cross_entropy_backward_impl(dlosses, logits.clone(), logsumexp, labels)
+    return kernels.cross_entropy_loss._cross_entropy_backward_impl(
+        dlosses, logits.clone(), logsumexp, labels
+    )
 
 
 def unsloth_cross_entropy_backward_meta(
-    dlosses: TensorProxy, logits: TensorProxy, logsumexp: TensorProxy, labels: TensorProxy
+    dlosses: TensorProxy,
+    logits: TensorProxy,
+    logsumexp: TensorProxy,
+    labels: TensorProxy,
 ) -> TensorProxy:
     return thunder.TensorProxy(like=logits)
 
 
 unsloth_cross_entropy_backward = unsloth_ex.register_operator(
-    "unsloth_cross_entropy_backward", meta=unsloth_cross_entropy_backward_meta, fn=unsloth_cross_entropy_backward_impl
+    "unsloth_cross_entropy_backward",
+    meta=unsloth_cross_entropy_backward_meta,
+    fn=unsloth_cross_entropy_backward_impl,
 )
 
 
@@ -174,19 +192,27 @@ def swiglu_forward_meta(e: TensorProxy, g: TensorProxy) -> TensorProxy:
     return TensorProxy(like=e)
 
 
-litgpt_swiglu = unsloth_ex.register_operator("litgpt_swiglu", meta=swiglu_forward_meta, fn=swiglu, replaces=swiglu)
-
-
-unsloth_swiglu_forward = unsloth_ex.register_operator(
-    "unsloth_swiglu_forward", meta=swiglu_forward_meta, fn=lambda *args: kernels.swiglu_fg_kernel(*args)
+litgpt_swiglu = unsloth_ex.register_operator(
+    "litgpt_swiglu", meta=swiglu_forward_meta, fn=swiglu, replaces=swiglu
 )
 
 
-def unsloth_swiglu_backward_meta(DW: TensorProxy, e: TensorProxy, g: TensorProxy) -> Tuple[TensorProxy, TensorProxy]:
+unsloth_swiglu_forward = unsloth_ex.register_operator(
+    "unsloth_swiglu_forward",
+    meta=swiglu_forward_meta,
+    fn=lambda *args: kernels.swiglu_fg_kernel(*args),
+)
+
+
+def unsloth_swiglu_backward_meta(
+    DW: TensorProxy, e: TensorProxy, g: TensorProxy
+) -> Tuple[TensorProxy, TensorProxy]:
     return TensorProxy(like=g), TensorProxy(like=e)
 
 
-def unsloth_swiglu_backward_fn(DW: Tensor, e: Tensor, g: Tensor) -> Tuple[Tensor, Tuple]:
+def unsloth_swiglu_backward_fn(
+    DW: Tensor, e: Tensor, g: Tensor
+) -> Tuple[Tensor, Tuple]:
     B, T, n_embd = e.shape
     e = e.view(-1, n_embd)
     g = g.view(-1, n_embd)
@@ -197,7 +223,9 @@ def unsloth_swiglu_backward_fn(DW: Tensor, e: Tensor, g: Tensor) -> Tuple[Tensor
 
 
 unsloth_swiglu_backward = unsloth_ex.register_operator(
-    "unsloth_swiglu_backward", meta=unsloth_swiglu_backward_meta, fn=unsloth_swiglu_backward_fn
+    "unsloth_swiglu_backward",
+    meta=unsloth_swiglu_backward_meta,
+    fn=unsloth_swiglu_backward_fn,
 )
 
 
@@ -233,7 +261,10 @@ def apply_rope_meta(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> Tenso
 
 
 apply_rope = unsloth_ex.register_operator(
-    "litgpt_apply_rope", like=apply_rope_meta, fn=litgpt.model.apply_rope, replaces=litgpt.model.apply_rope
+    "litgpt_apply_rope",
+    like=apply_rope_meta,
+    fn=litgpt.model.apply_rope,
+    replaces=litgpt.model.apply_rope,
 )
 
 
@@ -249,26 +280,44 @@ def unsloth_apply_rope_meta(
 
 
 unsloth_apply_rope = unsloth_ex.register_operator(
-    "unsloth_apply_rope", meta=unsloth_apply_rope_meta, fn=kernels._rope_embedding_forward_impl
+    "unsloth_apply_rope",
+    meta=unsloth_apply_rope_meta,
+    fn=kernels._rope_embedding_forward_impl,
 )
 
 
 def unsloth_apply_rope_backward_meta(
-    dY: TensorProxy, cos: TensorProxy, sin: TensorProxy, n_groups: int, BLOCK_SIZE: int, num_warps: int
+    dY: TensorProxy,
+    cos: TensorProxy,
+    sin: TensorProxy,
+    n_groups: int,
+    BLOCK_SIZE: int,
+    num_warps: int,
 ) -> TensorProxy:
     return TensorProxy(like=dY)
 
 
 unsloth_apply_rope_backward = unsloth_ex.register_operator(
-    "unsloth_apply_rope_backward", meta=unsloth_apply_rope_backward_meta, fn=kernels._rope_embedding_backward_impl
+    "unsloth_apply_rope_backward",
+    meta=unsloth_apply_rope_backward_meta,
+    fn=kernels._rope_embedding_backward_impl,
 )
 
 
-def apply_rope_to_unsloth_checker(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> bool:
-    return len(x.shape) == 4 and x.device.type == "cuda" and cos.device.type == "cuda" and sin.device.type == "cuda"
+def apply_rope_to_unsloth_checker(
+    x: TensorProxy, cos: TensorProxy, sin: TensorProxy
+) -> bool:
+    return (
+        len(x.shape) == 4
+        and x.device.type == "cuda"
+        and cos.device.type == "cuda"
+        and sin.device.type == "cuda"
+    )
 
 
-def unsloth_apply_rope_grad(x: TensorProxy, cos: TensorProxy, sin: TensorProxy) -> TensorProxy:
+def unsloth_apply_rope_grad(
+    x: TensorProxy, cos: TensorProxy, sin: TensorProxy
+) -> TensorProxy:
     Q, cos, sin, n_groups, BLOCK_SIZE, num_warps = unsloth_apply_rope(x, cos, sin)
     dY = get_grad(Q)
     dX = unsloth_apply_rope_backward(dY, cos, sin, n_groups, BLOCK_SIZE, num_warps)

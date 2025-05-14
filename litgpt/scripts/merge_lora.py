@@ -15,7 +15,9 @@ from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
+    checkpoint_dir: Path,
+    pretrained_checkpoint_dir: Optional[Path] = None,
+    precision: Optional[str] = None,
 ) -> None:
     """Merges the LoRA weights with the base model.
 
@@ -46,7 +48,9 @@ def merge_lora(
         print("LoRA weights have already been merged in this checkpoint.")
         return
 
-    lora_params, meta_pretrained_checkpoint_dir, lora_precision = load_lora_metadata(checkpoint_dir)
+    lora_params, meta_pretrained_checkpoint_dir, lora_precision = load_lora_metadata(
+        checkpoint_dir
+    )
     precision = precision if precision is not None else lora_precision
 
     if pretrained_checkpoint_dir is None:
@@ -63,7 +67,9 @@ def merge_lora(
         model.sin = None
 
     lora_path = checkpoint_dir / "lit_model.pth.lora"
-    pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True)
+    pretrained_checkpoint = torch.load(
+        str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True
+    )
     lora_checkpoint = torch.load(str(lora_path), mmap=True)
     lora_checkpoint = lora_checkpoint.get("model", lora_checkpoint)
 
@@ -76,14 +82,20 @@ def merge_lora(
     merge_lora_weights(model)
 
     # Remove LoRA parameters and the LoRA linear substring
-    state_dict = {k.replace("linear.", ""): v for k, v in model.state_dict().items() if not lora_filter(k, v)}
+    state_dict = {
+        k.replace("linear.", ""): v
+        for k, v in model.state_dict().items()
+        if not lora_filter(k, v)
+    }
     save_path = checkpoint_dir / "lit_model.pth"
     torch.save(state_dict, save_path)
 
     fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
 
 
-def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Optional[str]]:
+def load_lora_metadata(
+    checkpoint_dir: Path,
+) -> Tuple[Dict[str, Any], Path, Optional[str]]:
     hparams_file = checkpoint_dir / "hyperparameters.yaml"
     if not hparams_file.is_file():
         raise FileNotFoundError(

@@ -63,7 +63,9 @@ def test_prompt_style_from_config():
 
     for model_name in model_names:
         # by asserting the returned style is not the Default, we show that at least one of the regex patterns matched
-        assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)
+        assert not isinstance(
+            PromptStyle.from_config(Config.from_name(model_name)), Default
+        )
 
 
 def test_apply_prompts():
@@ -115,7 +117,10 @@ def test_multiturn_prompt():
     assert simple_output == multiturn_output
 
     # override system prompt
-    msgs = [{"role": "system", "content": "You are not a helpful assistant."}, {"role": "user", "content": prompt}]
+    msgs = [
+        {"role": "system", "content": "You are not a helpful assistant."},
+        {"role": "user", "content": prompt},
+    ]
     with_system_multiturn_output = style.apply(msgs)
     assert "You are not a helpful assistant." in with_system_multiturn_output
 
@@ -128,7 +133,10 @@ def test_multiturn_prompt():
 
     # Longer turn
     msgs = [
-        {"role": "system", "content": "You are a helpful AI assistant for travel tips and recommendations"},
+        {
+            "role": "system",
+            "content": "You are a helpful AI assistant for travel tips and recommendations",
+        },
         {"role": "user", "content": "What is France's capital?"},
         {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
         {"role": "user", "content": "What can I do there?"},

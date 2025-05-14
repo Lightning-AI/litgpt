@@ -26,7 +26,11 @@ from litgpt.config import Config
 from litgpt.model import GPT, Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
-from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir, get_default_supported_precision
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    extend_checkpoint_dir,
+    get_default_supported_precision,
+)
 
 
 @torch.inference_mode()
@@ -49,7 +53,9 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             " Try running with a lower number of devices."
         )
 
-    num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
+    num_layers_per_device = {
+        i: sum(1 for v in mapping.values() if v == i) for i in range(devices)
+    }
 
     # materialize each block on the appropriate device
     with tqdm(total=len(mapping), desc="Moving submodules") as pbar:
@@ -89,7 +95,9 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
                 # TODO: the second case could be optimized and then we would only need this hook for
                 # `layer_num in [layers_per_rank * i - 1 for i in range(1, devices + 1)]`
                 target_device = torch.device(root.type, target_index)
-                submodule.register_forward_pre_hook(partial(move_block_input, target_device))
+                submodule.register_forward_pre_hook(
+                    partial(move_block_input, target_device)
+                )
             if layer_num == model.config.n_layer - 1:
                 submodule.register_forward_hook(partial(move_block_output, root))
 
@@ -101,7 +109,11 @@ def layer_to_device(
 ) -> "OrderedDict[str, int]":
     """Create a mapping from layer (block) to device."""
     # this assumes that the definition order is the same as the execution order
-    hits = [name for name, submodule in module.named_modules() if isinstance(submodule, chunk_on)]
+    hits = [
+        name
+        for name, submodule in module.named_modules()
+        if isinstance(submodule, chunk_on)
+    ]
     return OrderedDict((name, i // chunk_size) for i, name in enumerate(hits))
 
 
@@ -111,15 +123,22 @@ def move_block_input(device: torch.device, module: torch.nn.Module, ins):
     return tuple(t.to(device) if torch.is_tensor(t) else t for t in ins)
 
 
-def move_block_output(device: torch.device, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+def move_block_output(
+    device: torch.device, module: torch.nn.Module, ins, outs
+) -> torch.Tensor:
     """``forward_hook`` to move a Block's output after forward."""
     return outs.to(device)
 
 
-def replace_device(module: torch.nn.Module, replace: torch.device, by: torch.device) -> torch.nn.Module:
+def replace_device(
+    module: torch.nn.Module, replace: torch.device, by: torch.device
+) -> torch.nn.Module:
     for name, submodule in module.named_modules():
         tensors = dict(
-            itertools.chain(submodule.named_parameters(recurse=False), submodule.named_buffers(recurse=False))
+            itertools.chain(
+                submodule.named_parameters(recurse=False),
+                submodule.named_buffers(recurse=False),
+            )
         )
         if not tensors:
             continue
@@ -143,7 +162,9 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
+    quantize: Optional[
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]
+    ] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -194,12 +215,20 @@ def main(
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-        logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(logging.DEBUG)
+        dtype = {
+            "16-true": torch.float16,
+            "bf16-true": torch.bfloat16,
+            "32-true": torch.float32,
+        }[precision]
+        logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes").setLevel(
+            logging.DEBUG
+        )
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
-    fabric = L.Fabric(devices=1, precision=precision, accelerator="cuda", plugins=plugins)
+    fabric = L.Fabric(
+        devices=1, precision=precision, accelerator="cuda", plugins=plugins
+    )
 
     total_devices = CUDAAccelerator.auto_device_count()
     print(f"Using {total_devices} devices", file=sys.stderr)
@@ -211,33 +240,47 @@ def main(
 
     tokenizer = Tokenizer(checkpoint_dir)
     prompt_style = (
-        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+        load_prompt_style(checkpoint_dir)
+        if has_prompt_style(checkpoint_dir)
+        else PromptStyle.from_config(config)
     )
     prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    print(
+        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
     # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
-    print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(
+        f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     t0 = time.perf_counter()
     state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
     # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
     model.load_state_dict(state_dict, assign=True)
-    print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(
+        f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     model = fabric.setup_module(model, move_to_device=False)
 
     t0 = time.perf_counter()
     model = sequential(model, fabric.device, max_returned_tokens, total_devices)
-    print(f"Time to sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    print(
+        f"Time to sequential-ize the model: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     if compile:
         # TODO: raises an internal compile AssertionError caused by fabric.strategy.precision.forward_context
@@ -245,7 +288,9 @@ def main(
         # silence developer warning on nightly builds
         # https://github.com/pytorch/pytorch/blob/v2.2.0-rc5/torch/_inductor/ir.py#L4166
         pattern = re.compile(".*DeviceCopy in input program.*")
-        logging.getLogger("torch._inductor.utils").addFilter(lambda record: not pattern.search(record.getMessage()))
+        logging.getLogger("torch._inductor.utils").addFilter(
+            lambda record: not pattern.search(record.getMessage())
+        )
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
@@ -271,6 +316,10 @@ def main(
         print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+            file=sys.stderr,
         )
-    print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+    print(
+        f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB",
+        file=sys.stderr,
+    )

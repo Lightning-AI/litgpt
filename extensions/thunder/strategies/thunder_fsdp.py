@@ -3,16 +3,34 @@
 import shutil
 from contextlib import ExitStack, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ContextManager,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import torch
 from lightning.fabric.accelerators.accelerator import Accelerator
 from lightning.fabric.plugins.environments.cluster_environment import ClusterEnvironment
 from lightning.fabric.plugins.io.checkpoint_io import CheckpointIO
 from lightning.fabric.plugins.precision import Precision
-from lightning.fabric.strategies.launchers.subprocess_script import _SubprocessScriptLauncher
+from lightning.fabric.strategies.launchers.subprocess_script import (
+    _SubprocessScriptLauncher,
+)
 from lightning.fabric.strategies.parallel import ParallelStrategy
-from lightning.fabric.strategies.strategy import TBroadcast, _apply_filter, _Sharded, _validate_keys_for_strict_loading
+from lightning.fabric.strategies.strategy import (
+    TBroadcast,
+    _apply_filter,
+    _Sharded,
+    _validate_keys_for_strict_loading,
+)
 from lightning.fabric.utilities.distributed import (
     ReduceOp,
     _distributed_is_initialized,
@@ -31,7 +49,9 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
+from extensions.thunder.strategies.thunder_ddp import (
+    _ThunderDataParalellBackwardSyncControl,
+)
 from litgpt.utils import _THUNDER_AVAILABLE
 
 if TYPE_CHECKING:
@@ -40,7 +60,9 @@ if TYPE_CHECKING:
     from thunder.distributed.checkpoint import StateDictOptions
 
     _FSDP_TYPE = Union[FSDPType, Literal["ZERO2", "ZERO3"]]
-    _BUCKETING_STRATEGY = Union[FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]]
+    _BUCKETING_STRATEGY = Union[
+        FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]
+    ]
 
 
 class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
@@ -103,13 +125,17 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             raise ImportError("Thunder's FSDP strategy requires PyTorch 2.2 or higher.")
         if not _THUNDER_AVAILABLE:
             raise ModuleNotFoundError(str(_THUNDER_AVAILABLE))
-        super().__init__(accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision)
+        super().__init__(
+            accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision
+        )
         self.parallel_devices = parallel_devices
         self.cluster_environment: Optional[ClusterEnvironment] = cluster_environment
         from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
         self.sharding_strategy = (
-            FSDPType[sharding_strategy.upper()] if isinstance(sharding_strategy, str) else sharding_strategy
+            FSDPType[sharding_strategy.upper()]
+            if isinstance(sharding_strategy, str)
+            else sharding_strategy
         )
         self.bucketing_strategy = (
             FSDPBucketingStrategy[bucketing_strategy.upper()]
@@ -117,7 +143,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             else bucketing_strategy
         )
         if not jit and executors is not None:
-            raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
+            raise ValueError(
+                f"Passing executors={executors} doesn't have an effect with `jit={jit}`"
+            )
         self.jit = jit
         self.executors = executors
         self._state_dict_type = state_dict_type
@@ -141,13 +169,18 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     @property
     @override
     def distributed_sampler_kwargs(self) -> Dict[str, Any]:
-        return {"num_replicas": self.num_nodes * self.num_processes, "rank": self.global_rank}
+        return {
+            "num_replicas": self.num_nodes * self.num_processes,
+            "rank": self.global_rank,
+        }
 
     @override
     def _configure_launcher(self) -> None:
         assert self.cluster_environment is not None
         if not self.cluster_environment.creates_processes_externally:
-            self._launcher = _SubprocessScriptLauncher(self.cluster_environment, self.num_processes, self.num_nodes)
+            self._launcher = _SubprocessScriptLauncher(
+                self.cluster_environment, self.num_processes, self.num_nodes
+            )
 
     @override
     def setup_environment(self) -> None:
@@ -211,7 +244,10 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
 
     @override
     def all_reduce(
-        self, tensor: Tensor, group: Optional[Any] = None, reduce_op: Optional[Union[ReduceOp, str]] = "mean"
+        self,
+        tensor: Tensor,
+        group: Optional[Any] = None,
+        reduce_op: Optional[Union[ReduceOp, str]] = "mean",
     ) -> Tensor:
         if isinstance(tensor, Tensor):
             return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
@@ -264,10 +300,20 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
 
         # broadcast the path from rank 0 to ensure all the states are saved in a common path
         path = Path(self.broadcast(path))
-        if path.is_dir() and self._state_dict_type == "full" and not _is_sharded_checkpoint(path):
-            raise IsADirectoryError(f"The checkpoint path exists and is a directory: {path}")
+        if (
+            path.is_dir()
+            and self._state_dict_type == "full"
+            and not _is_sharded_checkpoint(path)
+        ):
+            raise IsADirectoryError(
+                f"The checkpoint path exists and is a directory: {path}"
+            )
 
-        from thunder.distributed.checkpoint import StateDictOptions, has_fsdp_modules, save
+        from thunder.distributed.checkpoint import (
+            StateDictOptions,
+            has_fsdp_modules,
+            save,
+        )
 
         modules = [module for module in state.values() if has_fsdp_modules(module)]
         if len(modules) == 0:
@@ -288,8 +334,12 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 path.unlink()
             path.mkdir(parents=True, exist_ok=True)
 
-            options = StateDictOptions(full_state_dict=False, cpu_offload=True, rank0_only=False)
-            converted_state, metadata = _get_state_dict(state, filter, options, self.local_rank)
+            options = StateDictOptions(
+                full_state_dict=False, cpu_offload=True, rank0_only=False
+            )
+            converted_state, metadata = _get_state_dict(
+                state, filter, options, self.local_rank
+            )
             save(converted_state, path)
             if self.global_rank == 0:
                 torch.save(metadata, path / _METADATA_FILENAME)
@@ -298,8 +348,12 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             if _is_sharded_checkpoint(path):
                 shutil.rmtree(path)
 
-            options = StateDictOptions(full_state_dict=True, cpu_offload=True, rank0_only=True)
-            converted_state, metadata = _get_state_dict(state, filter, options, self.local_rank)
+            options = StateDictOptions(
+                full_state_dict=True, cpu_offload=True, rank0_only=True
+            )
+            converted_state, metadata = _get_state_dict(
+                state, filter, options, self.local_rank
+            )
             converted_state.update(metadata)
             if self.global_rank == 0:
                 torch.save(converted_state, path)
@@ -310,7 +364,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     def load_checkpoint(
         self,
         path: _PATH,
-        state: Optional[Union[Module, Optimizer, Dict[str, Union[Module, Optimizer, Any]]]] = None,
+        state: Optional[
+            Union[Module, Optimizer, Dict[str, Union[Module, Optimizer, Any]]]
+        ] = None,
         strict: bool = True,
     ) -> Dict[str, Any]:
         if not state:
@@ -322,7 +378,12 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         # broadcast the path from rank 0 to ensure all the states are loaded from a common path
         path = Path(self.broadcast(path))
 
-        from thunder.distributed.checkpoint import StateDictOptions, has_fsdp_modules, load, load_model_state_dict
+        from thunder.distributed.checkpoint import (
+            StateDictOptions,
+            has_fsdp_modules,
+            load,
+            load_model_state_dict,
+        )
 
         if isinstance(state, Module):
             if not _is_full_checkpoint(path):
@@ -331,8 +392,12 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                     f" containing the full state dict: {path}"
                 )
             state_dict = torch.load(str(path), mmap=True, map_location="cpu")
-            options = StateDictOptions(full_state_dict=True, cpu_offload=True, strict=strict, rank0_only=False)
-            load_model_state_dict(state_dict, _unwrap_tom(state), options, self.local_rank)
+            options = StateDictOptions(
+                full_state_dict=True, cpu_offload=True, strict=strict, rank0_only=False
+            )
+            load_model_state_dict(
+                state_dict, _unwrap_tom(state), options, self.local_rank
+            )
             return {}
 
         if isinstance(state, Optimizer):
@@ -340,7 +405,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 "Loading a single optimizer object from a checkpoint is not supported yet with the FSDP strategy."
             )
 
-        modules = {key: module for key, module in state.items() if has_fsdp_modules(module)}
+        modules = {
+            key: module for key, module in state.items() if has_fsdp_modules(module)
+        }
         if len(modules) == 0:
             raise ValueError(
                 "Could not find a FSDP model in the provided checkpoint state. Please provide the model as"
@@ -353,21 +420,29 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
                 " currently limited to a single model per checkpoint. To load multiple models, call the"
                 " load method for each model separately with a different path."
             )
-        optimizers = {key: optim for key, optim in state.items() if isinstance(optim, Optimizer)}
+        optimizers = {
+            key: optim for key, optim in state.items() if isinstance(optim, Optimizer)
+        }
         module_key, module = list(modules.items())[0]
         module = _unwrap_tom(module)
 
         if _is_sharded_checkpoint(path):
-            options = StateDictOptions(full_state_dict=False, cpu_offload=True, strict=strict, rank0_only=False)
+            options = StateDictOptions(
+                full_state_dict=False, cpu_offload=True, strict=strict, rank0_only=False
+            )
             # Load the DCP state dict, which requires a holder state dict
             converted_state, _ = _get_state_dict(state, None, options, self.local_rank)
             load(converted_state, path)
-            load_model_state_dict(converted_state[module_key], module, options, self.local_rank)
+            load_model_state_dict(
+                converted_state[module_key], module, options, self.local_rank
+            )
 
             # Load metadata (anything not a module or optimizer)
             metadata = torch.load(path / _METADATA_FILENAME)
             requested_metadata_keys = state.keys() - modules.keys() - optimizers.keys()
-            _validate_keys_for_strict_loading(requested_metadata_keys, metadata.keys(), strict=strict)
+            _validate_keys_for_strict_loading(
+                requested_metadata_keys, metadata.keys(), strict=strict
+            )
             for key in requested_metadata_keys:
                 if key not in metadata:
                     continue
@@ -376,18 +451,26 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             return metadata
 
         if _is_full_checkpoint(path):
-            options = StateDictOptions(full_state_dict=True, cpu_offload=True, strict=strict, rank0_only=False)
+            options = StateDictOptions(
+                full_state_dict=True, cpu_offload=True, strict=strict, rank0_only=False
+            )
             if not options.rank0_only or self.local_rank == 0:
                 map_location = "cpu" if options.cpu_offload else None
                 checkpoint = torch.load(str(path), mmap=True, map_location=map_location)
-                load_model_state_dict(checkpoint[module_key], module, options, self.local_rank)
+                load_model_state_dict(
+                    checkpoint[module_key], module, options, self.local_rank
+                )
             else:
                 checkpoint = {}
 
             requested_metadata_keys = state.keys() - modules.keys() - optimizers.keys()
-            _validate_keys_for_strict_loading(requested_metadata_keys, checkpoint.keys(), strict=strict)
+            _validate_keys_for_strict_loading(
+                requested_metadata_keys, checkpoint.keys(), strict=strict
+            )
             # Load metadata (anything not a module or optimizer)
-            _move_state_into(source=checkpoint, destination=state, keys=requested_metadata_keys)
+            _move_state_into(
+                source=checkpoint, destination=state, keys=requested_metadata_keys
+            )
             # return the remaining metadata that wasn't requested as part of `state`
             return checkpoint
 
@@ -399,13 +482,17 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     def _setup_distributed(self) -> None:
         reset_seed()
         self._set_world_ranks()
-        process_group_backend = _get_default_process_group_backend_for_device(self.root_device)
+        process_group_backend = _get_default_process_group_backend_for_device(
+            self.root_device
+        )
         assert self.cluster_environment is not None
         _init_dist_connection(self.cluster_environment, process_group_backend)
 
     def _set_world_ranks(self) -> None:
         if self.cluster_environment is not None:
-            self.cluster_environment.set_global_rank(self.node_rank * self.num_processes + self.local_rank)
+            self.cluster_environment.set_global_rank(
+                self.node_rank * self.num_processes + self.local_rank
+            )
             self.cluster_environment.set_world_size(self.num_nodes * self.num_processes)
         # `LightningEnvironment.set_global_rank` will do this too, but we cannot rely on that implementation detail
         # additionally, for some implementations, the setter is a no-op, so it's safer to access the getter

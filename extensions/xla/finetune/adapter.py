@@ -14,9 +14,21 @@ from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.strategies import XLAFSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor, measure_flops
 
-from litgpt.adapter import GPT, Block, Config, adapter_filter, mark_only_adapter_as_trainable
+from litgpt.adapter import (
+    GPT,
+    Block,
+    Config,
+    adapter_filter,
+    mark_only_adapter_as_trainable,
+)
 from litgpt.tokenizer import Tokenizer
-from litgpt.utils import check_valid_checkpoint_dir, chunked_cross_entropy, estimate_flops, lazy_load, num_parameters
+from litgpt.utils import (
+    check_valid_checkpoint_dir,
+    chunked_cross_entropy,
+    estimate_flops,
+    lazy_load,
+    num_parameters,
+)
 
 # support running without installing as a package
 wd = Path(__file__).parents[3].resolve()
@@ -46,9 +58,15 @@ epoch_size = 50000  # train dataset size
 num_epochs = 5
 max_iters = num_epochs * (epoch_size // micro_batch_size) // devices
 weight_decay = 0.02
-warmup_steps = 2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters  # 2 epochs
+warmup_steps = (
+    2 * (epoch_size // micro_batch_size) // devices // gradient_accumulation_iters
+)  # 2 epochs
 
-hparams = {k: v for k, v in locals().items() if isinstance(v, (int, float, str)) and not k.startswith("_")}
+hparams = {
+    k: v
+    for k, v in locals().items()
+    if isinstance(v, (int, float, str)) and not k.startswith("_")
+}
 
 
 def setup(
@@ -67,8 +85,12 @@ def setup(
         )
     else:
         strategy = "auto"
-    logger = CSVLogger(out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval)
-    fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=logger)
+    logger = CSVLogger(
+        out_dir.parent, out_dir.name, flush_logs_every_n_steps=log_interval
+    )
+    fabric = L.Fabric(
+        devices=devices, strategy=strategy, precision=precision, loggers=logger
+    )
     rank_print(fabric, hparams)
     fabric.launch(main, data_dir, checkpoint_dir, out_dir)
 
@@ -89,7 +111,9 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}")
 
     if reduce_cpu_memory_usage_during_load:
-        model = sequential_load_and_fsdp_wrap(fabric, lambda: GPT(config), checkpoint_path)
+        model = sequential_load_and_fsdp_wrap(
+            fabric, lambda: GPT(config), checkpoint_path
+        )
     else:
         with fabric.init_module(empty_init=False):
             model = GPT(config)
@@ -101,8 +125,14 @@ def main(fabric: L.Fabric, data_dir: Path, checkpoint_dir: Path, out_dir: Path) 
     # mark as trainable only after sharding due to https://github.com/pytorch/xla/pull/5484
     mark_only_adapter_as_trainable(model)
     # these are not correct in the sharding case
-    rank_print(fabric, f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
-    rank_print(fabric, f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}")
+    rank_print(
+        fabric,
+        f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}",
+    )
+    rank_print(
+        fabric,
+        f"Number of non-trainable parameters: {num_parameters(model, requires_grad=False):,}",
+    )
 
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(trainable_params, lr=learning_rate)
@@ -144,14 +174,19 @@ def train(
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `flops_per_batch=estimated_flops` instead
         estimated_flops = estimate_flops(meta_model, training=True) * micro_batch_size
-        rank_print(fabric, f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        rank_print(
+            fabric,
+            f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}",
+        )
         # this assumes that all samples have a fixed length equal to the longest sequence length
         # which is most likely false during finetuning
         x = torch.randint(0, 1, (micro_batch_size, longest_seq_length))
         forward_fn = lambda: meta_model(x)  # noqa: F821
         loss_fn = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, forward_fn, loss_fn)
-        rank_print(fabric, f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        rank_print(
+            fabric, f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}"
+        )
         del meta_model, x
 
     throughput = ThroughputMonitor(fabric, window_size=50)
@@ -210,7 +245,10 @@ def train(
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_data, tokenizer, longest_seq_length)
             t1 = time.perf_counter() - t0
-            rank_print(fabric, f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms")
+            rank_print(
+                fabric,
+                f"step {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f}ms",
+            )
             fabric.barrier()
         if not is_accumulating and step_count % save_interval == 0:
             checkpoint_path = out_dir / f"iter-{iter_num:06d}-ckpt.pth"
@@ -220,7 +258,11 @@ def train(
 # xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+    fabric: L.Fabric,
+    model: GPT,
+    val_data: List[Dict],
+    tokenizer: Tokenizer,
+    longest_seq_length: int,
 ) -> torch.Tensor:
     rank_print(fabric, "Validating ...")
     model.eval()
@@ -230,11 +272,15 @@ def validate(
         input_ids, targets = get_batch(fabric, val_data, longest_seq_length)
         logits = model(input_ids)
         xm.mark_step()
-        losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+        losses[k] = chunked_cross_entropy(
+            logits[..., :-1, :], targets[..., 1:], chunk_size=0
+        )
     val_loss = losses.mean()
 
     # produce an example:
-    instruction = "Recommend a movie for me to watch during the weekend and explain the reason."
+    instruction = (
+        "Recommend a movie for me to watch during the weekend and explain the reason."
+    )
     rank_print(fabric, instruction)
     sample = {"instruction": instruction, "input": ""}
     prompt = generate_prompt(sample)
@@ -242,7 +288,12 @@ def validate(
     with fabric.init_tensor():
         # do not set `max_seq_length=max_returned_token` because memory is not a concern here
         model.set_kv_cache(batch_size=1)
-    output = generate(model, encoded, max_returned_tokens=len(encoded) + eval_max_new_tokens, temperature=0.8)
+    output = generate(
+        model,
+        encoded,
+        max_returned_tokens=len(encoded) + eval_max_new_tokens,
+        temperature=0.8,
+    )
     model.clear_kv_cache()
     output = tokenizer.decode(output)
     rank_print(fabric, output)
@@ -251,7 +302,9 @@ def validate(
     return val_loss
 
 
-def get_batch(fabric: L.Fabric, data: List[Dict], longest_seq_length: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_batch(
+    fabric: L.Fabric, data: List[Dict], longest_seq_length: int
+) -> Tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
 
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
@@ -274,7 +327,9 @@ def get_longest_seq_length(data: List[Dict]) -> int:
     return max(len(d["input_ids"]) for d in data)
 
 
-def save_adapter_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
+def save_adapter_checkpoint(
+    fabric: L.Fabric, model: torch.nn.Module, file_path: Path
+) -> None:
     rank_print(fabric, f"Saving adapter weights to {str(file_path)!r}")
     fabric.save(file_path, {"model": model}, filter={"model": adapter_filter})
 

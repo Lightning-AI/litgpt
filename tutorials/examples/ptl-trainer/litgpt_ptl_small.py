@@ -11,26 +11,36 @@ class LitLLM(L.LightningModule):
     def __init__(self, checkpoint_dir, tokenizer_dir=None, trainer_ckpt_path=None):
         super().__init__()
 
-        self.llm = LLM.load(checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None)
+        self.llm = LLM.load(
+            checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None
+        )
         self.trainer_ckpt_path = trainer_ckpt_path
 
     def setup(self, stage):
         self.llm.trainer_setup(trainer_ckpt=self.trainer_ckpt_path)
 
     def training_step(self, batch):
-        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        logits, loss = self.llm(
+            input_ids=batch["input_ids"], target_ids=batch["labels"]
+        )
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch):
-        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        logits, loss = self.llm(
+            input_ids=batch["input_ids"], target_ids=batch["labels"]
+        )
         self.log("validation_loss", loss, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
         warmup_steps = 10
-        optimizer = torch.optim.AdamW(self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95))
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+        optimizer = torch.optim.AdamW(
+            self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95)
+        )
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lambda step: step / warmup_steps
+        )
         return [optimizer], [scheduler]
 
 
@@ -42,11 +52,16 @@ if __name__ == "__main__":
     # Use case 1: Pretraining from random weights
     #########################################################
 
-    llm = LLM.load("EleutherAI/pythia-160m", tokenizer_dir="EleutherAI/pythia-160m", init="random")
+    llm = LLM.load(
+        "EleutherAI/pythia-160m", tokenizer_dir="EleutherAI/pythia-160m", init="random"
+    )
     llm.save("pythia-160m-random-weights")
     del llm
 
-    lit_model = LitLLM(checkpoint_dir="pythia-160m-random-weights", tokenizer_dir="EleutherAI/pythia-160m")
+    lit_model = LitLLM(
+        checkpoint_dir="pythia-160m-random-weights",
+        tokenizer_dir="EleutherAI/pythia-160m",
+    )
     data = Alpaca2k()
 
     data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
@@ -110,7 +125,8 @@ if __name__ == "__main__":
         return latest_checkpoint
 
     lit_model = LitLLM(
-        checkpoint_dir="EleutherAI/pythia-160m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs")
+        checkpoint_dir="EleutherAI/pythia-160m",
+        trainer_ckpt_path=find_latest_checkpoint("lightning_logs"),
     )
 
     data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)

@@ -19,21 +19,33 @@ from litgpt.utils import _RunIf
 def test_speculative_decoding_target_never_accepts_draft_tokens():
     class DraftModel(nn.Module):
         def forward(self, **kwargs):
-            return torch.tensor([1, 2, 3, 4, 5, 0, 0, 0, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+            return torch.tensor([1, 2, 3, 4, 5, 0, 0, 0, 0, 0], dtype=torch.float)[
+                None, None, ...
+            ]  # (B, T, C)
 
     class TargetModel(nn.Module):
         def forward(self, idx, **kwargs):
             _, T = idx.shape
-            return torch.tensor([[0, 0, 0, 0, 0, 6, 7, 8, 9, 10]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
+            return torch.tensor(
+                [[0, 0, 0, 0, 0, 6, 7, 8, 9, 10]] * T, dtype=torch.float
+            )[None, ...]  # (B, T, C)
 
     draft_model = DraftModel()
     target_model = TargetModel()
 
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
+    sample_kwargs = dict(
+        top_k=None, top_p=0.0, temperature=0.0
+    )  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model,
+        target_model,
+        token,
+        input_pos,
+        input_pos,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model never accepts draft model's output, thus the output of the `speculative_decoding`
@@ -45,21 +57,33 @@ def test_speculative_decoding_target_never_accepts_draft_tokens():
 def test_speculative_decoding_target_always_accepts_draft_tokens():
     class DraftModel(nn.Module):
         def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8, 0, 0], dtype=torch.float)[
+                None, None, ...
+            ]  # (B, T, C)
 
     class TargetModel(nn.Module):
         def forward(self, idx, **kwargs):
             _, T = idx.shape
-            return torch.tensor([[0, 0, 3, 4, 5, 6, 7, 8, 0, 0]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
+            return torch.tensor(
+                [[0, 0, 3, 4, 5, 6, 7, 8, 0, 0]] * T, dtype=torch.float
+            )[None, ...]  # (B, T, C)
 
     draft_model = DraftModel()
     target_model = TargetModel()
 
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
+    sample_kwargs = dict(
+        top_k=None, top_p=0.0, temperature=0.0
+    )  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model,
+        target_model,
+        token,
+        input_pos,
+        input_pos,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model always accepts draft model's output, thus the output of the `speculative_decoding`
@@ -71,7 +95,9 @@ def test_speculative_decoding_target_always_accepts_draft_tokens():
 def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
     class DraftModel(nn.Module):
         def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 10, 9, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+            return torch.tensor([0, 0, 3, 4, 10, 9, 7, 8, 0, 0], dtype=torch.float)[
+                None, None, ...
+            ]  # (B, T, C)
 
     class TargetModel(nn.Module):
         def forward(self, idx, **kwargs):
@@ -90,9 +116,17 @@ def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
 
     token = torch.tensor([-1])
     input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
+    sample_kwargs = dict(
+        top_k=None, top_p=0.0, temperature=0.0
+    )  # to make sampling consistent
     output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+        draft_model,
+        target_model,
+        token,
+        input_pos,
+        input_pos,
+        speculative_k=3,
+        **sample_kwargs,
     )
 
     # target model accepts only 2 out of 3 draft model's output, thus the output of the `speculative_decoding`
@@ -110,15 +144,24 @@ def test_generate(max_seq_length, speculative_k):
     max_new_tokens = max_seq_length - T
 
     # prepare models
-    draft_model = GPT(Config(vocab_size=16, block_size=64, n_layer=1, n_head=4, n_embd=8))
-    target_model = GPT(Config(vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16))
+    draft_model = GPT(
+        Config(vocab_size=16, block_size=64, n_layer=1, n_head=4, n_embd=8)
+    )
+    target_model = GPT(
+        Config(vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16)
+    )
     for model in (draft_model, target_model):
         model.max_seq_length = max_seq_length
         model.set_kv_cache(batch_size=1)
 
     # generate tokens
     out, acceptance_rate = generate.generate(
-        draft_model, target_model, input_idx, T + max_new_tokens, top_k=1, speculative_k=speculative_k
+        draft_model,
+        target_model,
+        input_idx,
+        T + max_new_tokens,
+        top_k=1,
+        speculative_k=speculative_k,
     )
 
     # validate
@@ -134,8 +177,12 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     target_model_dir = fake_checkpoint_dir / "target_model"
     target_model_dir.mkdir()
 
-    draft_model_config = dict(vocab_size=16, block_size=64, n_layer=1, n_head=4, n_embd=8)
-    target_model_config = dict(vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16)
+    draft_model_config = dict(
+        vocab_size=16, block_size=64, n_layer=1, n_head=4, n_embd=8
+    )
+    target_model_config = dict(
+        vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16
+    )
 
     (draft_model_dir / "model_config.yaml").write_text(yaml.dump(draft_model_config))
     (target_model_dir / "model_config.yaml").write_text(yaml.dump(target_model_config))
@@ -176,7 +223,10 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
         )
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
-    assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value[0])
+    assert torch.allclose(
+        tokenizer_mock.return_value.decode.call_args[0][0],
+        generate_mock.return_value[0],
+    )
     assert (
         generate_mock.mock_calls
         == [

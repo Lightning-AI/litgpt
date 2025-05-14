@@ -55,7 +55,10 @@ class LIMA(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -104,7 +107,9 @@ class LIMA(DataModule):
             shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -113,19 +118,27 @@ class LIMA(DataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
 
-def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
+def format_dataset(
+    dataset_partition: dict, include_multi_turn_conversations: bool
+) -> List[dict]:
     formatted_ds = []
 
     for entry in dataset_partition:
         convo = entry["conversations"]
         if include_multi_turn_conversations:
             for i in range(0, len(convo) - 1, 2):
-                formatted_ds.append({"instruction": convo[i], "input": "", "output": convo[i + 1]})
+                formatted_ds.append(
+                    {"instruction": convo[i], "input": "", "output": convo[i + 1]}
+                )
         else:
-            formatted_ds.append({"instruction": convo[0], "input": "", "output": convo[1]})
+            formatted_ds.append(
+                {"instruction": convo[0], "input": "", "output": convo[1]}
+            )
 
     return formatted_ds

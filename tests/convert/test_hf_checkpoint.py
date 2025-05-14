@@ -6,7 +6,11 @@ import pytest
 import torch
 
 from litgpt import Config
-from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint, copy_weights_hf_llama, qkv_reassemble
+from litgpt.scripts.convert_hf_checkpoint import (
+    convert_hf_checkpoint,
+    copy_weights_hf_llama,
+    qkv_reassemble,
+)
 
 
 def test_llama2_70b_conversion():
@@ -97,11 +101,16 @@ def test_llama2_70b_conversion():
         "transformer.h.5.attn.proj.weight": (8192, 8192),
         "transformer.h.5.mlp.fc_1.weight": (28672, 8192),
         "transformer.wte.weight": (32000, 8192),
-        "lm_head.weight": (32000, 8192),  # due to weight tying lm_head is in the converted weights
+        "lm_head.weight": (
+            32000,
+            8192,
+        ),  # due to weight tying lm_head is in the converted weights
     }
 
 
-@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
+@pytest.mark.parametrize(
+    "model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2")
+)
 def test_convert_hf_checkpoint(tmp_path, model_name):
     with pytest.raises(ValueError, match="to contain .bin"):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
@@ -115,7 +124,11 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
         convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
     load.assert_called_with(bin_file)
 
-    assert {p.name for p in tmp_path.glob("*")} == {"foo.bin", "model_config.yaml", "lit_model.pth"}
+    assert {p.name for p in tmp_path.glob("*")} == {
+        "foo.bin",
+        "model_config.yaml",
+        "lit_model.pth",
+    }
 
     # ensure that the config dict can be loaded
     config = Config.from_file(tmp_path / "model_config.yaml")

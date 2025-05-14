@@ -54,8 +54,22 @@ def _rope_embedding(
     half_head_dim = head_dim // 2
     mask = col_offsets < half_head_dim
 
-    sin1 = tl.load(sin + (row_position % seqlen) * sin_row_stride + half_head_dim * 0 + col_offsets, mask=mask, other=0)
-    cos1 = tl.load(cos + (row_position % seqlen) * cos_row_stride + half_head_dim * 0 + col_offsets, mask=mask, other=0)
+    sin1 = tl.load(
+        sin
+        + (row_position % seqlen) * sin_row_stride
+        + half_head_dim * 0
+        + col_offsets,
+        mask=mask,
+        other=0,
+    )
+    cos1 = tl.load(
+        cos
+        + (row_position % seqlen) * cos_row_stride
+        + half_head_dim * 0
+        + col_offsets,
+        mask=mask,
+        other=0,
+    )
 
     if BACKWARD_PASS:
         # See our blog post for more info.
@@ -69,7 +83,9 @@ def _rope_embedding(
     # 10% Faster kernel from [HuyNguyen-hust](https://github.com/unslothai/unsloth/pull/238)
     for k in range(head_start, head_end):
         offs_q1 = row_position * Q_row_stride + k * head_dim + col_offsets
-        offs_q2 = row_position * Q_row_stride + k * head_dim + col_offsets + half_head_dim
+        offs_q2 = (
+            row_position * Q_row_stride + k * head_dim + col_offsets + half_head_dim
+        )
 
         # For Gemma - sometimes RoPE must be done in float32 and not bfloat16
         Q1 = tl.load(Q + offs_q1, mask=mask, other=0).to(sin1.dtype)

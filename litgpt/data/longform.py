@@ -45,7 +45,10 @@ class LongForm(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -81,7 +84,9 @@ class LongForm(DataModule):
             shuffle=(split == "train"),
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
 

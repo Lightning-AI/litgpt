@@ -49,37 +49,79 @@ def test_tensor_parallel_linear():
         (
             "Llama-2-70b-hf",
             {
-                "transformer.h.0.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.0.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
+                "transformer.h.0.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.0.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
             },
         ),
         (
             "falcon-180B",
             {
-                "transformer.h.0.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.0.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.mlp": [("forward_hook", "all_reduce_output", (8,), {})],
+                "transformer.h.0.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.0.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.mlp": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
             },
         ),
         (
             "Mixtral-8x7B-v0.1",
             {
-                "transformer.h.0.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.0.mlp.experts.0": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.0.mlp.experts.1": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.mlp.experts.0": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.1.mlp.experts.1": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.attn": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.mlp.experts.0": [("forward_hook", "all_reduce_output", (8,), {})],
-                "transformer.h.2.mlp.experts.1": [("forward_hook", "all_reduce_output", (8,), {})],
+                "transformer.h.0.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.0.mlp.experts.0": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.0.mlp.experts.1": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.mlp.experts.0": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.1.mlp.experts.1": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.attn": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.mlp.experts.0": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
+                "transformer.h.2.mlp.experts.1": [
+                    ("forward_hook", "all_reduce_output", (8,), {})
+                ],
             },
         ),
     ],
@@ -109,7 +151,9 @@ root = Path(__file__).parent.parent.resolve()
 @_RunIf(min_cuda_gpus=2)
 def test_tp(tmp_path):
     # download the tokenizer
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
     # save the config
     config = Config.from_name("pythia-14m")

@@ -40,17 +40,26 @@ class TinyStories(DataModule):
         self.data_path_train = self.data_path / "train"
         self.data_path_val = self.data_path / "val"
 
-    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
+    def connect(
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: int = -1,
+    ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.max_seq_length = (
+            max_seq_length + 1
+        )  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
         from litdata import optimize
 
         download(self.data_path)
 
-        files = sorted(glob.glob(str(self.data_path / "TinyStories_all_data" / "*.json")))
+        files = sorted(
+            glob.glob(str(self.data_path / "TinyStories_all_data" / "*.json"))
+        )
         assert len(files) > 0, f"No json files found in {files}"
         assert len(files) > 1, f"Expected at least two json files in {files}"
         # train/test split. let's use only shard 0 for test split, rest train
@@ -77,7 +86,11 @@ class TinyStories(DataModule):
             )
 
     def train_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         train_dataset = StreamingDataset(
             input_dir=str(self.data_path_train),
@@ -85,12 +98,20 @@ class TinyStories(DataModule):
             shuffle=True,
         )
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         val_dataset = StreamingDataset(
             input_dir=str(self.data_path_val),
@@ -98,7 +119,11 @@ class TinyStories(DataModule):
             shuffle=True,
         )
         val_dataloader = StreamingDataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            val_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return val_dataloader
 

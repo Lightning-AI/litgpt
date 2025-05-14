@@ -30,7 +30,9 @@ from litgpt.utils import (
 )
 
 
-def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str) -> None:
+def tensor_parallel_linear(
+    fabric: L.Fabric, linear: torch.nn.Linear, style: str
+) -> None:
     world_size = fabric.world_size
     dim, attr = {"colwise": (0, "out_features"), "rowwise": (1, "in_features")}[style]
     size = getattr(linear, attr)
@@ -50,7 +52,9 @@ def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str
         linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
 
 
-def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMAMoE]) -> None:
+def tensor_parallel_mlp(
+    fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMAMoE]
+) -> None:
     if isinstance(mlp, LLaMAMLP):
         tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
         tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
@@ -75,7 +79,9 @@ def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
     attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
 
 
-def all_reduce_output(world_size: int, module: torch.nn.Module, ins, outs) -> torch.Tensor:
+def all_reduce_output(
+    world_size: int, module: torch.nn.Module, ins, outs
+) -> torch.Tensor:
     from torch.distributed._functional_collectives import all_reduce
 
     return all_reduce(outs, "sum", list(range(world_size)))
@@ -93,7 +99,9 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
     for attr in attrs:
         size = getattr(model.config, attr)
         if size % world_size != 0:
-            raise ValueError(f"This {attr} value ({size}) is not evenly divisible by the world size ({world_size})")
+            raise ValueError(
+                f"This {attr} value ({size}) is not evenly divisible by the world size ({world_size})"
+            )
         setattr(model.config, attr, size // world_size)
 
     return model
@@ -109,7 +117,9 @@ def main(
     top_k: Optional[int] = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
+    quantize: Optional[
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]
+    ] = None,
     precision: Optional[str] = None,
     compile: bool = False,
 ) -> None:
@@ -160,15 +170,23 @@ def main(
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
-        dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
-        bnb_logger = logging.getLogger("lightning.fabric.plugins.precision.bitsandbytes")
+        dtype = {
+            "16-true": torch.float16,
+            "bf16-true": torch.bfloat16,
+            "32-true": torch.float32,
+        }[precision]
+        bnb_logger = logging.getLogger(
+            "lightning.fabric.plugins.precision.bitsandbytes"
+        )
         bnb_logger.setLevel(logging.DEBUG)
         bnb_logger.debug = rank_zero_only(bnb_logger.debug)
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
 
     # set "ddp" as the strategy for the launching functionality, but there's no data-parallelism
-    fabric = L.Fabric(devices="auto", strategy="ddp", precision=precision, plugins=plugins)
+    fabric = L.Fabric(
+        devices="auto", strategy="ddp", precision=precision, plugins=plugins
+    )
     if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
         check_nvlink_connectivity(fabric)
     fabric.launch()
@@ -181,21 +199,29 @@ def main(
 
     tokenizer = Tokenizer(checkpoint_dir)
     prompt_style = (
-        load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
+        load_prompt_style(checkpoint_dir)
+        if has_prompt_style(checkpoint_dir)
+        else PromptStyle.from_config(config)
     )
     prompt = prompt_style.apply(prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
 
-    fabric.print(f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    fabric.print(
+        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     # cannot use `init_module` because if bitsandbytes is used, the Linear layers will be replaced
     # which means that the weights will get quantized on cuda:0 on checkpoint load. we need to load and then convert
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
-    fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    fabric.print(
+        f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     # sequentially do: load the checkpoint on CPU -> quantize -> apply tp -> move to device
     # so that the CPU RAM doesn't OOM with larger models
@@ -204,7 +230,10 @@ def main(
             t0 = time.perf_counter()
             state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
             model.load_state_dict(state_dict, assign=True)
-            print(f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+            print(
+                f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.",
+                file=sys.stderr,
+            )
 
             # cannot use `.setup_module` because it will wrap with DDP
             model = fabric._precision.convert_module(model)
@@ -227,20 +256,30 @@ def main(
 
             t0 = time.perf_counter()
             model = fabric.to_device(model)
-            print(f"[{rank}] Time to move the model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+            print(
+                f"[{rank}] Time to move the model: {time.perf_counter() - t0:.02f} seconds.",
+                file=sys.stderr,
+            )
         fabric.barrier()
 
     if compile:
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        generate_base.next_token = torch.compile(generate_base.next_token, mode="reduce-overhead")
+        generate_base.next_token = torch.compile(
+            generate_base.next_token, mode="reduce-overhead"
+        )
 
     L.seed_everything(1234)
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate_base.generate(
-            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, eos_id=tokenizer.eos_id
+            model,
+            encoded,
+            max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            eos_id=tokenizer.eos_id,
         )
         t = time.perf_counter() - t0
         for block in model.transformer.h:
@@ -248,7 +287,11 @@ def main(
         fabric.print(tokenizer.decode(y))
         tokens_generated = y.size(0) - prompt_length
         fabric.print(
-            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+            f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+            file=sys.stderr,
         )
     if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+        fabric.print(
+            f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB",
+            file=sys.stderr,
+        )

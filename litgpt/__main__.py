@@ -20,8 +20,12 @@ from litgpt.generate.sequentially import main as generate_sequentially_fn
 from litgpt.generate.speculative_decoding import main as generate_speculatively_fn
 from litgpt.generate.tp import main as generate_tp_fn
 from litgpt.pretrain import setup as pretrain_fn
-from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint as convert_hf_checkpoint_fn
-from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint as convert_lit_checkpoint_fn
+from litgpt.scripts.convert_hf_checkpoint import (
+    convert_hf_checkpoint as convert_hf_checkpoint_fn,
+)
+from litgpt.scripts.convert_lit_checkpoint import (
+    convert_lit_checkpoint as convert_lit_checkpoint_fn,
+)
 from litgpt.scripts.convert_pretrained_checkpoint import (
     convert_pretrained_checkpoint as convert_pretrained_checkpoint_fn,
 )
@@ -62,7 +66,10 @@ def main() -> None:
     warning_message = r"The epoch parameter in `scheduler.step\(\)` was not necessary and is being deprecated.*"
 
     warnings.filterwarnings(
-        action="ignore", message=warning_message, category=UserWarning, module=r".*torch\.optim\.lr_scheduler.*"
+        action="ignore",
+        message=warning_message,
+        category=UserWarning,
+        module=r".*torch\.optim\.lr_scheduler.*",
     )
 
     torch.set_float32_matmul_precision("high")

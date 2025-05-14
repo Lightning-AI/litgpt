@@ -44,10 +44,17 @@ class TextFiles(DataModule):
         else:
             self.out_path_val = Path(self.val_data_path) / "val"
 
-    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
+    def connect(
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: int = -1,
+    ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.max_seq_length = (
+            max_seq_length + 1
+        )  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
         from litdata import optimize
@@ -58,10 +65,14 @@ class TextFiles(DataModule):
         if self.val_data_path is not None:
             self.val_data_path = Path(self.val_data_path)
             val_files = sorted(glob.glob(str(self.val_data_path / "*.txt")))
-            assert len(val_files) > 0, f"No .txt files found in validation data {val_files}"
+            assert len(val_files) > 0, (
+                f"No .txt files found in validation data {val_files}"
+            )
         # train/test split. let's use only shard 0 for test split, rest train
         else:
-            assert len(train_files) > 1, f"Expected at least two .txt files in {train_files}"
+            assert len(train_files) > 1, (
+                f"Expected at least two .txt files in {train_files}"
+            )
             val_files, *train_files = train_files
             val_files = [val_files]
 
@@ -103,7 +114,11 @@ class TextFiles(DataModule):
             )
 
     def train_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         train_dataset = StreamingDataset(
             input_dir=str(self.out_path_train),
@@ -112,12 +127,20 @@ class TextFiles(DataModule):
         )
 
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         val_dataset = StreamingDataset(
             input_dir=str(self.out_path_val),
@@ -125,7 +148,11 @@ class TextFiles(DataModule):
             shuffle=True,
         )
         val_dataloader = StreamingDataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            val_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return val_dataloader
 

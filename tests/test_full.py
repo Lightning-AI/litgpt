@@ -16,7 +16,9 @@ from litgpt.data import Alpaca
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = dict(
+        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8
+    )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
 
@@ -28,14 +30,28 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     out_dir = tmp_path / "out"
     setup_args = (fake_checkpoint_dir,)
     setup_kwargs = dict(
-        data=Alpaca(download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0),
+        data=Alpaca(
+            download_dir=alpaca_path.parent,
+            file_name=alpaca_path.name,
+            val_split_fraction=0.5,
+            num_workers=0,
+        ),
         out_dir=out_dir,
         precision="32-true",
-        train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
+        train=TrainArgs(
+            global_batch_size=1,
+            save_interval=2,
+            epochs=1,
+            max_steps=6,
+            micro_batch_size=1,
+        ),
         eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
     )
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(*setup_args, **setup_kwargs)
 
     out_dir_contents = set(os.listdir(out_dir))
@@ -63,7 +79,10 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     setup_kwargs["train"].max_steps = 8
     setup_kwargs["resume"] = True
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(*setup_args, **setup_kwargs)
     logs = stdout.getvalue()
     assert f"Resuming training from {out_dir / 'step-000006' / 'lit_model.pth'}" in logs

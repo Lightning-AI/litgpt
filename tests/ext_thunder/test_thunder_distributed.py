@@ -48,7 +48,9 @@ def test_no_backward_sync_thunder(choice):
 
     # 6 iters, 3 grad accumulation iters
     for i, enabled in enumerate((True, True, False, True, True, False), 1):
-        x = torch.tensor([i * (fabric.local_rank + 1)], device=fabric.device, dtype=torch.float32)
+        x = torch.tensor(
+            [i * (fabric.local_rank + 1)], device=fabric.device, dtype=torch.float32
+        )
 
         with fabric.no_backward_sync(model, enabled):
             y = model(x)
@@ -113,7 +115,9 @@ def test_strategy_ddp_setup_already_traced():
 def test_thunder_strategy_fsdp_input_parsing():
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
-    strategy = ThunderFSDPStrategy(bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3")
+    strategy = ThunderFSDPStrategy(
+        bucketing_strategy="BlOcK", executors=("python",), sharding_strategy="zero3"
+    )
 
     assert strategy.bucketing_strategy is FSDPBucketingStrategy.BLOCK
     assert strategy.sharding_strategy is FSDPType.ZERO3
@@ -208,7 +212,11 @@ class StatefulThing:
 
 
 class TensorLike:
-    def __init__(self, device: Optional[Union[str, torch.device]] = None, shape: Optional[Tuple[int, ...]] = None):
+    def __init__(
+        self,
+        device: Optional[Union[str, torch.device]] = None,
+        shape: Optional[Tuple[int, ...]] = None,
+    ):
         self.device = torch.device(device) if device is not None else None
         self.shape = torch.Size(shape) if shape is not None else None
 
@@ -338,7 +346,12 @@ def distributed_ckpt_to_regular(path):
 
     state_dict = {}
     storage_reader = FileSystemReader(path)
-    _load_state_dict(state_dict, storage_reader=storage_reader, planner=_EmptyStateDictLoadPlanner(), no_dist=True)
+    _load_state_dict(
+        state_dict,
+        storage_reader=storage_reader,
+        planner=_EmptyStateDictLoadPlanner(),
+        no_dist=True,
+    )
     return state_dict
 
 
@@ -359,7 +372,12 @@ def test_save_load_sharded_checkpoint(tmp_path):
 
     # assert the file contents
     if fabric.global_rank == 0:
-        assert set(os.listdir(tmp_path)) == {"meta.pt", "__1_0.distcp", "__0_0.distcp", ".metadata"}
+        assert set(os.listdir(tmp_path)) == {
+            "meta.pt",
+            "__1_0.distcp",
+            "__0_0.distcp",
+            ".metadata",
+        }
 
         metadata = torch.load(tmp_path / "meta.pt")
         assert metadata == {"stateful": {"thing": 1}, "primitive": 123}
@@ -402,7 +420,9 @@ def test_save_load_sharded_checkpoint(tmp_path):
 def test_jit_fsdp_before_setup(jit):
     import thunder
 
-    fabric = Fabric(devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit))
+    fabric = Fabric(
+        devices=2, accelerator="cuda", strategy=ThunderFSDPStrategy(jit=jit)
+    )
     fabric.launch()
 
     x = torch.randn(1, 1, device=fabric.device)

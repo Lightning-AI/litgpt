@@ -13,7 +13,13 @@ def tokenize(data):
 
 
 def fake_chunk(path, data):
-    optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
+    optimize(
+        fn=tokenize,
+        inputs=[data] * len(data),
+        output_dir=str(path),
+        num_workers=1,
+        chunk_bytes="200MB",
+    )
 
 
 @pytest.mark.parametrize(
@@ -31,7 +37,10 @@ def test_pretok_dataset(tmp_path, max_seq_len, expected):
     fake_chunk(tmp_path, [fake_data])
 
     dataset = StreamingDataset(
-        input_dir=str(tmp_path), item_loader=TokensLoader(block_size=max_seq_len + 1), shuffle=False, drop_last=False
+        input_dir=str(tmp_path),
+        item_loader=TokensLoader(block_size=max_seq_len + 1),
+        shuffle=False,
+        drop_last=False,
     )
     actual = tree_map(torch.Tensor.tolist, list(dataset))
     assert actual == expected

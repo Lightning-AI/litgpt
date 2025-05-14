@@ -28,7 +28,11 @@ for model_dir in config_hub_path.iterdir():
         model_name = model_dir.name
         for yaml_file in model_dir.glob("*.yaml"):
             config_name = yaml_file.stem
-            python_file = "litgpt/finetune/full.py" if config_name == "full" else "litgpt/finetune/lora.py"
+            python_file = (
+                "litgpt/finetune/full.py"
+                if config_name == "full"
+                else "litgpt/finetune/lora.py"
+            )
             relative_yaml_path = yaml_file.relative_to(config_hub_path.parent)
             model_pairs.append((python_file, str(relative_yaml_path)))
 
@@ -44,18 +48,27 @@ def test_config_help(script_file, config_file, monkeypatch):
         config_file = Path(__file__).parent.parent / "config_hub" / config_file
         assert config_file.is_file()
 
-    spec = importlib.util.spec_from_file_location(str(script_file.parent.name), script_file)
+    spec = importlib.util.spec_from_file_location(
+        str(script_file.parent.name), script_file
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
     monkeypatch.setattr(module, "main", Mock())
     monkeypatch.setattr(module, "Tokenizer", Mock())
-    monkeypatch.setattr(module, "BitsandbytesPrecision", Mock(return_value=Precision()), raising=False)
-    monkeypatch.setattr(module, "Config", Mock(return_value=Config.from_name("pythia-14m")))
+    monkeypatch.setattr(
+        module, "BitsandbytesPrecision", Mock(return_value=Precision()), raising=False
+    )
+    monkeypatch.setattr(
+        module, "Config", Mock(return_value=Config.from_name("pythia-14m"))
+    )
     monkeypatch.setattr(module, "check_valid_checkpoint_dir", Mock(), raising=False)
 
     try:
-        with mock.patch("sys.argv", [script_file.name, "--config", str(config_file), "--devices", "1"]):
+        with mock.patch(
+            "sys.argv",
+            [script_file.name, "--config", str(config_file), "--devices", "1"],
+        ):
             CLI(module.setup)
             module.main.assert_called_once()
     except FileNotFoundError:

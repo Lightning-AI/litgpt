@@ -34,11 +34,15 @@ class GPT(BaseModel):
         assert config.padded_vocab_size is not None
         self.config = config
 
-        self.lm_head = nn.Linear(config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias)
+        self.lm_head = nn.Linear(
+            config.n_embd, config.padded_vocab_size, bias=config.lm_head_bias
+        )
         self.transformer = nn.ModuleDict(
             dict(
                 wte=nn.Embedding(config.padded_vocab_size, config.n_embd),
-                h=nn.ModuleList(Block(config, block_idx) for block_idx in range(config.n_layer)),
+                h=nn.ModuleList(
+                    Block(config, block_idx) for block_idx in range(config.n_layer)
+                ),
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
@@ -77,7 +81,11 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             self.adapter_kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         y = super().scaled_dot_product_attention(q, k, v, mask)
         if self.block_idx < self.config.adapter_start_layer:
@@ -92,7 +100,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             prefix = self.adapter_wte.weight.reshape(1, aT, self.config.n_embd)
             aqkv = self.qkv(prefix)
             q_per_kv = self.config.n_head // self.config.n_query_groups
-            aqkv = aqkv.view(1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size)
+            aqkv = aqkv.view(
+                1, aT, self.config.n_query_groups, q_per_kv + 2, self.config.head_size
+            )
             aqkv = aqkv.permute(0, 2, 3, 1, 4)
             _, ak, av = aqkv.split((q_per_kv, 1, 1), dim=2)
             if self.config.n_query_groups != 1:
@@ -112,9 +122,13 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         if hasattr(self, "gating_factor"):
             torch.nn.init.zeros_(self.gating_factor)
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(
+        self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any
+    ) -> None:
         """For compatibility with older checkpoints."""
-        if (key := prefix + "gating_factor") in state_dict and state_dict[key].size(1) == self.config.n_head:
+        if (key := prefix + "gating_factor") in state_dict and state_dict[key].size(
+            1
+        ) == self.config.n_head:
             state_dict[key] = state_dict[key].permute(0, 2, 1, 3)
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 

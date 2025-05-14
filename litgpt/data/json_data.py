@@ -62,7 +62,10 @@ class JSON(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -95,7 +98,9 @@ class JSON(DataModule):
             shuffle=True,
             generator=torch.Generator().manual_seed(self.seed),
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -104,7 +109,9 @@ class JSON(DataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
+            collate_fn=get_sft_collate_fn(
+                max_seq_length=self.max_seq_length, ignore_index=self.ignore_index
+            ),
         )
 
     def get_splits(self) -> Tuple:
@@ -121,7 +128,9 @@ class JSON(DataModule):
             return train_data, test_data
 
         # A directory containing train.json and val.json
-        if (train_file := self.find_split("train")) and (val_file := self.find_split("val")):
+        if (train_file := self.find_split("train")) and (
+            val_file := self.find_split("val")
+        ):
             train_data = load_split(train_file)
             test_data = load_split(val_file)
             return train_data, test_data
@@ -145,4 +154,6 @@ def load_split(json_path: Path) -> Any:
         with open(json_path, encoding="utf-8") as file:
             return [json.loads(line) for line in file]
     else:
-        raise ValueError(f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`.")
+        raise ValueError(
+            f"Unsupported file format: {json_path.suffix}. Expected `.json` or `.jsonl`."
+        )

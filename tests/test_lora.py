@@ -11,7 +11,10 @@ import pytest
 import torch
 import yaml
 from lightning import Fabric
-from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+from lightning.fabric.plugins.precision.bitsandbytes import (
+    _BITSANDBYTES_AVAILABLE,
+    BitsandbytesPrecision,
+)
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
 from torch.nn import functional as F
@@ -36,13 +39,26 @@ from litgpt.lora import (
 )
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.model import GPT as BaseGPT
-from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_gemma_3, copy_weights_hf_llama
+from litgpt.scripts.convert_hf_checkpoint import (
+    copy_weights_gemma_2,
+    copy_weights_gemma_3,
+    copy_weights_hf_llama,
+)
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
 
 
 def test_lora_layer_replacement():
-    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=8, vocab_size=8, lora_r=8, lora_alpha=8, lora_dropout=0.1)
+    config = Config(
+        n_layer=2,
+        n_head=4,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        lora_r=8,
+        lora_alpha=8,
+        lora_dropout=0.1,
+    )
     model = LoRAGPT(config)
 
     assert isinstance(model.transformer.h[0].attn, LoRACausalSelfAttention)
@@ -174,7 +190,9 @@ def test_lora_mqa_gqa():
 
 def test_lora_filter(tmp_path):
     fabric = Fabric(devices=1)
-    model = LoRAGPT.from_name("pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True)
+    model = LoRAGPT.from_name(
+        "pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True
+    )
     save_path = tmp_path / "model.pth"
     fabric.save(save_path, {"model": model}, filter={"model": lora_filter})
     saved = torch.load(save_path)["model"]
@@ -192,7 +210,9 @@ def test_lora_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    model_config = dict(
+        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8
+    )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
     monkeypatch.setattr(module, "merge_lora", Mock())
@@ -204,15 +224,27 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(
             fake_checkpoint_dir,
             data=Alpaca(
-                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+                download_dir=alpaca_path.parent,
+                file_name=alpaca_path.name,
+                val_split_fraction=0.5,
+                num_workers=0,
             ),
             out_dir=out_dir,
             precision="32-true",
-            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
+            train=TrainArgs(
+                global_batch_size=1,
+                save_interval=2,
+                epochs=1,
+                max_steps=6,
+                micro_batch_size=1,
+            ),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
@@ -256,10 +288,22 @@ def test_lora_init_when_linear_overridden():
     ("apply_to", "target_layer_names", "mlp_class_name"),
     (
         ("lora_projection", "transformer.h.0.attn.proj", "GptNeoxMLP"),
-        ("lora_mlp", {"transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"}, "GptNeoxMLP"),
+        (
+            "lora_mlp",
+            {"transformer.h.0.mlp.fc", "transformer.h.0.mlp.proj"},
+            "GptNeoxMLP",
+        ),
         ("lora_head", "lm_head", "GptNeoxMLP"),
         ("lora_projection", "transformer.h.0.attn.proj", "LLaMAMLP"),
-        ("lora_mlp", {"transformer.h.0.mlp.fc_1", "transformer.h.0.mlp.fc_2", "transformer.h.0.mlp.proj"}, "LLaMAMLP"),
+        (
+            "lora_mlp",
+            {
+                "transformer.h.0.mlp.fc_1",
+                "transformer.h.0.mlp.fc_2",
+                "transformer.h.0.mlp.proj",
+            },
+            "LLaMAMLP",
+        ),
         ("lora_head", "lm_head", "LLaMAMLP"),
     ),
 )
@@ -297,10 +341,28 @@ def test_lora_linear_utilization(apply_to, target_layer_names, mlp_class_name):
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "apply_to", (None, "lora_query", "lora_key", "lora_value", "lora_projection", "lora_mlp", "lora_head")
+    "apply_to",
+    (
+        None,
+        "lora_query",
+        "lora_key",
+        "lora_value",
+        "lora_projection",
+        "lora_mlp",
+        "lora_head",
+    ),
 )
 def test_lora_gpt_apply_lora_forward_no_exception(apply_to):
-    config = Config(n_layer=1, n_head=4, n_embd=8, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_dropout=0.1)
+    config = Config(
+        n_layer=1,
+        n_head=4,
+        n_embd=8,
+        block_size=1,
+        vocab_size=1,
+        lora_r=2,
+        lora_alpha=8,
+        lora_dropout=0.1,
+    )
     if apply_to:
         setattr(config, apply_to, True)
     input_ids = torch.tensor([[1]])
@@ -354,7 +416,13 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 def test_lora_qkv_linear_compare_conv1d(head_size, n_head, enable_lora):
     C = 12
     layer = LoRAQKVLinear(
-        C, 3 * C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora
+        C,
+        3 * C,
+        head_size=head_size,
+        n_head=n_head,
+        n_query_groups=n_head,
+        r=2,
+        enable_lora=enable_lora,
     )
     x = torch.randn((1, 1, C))
     a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
@@ -388,7 +456,15 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
     C = 10
-    layer = LoRAQKVLinear(C, 3 * C, head_size=5, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    layer = LoRAQKVLinear(
+        C,
+        3 * C,
+        head_size=5,
+        n_head=2,
+        n_query_groups=2,
+        r=rank,
+        enable_lora=enable_lora,
+    )
     assert not layer.merged
     layer.merge()
     assert layer.merged == expected_merged
@@ -413,7 +489,12 @@ def test_lora_merge_with_bitsandbytes():
         lora_value=True,
         lora_projection=True,
     )
-    fabric = Fabric(devices=1, plugins=BitsandbytesPrecision("nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}))
+    fabric = Fabric(
+        devices=1,
+        plugins=BitsandbytesPrecision(
+            "nf4", dtype=torch.bfloat16, ignore_modules={"lm_head"}
+        ),
+    )
     model = LoRAGPT(config)
     mark_only_lora_as_trainable(model)
 
@@ -453,7 +534,10 @@ def test_lora_merge_with_bitsandbytes():
     delta_w = attn_proj.get_lora_AB()
     # dequantize initial weight and sum with delta_w
     initial_weight_data = (
-        bnb.functional.dequantize_4bit(initial_weight.data, initial_weight_kwargs["quant_state"]) + delta_w
+        bnb.functional.dequantize_4bit(
+            initial_weight.data, initial_weight_kwargs["quant_state"]
+        )
+        + delta_w
     )
     # quantize again
     initial_weight_data = bnb.nn.Params4bit(
@@ -463,7 +547,16 @@ def test_lora_merge_with_bitsandbytes():
 
 
 def test_lora_gpt_init_weights():
-    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, lora_r=2, lora_alpha=8, lora_head=True)
+    config = Config(
+        n_layer=1,
+        n_head=6,
+        n_embd=12,
+        block_size=1,
+        vocab_size=1,
+        lora_r=2,
+        lora_alpha=8,
+        lora_head=True,
+    )
     model = LoRAGPT(config)
     param = model.lm_head.lora_B.data
 
@@ -476,7 +569,13 @@ def test_lora_gpt_init_weights():
 
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_lora_loaded(name):
-    kwargs = {"n_layer": 2, "n_head": 8, "n_query_groups": 4, "n_embd": 16, "padded_vocab_size": 32}
+    kwargs = {
+        "n_layer": 2,
+        "n_head": 8,
+        "n_query_groups": 4,
+        "n_embd": 16,
+        "padded_vocab_size": 32,
+    }
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = LoRAGPT.from_name(
@@ -512,7 +611,9 @@ def test_lora_compile():
         lora_mlp=True,
         lora_head=True,
     )
-    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+    x = torch.randint(
+        model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64
+    )
 
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
@@ -571,7 +672,11 @@ def test_against_hf_mixtral():
         assert lora_filter(k, None)
 
     # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    x = torch.tensor(
+        [[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]],
+        dtype=torch.int32,
+        device=device,
+    )
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -681,7 +786,9 @@ def test_against_original_gemma_2(model_name):
     ours_model.load_state_dict(state_dict)
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -689,7 +796,9 @@ def test_against_original_gemma_2(model_name):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"))
+@pytest.mark.parametrize(
+    "model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it")
+)
 def test_against_original_gemma_3(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
@@ -736,7 +845,9 @@ def test_against_original_gemma_3(model_name):
     ours_model.load_state_dict(state_dict)
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -782,11 +893,17 @@ def test_lora_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_pa
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(
             fake_checkpoint_dir,
             data=Alpaca(
-                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+                download_dir=alpaca_path.parent,
+                file_name=alpaca_path.name,
+                val_split_fraction=0.5,
+                num_workers=0,
             ),
             out_dir=tmp_path,
             precision="16-true",
@@ -886,7 +1003,13 @@ def test_lora_model_fsdp_init():
     fabric.launch()
     with fabric.init_module(empty_init=True):
         model = LoRAGPT(config)
-    x = torch.randint(0, config.padded_vocab_size, size=(2, config.block_size), dtype=torch.int64, device=fabric.device)
+    x = torch.randint(
+        0,
+        config.padded_vocab_size,
+        size=(2, config.block_size),
+        dtype=torch.int64,
+        device=fabric.device,
+    )
     model = fabric.setup(model)
     y = model(x)
     assert y.shape == torch.Size([2, 8, 512])
@@ -899,7 +1022,9 @@ def test_lora_model_fsdp_init():
             assert not buffer.is_meta, f"Buffer `{b_name}` isn't materialized."
         for attr_name, attr_value in m.__dict__.items():
             if isinstance(attr_value, torch.Tensor):
-                assert not attr_value.is_meta, f"Attribute `{attr_name}` isn't materialized."
+                assert not attr_value.is_meta, (
+                    f"Attribute `{attr_name}` isn't materialized."
+                )
 
 
 def test_zero_pad_cpu_and_mocked_mps():
@@ -930,19 +1055,32 @@ def test_zero_pad_cpu_and_mocked_mps():
     result_cpu = model.zero_pad(x)
 
     with mock.patch("torch.backends.mps.is_available", return_value=True):
-        with mock.patch("torch.Tensor.device", new_callable=mock.PropertyMock) as mock_device:
+        with mock.patch(
+            "torch.Tensor.device", new_callable=mock.PropertyMock
+        ) as mock_device:
             mock_device.return_value = torch.device("mps")
 
             result_mps = model.zero_pad(x)
 
-            assert result_cpu.shape == result_mps.shape, "Shape mismatch between CPU and MPS"
-            assert torch.allclose(result_cpu, result_mps), "Tensor values mismatch between CPU and MPS"
+            assert result_cpu.shape == result_mps.shape, (
+                "Shape mismatch between CPU and MPS"
+            )
+            assert torch.allclose(result_cpu, result_mps), (
+                "Tensor values mismatch between CPU and MPS"
+            )
 
 
 def test_load_legacy_state_dict():
     """Check that a legacy state dict (with an interleaved placement in QKV matrix) can be loaded into a model with CausalSelfAttention layers."""
     config = Config(
-        n_embd=32, n_head=4, head_size=8, n_query_groups=4, bias=True, lora_r=8, lora_alpha=16, lora_dropout=0.1
+        n_embd=32,
+        n_head=4,
+        head_size=8,
+        n_query_groups=4,
+        bias=True,
+        lora_r=8,
+        lora_alpha=16,
+        lora_dropout=0.1,
     )
 
     attention_1 = CausalSelfAttention(config=config, block_idx=0)
@@ -950,8 +1088,12 @@ def test_load_legacy_state_dict():
     # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
     # and make them interleaved
     state_dict = deepcopy(attention_1.state_dict())
-    state_dict["attn.linear.weight"] = make_qkv_interleaved(state_dict.pop("qkv.linear.weight"), config)
-    state_dict["attn.linear.bias"] = make_qkv_interleaved(state_dict.pop("qkv.linear.bias"), config)
+    state_dict["attn.linear.weight"] = make_qkv_interleaved(
+        state_dict.pop("qkv.linear.weight"), config
+    )
+    state_dict["attn.linear.bias"] = make_qkv_interleaved(
+        state_dict.pop("qkv.linear.bias"), config
+    )
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)

@@ -52,7 +52,16 @@ def setup(
     devices = XLAAccelerator.auto_device_count()
     strategy = XLAFSDPStrategy(auto_wrap_policy={Block}) if devices > 1 else "auto"
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch(main, prompt, input, adapter_path, checkpoint_dir, max_new_tokens, top_k, temperature)
+    fabric.launch(
+        main,
+        prompt,
+        input,
+        adapter_path,
+        checkpoint_dir,
+        max_new_tokens,
+        top_k,
+        temperature,
+    )
 
 
 def main(
@@ -67,22 +76,36 @@ def main(
 ) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
 
-    config = Config.from_file(checkpoint_dir / "model_config.yaml", adapter_start_layer=0)
+    config = Config.from_file(
+        checkpoint_dir / "model_config.yaml", adapter_start_layer=0
+    )
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
-    rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     t0 = time.perf_counter()
     checkpoint = lazy_load(checkpoint_path)
     adapter_checkpoint = lazy_load(adapter_path)
     checkpoint.update(adapter_checkpoint.get("model", adapter_checkpoint))
     model.load_state_dict(checkpoint)
-    rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     model.eval()
     model = fabric.setup_module(model)
@@ -120,7 +143,9 @@ def main(
 
     tokens_generated = y.size(0) - prompt_length
     rank_print(
-        fabric, f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
+        fabric,
+        f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec",
+        file=sys.stderr,
     )
 
 

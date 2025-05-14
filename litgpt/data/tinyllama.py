@@ -42,10 +42,15 @@ class TinyLlama(DataModule):
             self.required_paths += [self.starcoder_train]
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
     ) -> None:
         self.batch_size = batch_size
-        self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.seq_length = (
+            max_seq_length + 1
+        )  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
         for path in self.required_paths:
@@ -57,7 +62,12 @@ class TinyLlama(DataModule):
                 )
 
     def train_dataloader(self) -> DataLoader:
-        from litdata.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            CombinedStreamingDataset,
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         slim_train_data = StreamingDataset(
             input_dir=self.slimpajama_train,
@@ -81,16 +91,27 @@ class TinyLlama(DataModule):
             # Mix SlimPajama data and Starcoder data with these proportions:
             weights = (0.693584, 0.306416)
             train_data = CombinedStreamingDataset(
-                datasets=train_datasets, seed=self.seed, weights=weights, iterate_over_all=False
+                datasets=train_datasets,
+                seed=self.seed,
+                weights=weights,
+                iterate_over_all=False,
             )
 
         train_dataloader = StreamingDataLoader(
-            train_data, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_data,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         val_dataset = StreamingDataset(
             input_dir=self.slimpajama_val,
@@ -98,6 +119,10 @@ class TinyLlama(DataModule):
             shuffle=True,
         )
         val_dataloader = StreamingDataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            val_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return val_dataloader

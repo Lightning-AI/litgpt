@@ -8,10 +8,15 @@ import pytest
 from litgpt.data import LitData
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Needs to implement platform agnostic path/url joining",
+)
 @mock.patch("litgpt.data.lit_data.LitData._dataloader")
 def test_input_dir_and_splits(dl_mock, tmp_path):
-    with pytest.raises(ValueError, match="If provided `split_names` must be a tuple of two strings"):
+    with pytest.raises(
+        ValueError, match="If provided `split_names` must be a tuple of two strings"
+    ):
         LitData(data_path=tmp_path, split_names=("train",))
 
     # local dir, no splits
@@ -36,7 +41,10 @@ def test_input_dir_and_splits(dl_mock, tmp_path):
     dl_mock.assert_called_with(input_dir="s3://mydataset/data/val", train=False)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Needs to implement platform agnostic path/url joining")
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Needs to implement platform agnostic path/url joining",
+)
 @mock.patch("litdata.streaming.StreamingDataset")
 @mock.patch("litdata.streaming.StreamingDataLoader")
 def test_dataset_args(streaming_dataloader_mock, streaming_dataset_mock, tmp_path):

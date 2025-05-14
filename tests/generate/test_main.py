@@ -24,7 +24,13 @@ skip_in_ci_on_macos = pytest.mark.skipif(
 
 
 @pytest.mark.parametrize(
-    "max_seq_length", (pytest.param(10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)), 20 + 5)
+    "max_seq_length",
+    (
+        pytest.param(
+            10, marks=pytest.mark.xfail(raises=NotImplementedError, strict=True)
+        ),
+        20 + 5,
+    ),
 )
 def test_generate(max_seq_length):
     import lightning as L
@@ -60,7 +66,14 @@ def test_generate(max_seq_length):
 @skip_in_ci_on_macos
 def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     config_path = fake_checkpoint_dir / "model_config.yaml"
-    config = {"block_size": 128, "vocab_size": 50, "n_layer": 2, "n_head": 4, "n_embd": 8, "rotary_percentage": 1}
+    config = {
+        "block_size": 128,
+        "vocab_size": 50,
+        "n_layer": 2,
+        "n_head": 4,
+        "n_embd": 8,
+        "rotary_percentage": 1,
+    }
     config_path.write_text(yaml.dump(config))
 
     module_mock = Mock()
@@ -79,13 +92,31 @@ def test_main(fake_checkpoint_dir, monkeypatch, tensor_like):
     num_samples = 2
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        generate.main(temperature=2.0, top_k=2, top_p=0.9, num_samples=num_samples, checkpoint_dir=fake_checkpoint_dir)
+        generate.main(
+            temperature=2.0,
+            top_k=2,
+            top_p=0.9,
+            num_samples=num_samples,
+            checkpoint_dir=fake_checkpoint_dir,
+        )
 
     assert len(tokenizer_mock.return_value.decode.mock_calls) == num_samples
-    assert torch.allclose(tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value)
+    assert torch.allclose(
+        tokenizer_mock.return_value.decode.call_args[0][0], generate_mock.return_value
+    )
     assert (
         generate_mock.mock_calls
-        == [call(ANY, tensor_like, 53, temperature=2.0, top_k=2, top_p=0.9, eos_id=tokenizer_mock.return_value.eos_id)]
+        == [
+            call(
+                ANY,
+                tensor_like,
+                53,
+                temperature=2.0,
+                top_k=2,
+                top_p=0.9,
+                eos_id=tokenizer_mock.return_value.eos_id,
+            )
+        ]
         * num_samples
     )
     expected_output = "foo bar baz\n" * num_samples

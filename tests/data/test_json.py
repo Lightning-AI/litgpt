@@ -50,13 +50,25 @@ def test_json(as_jsonl, tmp_path, mock_tokenizer):
     assert val_data[0]["input_ids"].size(0) == 2
     assert val_data[1]["input_ids"].size(0) == 1
 
-    assert mock_tokenizer.decode(train_data[0]["input_ids"][0]).startswith("X: Divide 10/2 Y:5")
-    assert mock_tokenizer.decode(train_data[0]["input_ids"][1]).startswith("X: Add 2+2 Y:4")
-    assert mock_tokenizer.decode(train_data[1]["input_ids"][0]).startswith("X: Multiply 6*4 Y:24")
+    assert mock_tokenizer.decode(train_data[0]["input_ids"][0]).startswith(
+        "X: Divide 10/2 Y:5"
+    )
+    assert mock_tokenizer.decode(train_data[0]["input_ids"][1]).startswith(
+        "X: Add 2+2 Y:4"
+    )
+    assert mock_tokenizer.decode(train_data[1]["input_ids"][0]).startswith(
+        "X: Multiply 6*4 Y:24"
+    )
 
-    assert mock_tokenizer.decode(val_data[0]["input_ids"][0]).startswith("X: Exponentiate 2^3 Y:8")
-    assert mock_tokenizer.decode(val_data[0]["input_ids"][1]).startswith("X: Subtract 5-3 Y:2")
-    assert mock_tokenizer.decode(val_data[1]["input_ids"][0]).startswith("X: Square root √9 Y:3")
+    assert mock_tokenizer.decode(val_data[0]["input_ids"][0]).startswith(
+        "X: Exponentiate 2^3 Y:8"
+    )
+    assert mock_tokenizer.decode(val_data[0]["input_ids"][1]).startswith(
+        "X: Subtract 5-3 Y:2"
+    )
+    assert mock_tokenizer.decode(val_data[1]["input_ids"][0]).startswith(
+        "X: Square root √9 Y:3"
+    )
 
     assert isinstance(train_dataloader.dataset.prompt_style, Style)
     assert isinstance(val_dataloader.dataset.prompt_style, Style)
@@ -66,7 +78,9 @@ def test_json(as_jsonl, tmp_path, mock_tokenizer):
 
 
 def test_json_input_validation(tmp_path):
-    with pytest.raises(FileNotFoundError, match="The `json_path` must be a file or a directory"):
+    with pytest.raises(
+        FileNotFoundError, match="The `json_path` must be a file or a directory"
+    ):
         JSON(tmp_path / "not exist")
 
     with pytest.raises(ValueError, match="`val_split_fraction` should not be set"):
@@ -76,15 +90,21 @@ def test_json_input_validation(tmp_path):
     data.prepare_data()  # does nothing
 
     # Empty directory
-    with pytest.raises(FileNotFoundError, match="must be a file or a directory containing"):
+    with pytest.raises(
+        FileNotFoundError, match="must be a file or a directory containing"
+    ):
         data.setup()
 
     # Only train.json exists
     (tmp_path / "train.json").touch()
-    with pytest.raises(FileNotFoundError, match="must be a file or a directory containing"):
+    with pytest.raises(
+        FileNotFoundError, match="must be a file or a directory containing"
+    ):
         data.setup()
 
-    with pytest.raises(ValueError, match="you must set `val_split_fraction` to a value between 0 and 1"):
+    with pytest.raises(
+        ValueError, match="you must set `val_split_fraction` to a value between 0 and 1"
+    ):
         JSON(tmp_path / "train.json", val_split_fraction=None)
 
 

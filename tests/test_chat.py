@@ -53,7 +53,9 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
         return torch.tensor([out])
 
     monkeypatch.setattr(generate, "multinomial_num_samples_1", multinomial)
-    actual = chat.generate(model, input_idx, max_returned_tokens, stop_tokens=stop_tokens)
+    actual = chat.generate(
+        model, input_idx, max_returned_tokens, stop_tokens=stop_tokens
+    )
     actual = list(actual)
 
     assert len(actual) == len(expected), (actual, expected)
@@ -77,7 +79,9 @@ def test_decode():
     )
 
     encoded: torch.Tensor = tokenizer.encode(text)
-    encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(encoded, encoded.shape[0], dim=0)
+    encoded_stream: Iterable[torch.Tensor] = torch.tensor_split(
+        encoded, encoded.shape[0], dim=0
+    )
 
     decoded_stream: Iterator[str] = tokenizer.decode_stream(encoded_stream)
     decoded: str = "".join(decoded_stream)
@@ -91,7 +95,9 @@ def test_decode():
 @skip_in_ci_on_macos
 @patch("litgpt.chat.base.input")
 @pytest.mark.parametrize("stop_iteration", [KeyboardInterrupt, ""])
-def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like):
+def test_main(
+    mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, tensor_like
+):
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = ["Hello", stop_iteration]
 
@@ -121,14 +127,27 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
 
     out, err = StringIO(), StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        chat.main(temperature=2.0, max_new_tokens=10, top_k=2, top_p=0.9, checkpoint_dir=fake_checkpoint_dir)
+        chat.main(
+            temperature=2.0,
+            max_new_tokens=10,
+            top_k=2,
+            top_p=0.9,
+            checkpoint_dir=fake_checkpoint_dir,
+        )
 
     # decoding is done per each generated item
     assert len(tokenizer_mock.return_value.decode_stream.mock_calls) == 1
-    assert tokenizer_mock.return_value.decode_stream.call_args[0][0] is generate_mock.return_value  # Now a Mock
+    assert (
+        tokenizer_mock.return_value.decode_stream.call_args[0][0]
+        is generate_mock.return_value
+    )  # Now a Mock
 
     # Assert that the generated result is printed to stdout
-    assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL), out.getvalue()
+    assert re.match(
+        r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz",
+        out.getvalue(),
+        re.DOTALL,
+    ), out.getvalue()
 
 
 def test_cli():
@@ -141,13 +160,20 @@ def test_cli():
 @skip_in_ci_on_macos
 @patch("litgpt.chat.base.input")
 @patch("litgpt.chat.base.merge_lora")
-def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_dir, monkeypatch, tensor_like):
+def test_merge_lora_if_needed(
+    mocked_merge_lora, mocked_input, fake_checkpoint_dir, monkeypatch, tensor_like
+):
     # these values will be iteratively provided for each `input()` call
     mocked_input.side_effect = [""]
 
     # pretend there is an unmerged LORA checkpoint
-    os.rename(fake_checkpoint_dir / "lit_model.pth", fake_checkpoint_dir / "lit_model.pth.lora")
-    mocked_merge_lora.side_effect = lambda _: Path(fake_checkpoint_dir / "lit_model.pth").touch()
+    os.rename(
+        fake_checkpoint_dir / "lit_model.pth",
+        fake_checkpoint_dir / "lit_model.pth.lora",
+    )
+    mocked_merge_lora.side_effect = lambda _: Path(
+        fake_checkpoint_dir / "lit_model.pth"
+    ).touch()
 
     config = Config.from_name("pythia-14m")
     save_config(config, fake_checkpoint_dir)
@@ -158,7 +184,9 @@ def test_merge_lora_if_needed(mocked_merge_lora, mocked_input, fake_checkpoint_d
     with redirect_stdout(out), redirect_stderr(err):
         chat.main(checkpoint_dir=fake_checkpoint_dir)
 
-    assert re.match(r".*Merging LoRA weights with the base model\..*", out.getvalue(), re.DOTALL)
+    assert re.match(
+        r".*Merging LoRA weights with the base model\..*", out.getvalue(), re.DOTALL
+    )
     mocked_merge_lora.assert_called_once()
 
 
@@ -179,7 +207,9 @@ def test_litgpt_chat_endtoend():
                 pass
 
     # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
-    assert ">> Reply: !" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    assert ">> Reply: !" in captured_output.getvalue(), (
+        f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    )
     assert simulated_input.call_count == 2
 
 
@@ -192,7 +222,12 @@ def test_litgpt_generate_endtoend():
     captured_output = StringIO()
     with redirect_stdout(captured_output):
         try:
-            main(checkpoint_dir=checkpoint_dir, prompt="Hello World", max_new_tokens=256, top_k=1)
+            main(
+                checkpoint_dir=checkpoint_dir,
+                prompt="Hello World",
+                max_new_tokens=256,
+                top_k=1,
+            )
         except KeyboardInterrupt:
             pass
 

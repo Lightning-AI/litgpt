@@ -31,7 +31,9 @@ def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(batch_size=batch_size, max_seq_length=max_seq_length, device=device)
+    model.set_kv_cache(
+        batch_size=batch_size, max_seq_length=max_seq_length, device=device
+    )
 
     return llm, model
 
@@ -53,7 +55,9 @@ def test_batched_equivalence(tmp_path):
     model: GPT = llm.model
     model.set_kv_cache(batch_size=1, max_seq_length=50, device=device)
 
-    input_pos_1 = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device)
+    input_pos_1 = torch.tensor(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device
+    )
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device=device)
 
     x = torch.tensor(
@@ -77,7 +81,9 @@ def test_batched_equivalence(tmp_path):
     model.clear_kv_cache()
     model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device="cuda:0")
 
-    toks_1: torch.Tensor = batched_next_token(model, input_pos_1, batch_x1, sample_kwargs)
+    toks_1: torch.Tensor = batched_next_token(
+        model, input_pos_1, batch_x1, sample_kwargs
+    )
     toks_2: torch.Tensor = batched_next_token(model, input_pos_2, toks_1, sample_kwargs)
 
     assert toks_1.ndim == 2
@@ -94,7 +100,9 @@ def test_batched_equivalence(tmp_path):
 def test_simple_batch():
     old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = False
-    config = litgpt.Config.from_name("microsoft/phi-2", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256)
+    config = litgpt.Config.from_name(
+        "microsoft/phi-2", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
+    )
     with torch.device("cuda"):
         m = litgpt.GPT(config).requires_grad_(False).eval()
         x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 7]])

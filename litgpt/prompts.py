@@ -136,7 +136,13 @@ class Llama2FunctionCalling(PromptStyle):
                 "Search the web for content on Bing. This allows users to search online/the internet/the web for"
                 " content."
             ),
-            "arguments": [{"name": "query", "type": "string", "description": "The search query string"}],
+            "arguments": [
+                {
+                    "name": "query",
+                    "type": "string",
+                    "description": "The search query string",
+                }
+            ],
         }
 
         system_prompt = (
@@ -145,9 +151,7 @@ class Llama2FunctionCalling(PromptStyle):
         )
         # replace the curly braces with double curly braces to escape them
         function_list = dumps(function_metadata).replace("{", "{{").replace("}", "}}")
-        return (
-            f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{prompt}{e_inst}\n\n"
-        )
+        return f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{prompt}{e_inst}\n\n"
 
 
 class Llama2(PromptStyle):
@@ -190,14 +194,20 @@ class Llama3(PromptStyle):
                 return tokens
 
             def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
-                return messages[0].get("role", "") == "system" if len(messages) else False
+                return (
+                    messages[0].get("role", "") == "system" if len(messages) else False
+                )
 
             tokens = ["<|begin_of_text|>"]
             if not has_system_prompt(prompt):
-                tokens.extend(encode_message({"role": "system", "content": default_system_prompt}))
+                tokens.extend(
+                    encode_message({"role": "system", "content": default_system_prompt})
+                )
             for i, message in enumerate(prompt):
                 if i != 0 and message["role"] == "system":
-                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
+                    raise ValueError(
+                        "'system' role is only allowed at the beginning of the conversation list."
+                    )
                 if message["role"] not in ["assistant", "user", "system"]:
                     raise ValueError(
                         f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'."
@@ -237,7 +247,9 @@ class R1Base(PromptStyle):
                 elif role == "assistant":
                     return f"<｜Assistant｜>{content}{eos_token}"
                 else:
-                    raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'.")
+                    raise ValueError(
+                        f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'."
+                    )
 
             # Extract system prompt (if any)
             system_prompt = ""
@@ -352,12 +364,16 @@ class ChatML(PromptStyle):
 
 class Qwen2_5(ChatML):
     def __init__(self):
-        super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
+        super().__init__(
+            "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+        )
 
 
 class Qwen2_5_Math(ChatML):
     def __init__(self):
-        super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
+        super().__init__(
+            "Please reason step by step, and put your final answer within \\boxed{}."
+        )
 
 
 class QwQ(ChatML):
@@ -369,7 +385,9 @@ class QwQ(ChatML):
 
 class SmolLM2(ChatML):
     def __init__(self):
-        super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
+        super().__init__(
+            "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
+        )
 
 
 class Salamandra(ChatML):

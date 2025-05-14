@@ -51,7 +51,9 @@ def generate(
         # rolling the kv cache based on the `input_pos` value would be necessary. However, doing so would introduce a
         # data dependency on the `input_pos` tensor and impact model compilation. Since this setting is uncommon, we do
         # not support it to avoid negatively impacting the overall speed
-        raise NotImplementedError(f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}")
+        raise NotImplementedError(
+            f"max_seq_length {model.max_seq_length} needs to be >= {max_returned_tokens - 1}"
+        )
 
     device, dtype = idx.device, idx.dtype
     # create an empty tensor of the expected final shape and fill in the current tokens
@@ -119,7 +121,9 @@ def setup(
     devices = XLAAccelerator.auto_device_count()
     strategy = XLAFSDPStrategy(auto_wrap_policy={Block}) if devices > 1 else "auto"
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch(main, prompt, num_samples, max_new_tokens, top_k, temperature, checkpoint_dir)
+    fabric.launch(
+        main, prompt, num_samples, max_new_tokens, top_k, temperature, checkpoint_dir
+    )
 
 
 def main(
@@ -137,16 +141,28 @@ def main(
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
 
-    rank_print(fabric, f"Loading model {str(checkpoint_path)!r} with {config.__dict__}", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Loading model {str(checkpoint_path)!r} with {config.__dict__}",
+        file=sys.stderr,
+    )
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-    rank_print(fabric, f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     t0 = time.perf_counter()
     checkpoint = lazy_load(checkpoint_path)
     model.load_state_dict(checkpoint.get("model", checkpoint))
-    rank_print(fabric, f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
+    rank_print(
+        fabric,
+        f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.",
+        file=sys.stderr,
+    )
 
     model.eval()
     model = fabric.setup_module(model)
@@ -167,7 +183,9 @@ def main(
             model.set_kv_cache(batch_size=1)
 
         t0 = time.perf_counter()
-        y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k)
+        y = generate(
+            model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k
+        )
         t = time.perf_counter() - t0
 
         fabric.print(tokenizer.decode(y))

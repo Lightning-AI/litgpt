@@ -34,13 +34,23 @@ def _wait_and_check_response():
 
 
 # todo: try to resolve this issue
-@pytest.mark.xfail(condition=platform.system() == "Darwin", reason="it passes locally but having some issues on CI")
+@pytest.mark.xfail(
+    condition=platform.system() == "Darwin",
+    reason="it passes locally but having some issues on CI",
+)
 def test_simple(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path))
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"), str(tmp_path))
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path)
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"),
+        str(tmp_path),
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
@@ -73,9 +83,16 @@ def test_simple(tmp_path):
 def test_quantize(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path))
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"), str(tmp_path))
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path)
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"),
+        str(tmp_path),
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
@@ -108,9 +125,16 @@ def test_quantize(tmp_path):
 def test_multi_gpu_serve(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path))
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"), str(tmp_path))
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path)
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"),
+        str(tmp_path),
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
@@ -143,9 +167,16 @@ def test_multi_gpu_serve(tmp_path):
 def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path))
-    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"), str(tmp_path))
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path)
+    )
+    shutil.move(
+        str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"),
+        str(tmp_path),
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
@@ -160,7 +191,9 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
         return None, None
@@ -174,9 +207,9 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
         stdout = process.stdout.read().strip() if process.stdout else ""
         stderr = process.stderr.read().strip() if process.stderr else ""
         output = (stdout or "") + (stderr or "")
-        assert "ValueError: chat_template not found in tokenizer config file." in output, (
-            "Expected ValueError for missing chat_template not found."
-        )
+        assert (
+            "ValueError: chat_template not found in tokenizer config file." in output
+        ), "Expected ValueError for missing chat_template not found."
     finally:
         if process:
             kill_process_tree(process.pid)
@@ -187,9 +220,24 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
 def test_serve_with_openai_spec(tmp_path):
     seed_everything(123)
     ours_config = Config.from_name("SmolLM2-135M-Instruct")
-    download_from_hub(repo_id="HuggingFaceTB/SmolLM2-135M-Instruct", tokenizer_only=True, checkpoint_dir=tmp_path)
-    shutil.move(str(tmp_path / "HuggingFaceTB" / "SmolLM2-135M-Instruct" / "tokenizer.json"), str(tmp_path))
-    shutil.move(str(tmp_path / "HuggingFaceTB" / "SmolLM2-135M-Instruct" / "tokenizer_config.json"), str(tmp_path))
+    download_from_hub(
+        repo_id="HuggingFaceTB/SmolLM2-135M-Instruct",
+        tokenizer_only=True,
+        checkpoint_dir=tmp_path,
+    )
+    shutil.move(
+        str(tmp_path / "HuggingFaceTB" / "SmolLM2-135M-Instruct" / "tokenizer.json"),
+        str(tmp_path),
+    )
+    shutil.move(
+        str(
+            tmp_path
+            / "HuggingFaceTB"
+            / "SmolLM2-135M-Instruct"
+            / "tokenizer_config.json"
+        ),
+        str(tmp_path),
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     torch.save(ours_model.state_dict(), checkpoint_path)
@@ -204,7 +252,9 @@ def test_serve_with_openai_spec(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
 
@@ -216,7 +266,9 @@ def test_serve_with_openai_spec(tmp_path):
     try:
         # Test server health
         response = requests.get("http://127.0.0.1:8000/health")
-        assert response.status_code == 200, f"Server health check failed with status code {response.status_code}"
+        assert response.status_code == 200, (
+            f"Server health check failed with status code {response.status_code}"
+        )
         assert response.text == "ok", "Server did not respond as expected."
 
         # Test non-streaming chat completion
@@ -232,11 +284,15 @@ def test_serve_with_openai_spec(tmp_path):
         )
         response_json = response.json()
         assert "choices" in response_json, "Response JSON does not contain 'choices'."
-        assert "message" in response_json["choices"][0], "Response JSON does not contain 'message' in 'choices'."
+        assert "message" in response_json["choices"][0], (
+            "Response JSON does not contain 'message' in 'choices'."
+        )
         assert "content" in response_json["choices"][0]["message"], (
             "Response JSON does not contain 'content' in 'message'."
         )
-        assert response_json["choices"][0]["message"]["content"], "Content is empty in the response."
+        assert response_json["choices"][0]["message"]["content"], (
+            "Content is empty in the response."
+        )
 
         # Test streaming chat completion
         stream_response = requests.post(
@@ -251,12 +307,18 @@ def test_serve_with_openai_spec(tmp_path):
             f"Streaming chat completion failed with status code {stream_response.status_code}"
         )
         for line in stream_response.iter_lines():
-            decoded = line.decode("utf-8").replace("data: ", "").replace("[DONE]", "").strip()
+            decoded = (
+                line.decode("utf-8").replace("data: ", "").replace("[DONE]", "").strip()
+            )
             if decoded:
                 data = json.loads(decoded)
                 assert "choices" in data, "Response JSON does not contain 'choices'."
-                assert "delta" in data["choices"][0], "Response JSON does not contain 'delta' in 'choices'."
-                assert "content" in data["choices"][0]["delta"], "Response JSON does not contain 'content' in 'delta'."
+                assert "delta" in data["choices"][0], (
+                    "Response JSON does not contain 'delta' in 'choices'."
+                )
+                assert "content" in data["choices"][0]["delta"], (
+                    "Response JSON does not contain 'content' in 'delta'."
+                )
     finally:
         if process:
             kill_process_tree(process.pid)

@@ -74,7 +74,9 @@ def test_download_books():
         ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt"),
     ]
     for url, filename in books:
-        subprocess.run(["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename)], check=True)
+        subprocess.run(
+            ["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename)], check=True
+        )
         # Verify each book is downloaded
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
@@ -84,16 +86,28 @@ def test_download_books():
 def test_chat_with_model():
     command = ["litgpt", "generate", "checkpoints" / REPO_ID]
     prompt = "What do Llamas eat?"
-    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    result = subprocess.run(
+        command, input=prompt, text=True, capture_output=True, check=True
+    )
     assert "What food do llamas eat?" in result.stdout
 
 
 @_RunIf(min_cuda_gpus=1)
 @pytest.mark.dependency(depends=["test_download_model"])
 def test_chat_with_quantized_model():
-    command = ["litgpt", "generate", "checkpoints" / REPO_ID, "--quantize", "bnb.nf4", "--precision", "bf16-true"]
+    command = [
+        "litgpt",
+        "generate",
+        "checkpoints" / REPO_ID,
+        "--quantize",
+        "bnb.nf4",
+        "--precision",
+        "bf16-true",
+    ]
     prompt = "What do Llamas eat?"
-    result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=True)
+    result = subprocess.run(
+        command, input=prompt, text=True, capture_output=True, check=True
+    )
     assert "What food do llamas eat?" in result.stdout, result.stdout
 
 
@@ -136,13 +150,16 @@ def test_finetune_model(tmp_path):
     run_command(finetune_command)
 
     generated_out_dir = OUT_DIR / "final"
-    assert generated_out_dir.exists(), f"Finetuning output directory ({generated_out_dir}) was not created"
+    assert generated_out_dir.exists(), (
+        f"Finetuning output directory ({generated_out_dir}) was not created"
+    )
     model_file = OUT_DIR / "final" / "lit_model.pth"
     assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith("win") or sys.platform == "darwin", reason="`torch.compile` is not supported on this OS."
+    sys.platform.startswith("win") or sys.platform == "darwin",
+    reason="`torch.compile` is not supported on this OS.",
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
@@ -169,7 +186,9 @@ def test_pretrain_model(tmp_path):
 
     assert "Warning: Preprocessed training data found" not in output
     out_dir_path = OUT_DIR / "final"
-    assert out_dir_path.exists(), f"Pretraining output directory ({out_dir_path}) was not created"
+    assert out_dir_path.exists(), (
+        f"Pretraining output directory ({out_dir_path}) was not created"
+    )
     out_model_path = OUT_DIR / "final" / "lit_model.pth"
     assert out_model_path.exists(), f"Model file ({out_model_path}) was not created"
 
@@ -179,7 +198,8 @@ def test_pretrain_model(tmp_path):
 
 
 @pytest.mark.skipif(
-    sys.platform.startswith("win") or sys.platform == "darwin", reason="`torch.compile` is not supported on this OS."
+    sys.platform.startswith("win") or sys.platform == "darwin",
+    reason="`torch.compile` is not supported on this OS.",
 )
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 @pytest.mark.dependency(depends=["test_download_model", "test_download_books"])
@@ -207,14 +227,19 @@ def test_continue_pretrain_model(tmp_path):
     run_command(pretrain_command)
 
     generated_out_dir = OUT_DIR / "final"
-    assert generated_out_dir.exists(), f"Continued pretraining directory ({generated_out_dir}) was not created"
+    assert generated_out_dir.exists(), (
+        f"Continued pretraining directory ({generated_out_dir}) was not created"
+    )
     model_file = OUT_DIR / "final" / "lit_model.pth"
     assert model_file.exists(), f"Model file ({model_file}) was not created"
 
 
 @pytest.mark.dependency(depends=["test_download_model"])
 # todo: try to resolve this issue
-@pytest.mark.xfail(condition=platform.system() == "Darwin", reason="it passes locally but having some issues on CI")
+@pytest.mark.xfail(
+    condition=platform.system() == "Darwin",
+    reason="it passes locally but having some issues on CI",
+)
 def test_serve():
     CHECKPOINT_DIR = str("checkpoints" / REPO_ID)
     run_command = ["litgpt", "serve", str(CHECKPOINT_DIR)]
@@ -224,7 +249,9 @@ def test_serve():
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(
+                run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+            )
             stdout, stderr = process.communicate(timeout=60)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")

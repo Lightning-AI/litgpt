@@ -36,11 +36,15 @@ def test_from_hf_name():
 
 
 def test_nonexisting_name():
-    with pytest.raises(ValueError, match="'invalid-model-name' is not a supported config name"):
+    with pytest.raises(
+        ValueError, match="'invalid-model-name' is not a supported config name"
+    ):
         Config.from_name("invalid-model-name")
 
 
-@pytest.mark.parametrize("config", config_module.configs, ids=[c["name"] for c in config_module.configs])
+@pytest.mark.parametrize(
+    "config", config_module.configs, ids=[c["name"] for c in config_module.configs]
+)
 def test_short_and_hf_names_are_equal_unless_on_purpose(config):
     # by short-hand name
     config0 = Config.from_name(config["name"])
@@ -59,18 +63,24 @@ def test_from_hf_name_with_org_string():
 
     # Test case 2: invalid input - org not found
     with pytest.raises(
-        ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"
+        ValueError,
+        match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name",
     ):
         Config.from_name("UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T")
 
     # Test case 3: invalid input - name not found
-    with pytest.raises(ValueError, match="'TinyLlama/TinyLlama-XYZ' is not a supported config name"):
+    with pytest.raises(
+        ValueError, match="'TinyLlama/TinyLlama-XYZ' is not a supported config name"
+    ):
         Config.from_name("TinyLlama/TinyLlama-XYZ")
 
 
 def test_from_checkpoint(tmp_path):
     # 1. Neither `lit_config.py` nor matching config exists.
-    with pytest.raises(FileNotFoundError, match="neither 'model_config.yaml' nor matching config exists"):
+    with pytest.raises(
+        FileNotFoundError,
+        match="neither 'model_config.yaml' nor matching config exists",
+    ):
         Config.from_checkpoint(tmp_path / "non_existing_checkpoint")
 
     # 2. If `lit_config.py` doesn't exists, but there is a matching config in `litgpt/config.py`.

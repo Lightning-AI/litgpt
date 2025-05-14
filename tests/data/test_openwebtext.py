@@ -10,9 +10,13 @@ from torch.utils.data import DataLoader
 from litgpt.data import OpenWebText
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="Not in the mood to add Windows support right now.")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Not in the mood to add Windows support right now."
+)
 @mock.patch("litdata.optimize")
-@mock.patch("litdata.streaming.dataset.subsample_streaming_dataset", return_value=([], []))
+@mock.patch(
+    "litdata.streaming.dataset.subsample_streaming_dataset", return_value=([], [])
+)
 @mock.patch("datasets.load_dataset")
 def test_openwebtext(_, __, optimize_mock, tmp_path, mock_tokenizer):
     data = OpenWebText(data_path=(tmp_path / "openwebtext"))

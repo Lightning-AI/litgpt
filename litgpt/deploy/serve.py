@@ -24,7 +24,9 @@ class BaseLitAPI(LitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+        quantize: Optional[
+            Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]
+        ] = None,
         precision: Optional[str] = None,
         temperature: float = 0.8,
         top_k: int = 50,
@@ -61,7 +63,9 @@ class BaseLitAPI(LitAPI):
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None,
+            generate_strategy="sequential"
+            if self.devices is not None and self.devices > 1
+            else None,
         )
         print("Model successfully initialized.", file=sys.stderr)
 
@@ -83,14 +87,27 @@ class SimpleLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+        )
 
     def setup(self, device: str):
         super().setup(device)
 
     def predict(self, inputs: str) -> Any:
         output = self.llm.generate(
-            inputs, temperature=self.temperature, top_k=self.top_k, top_p=self.top_p, max_new_tokens=self.max_new_tokens
+            inputs,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            max_new_tokens=self.max_new_tokens,
         )
         return output
 
@@ -111,7 +128,16 @@ class StreamLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+        )
 
     def setup(self, device: str):
         super().setup(device)
@@ -144,7 +170,16 @@ class OpenAISpecLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+        )
 
     def setup(self, device: str):
         super().setup(device)
@@ -177,13 +212,20 @@ class OpenAISpecLitAPI(BaseLitAPI):
 
         # Run the model on the input and return the output.
         yield from self.llm.generate(
-            inputs, temperature=temperature, top_k=self.top_k, top_p=top_p, max_new_tokens=max_new_tokens, stream=True
+            inputs,
+            temperature=temperature,
+            top_k=self.top_k,
+            top_p=top_p,
+            max_new_tokens=max_new_tokens,
+            stream=True,
         )
 
 
 def run_server(
     checkpoint_dir: Path,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+    quantize: Optional[
+        Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]
+    ] = None,
     precision: Optional[str] = None,
     temperature: float = 0.8,
     top_k: int = 50,
@@ -235,10 +277,14 @@ def run_server(
         openai_spec: Whether to use the OpenAISpec.
         access_token: Optional API token to access models with restrictions.
     """
-    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+    checkpoint_dir = auto_download_checkpoint(
+        model_name=checkpoint_dir, access_token=access_token
+    )
     pprint(locals())
 
-    api_class = OpenAISpecLitAPI if openai_spec else StreamLitAPI if stream else SimpleLitAPI
+    api_class = (
+        OpenAISpecLitAPI if openai_spec else StreamLitAPI if stream else SimpleLitAPI
+    )
     server = LitServer(
         api_class(
             checkpoint_dir=checkpoint_dir,

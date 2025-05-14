@@ -16,7 +16,10 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
             return f"In: {prompt} Out:"
 
     i = ignore_index
-    data = [{"instruction": "Foo", "output": "Bar"}, {"instruction": "Boo", "output": "Ahh"}]
+    data = [
+        {"instruction": "Foo", "output": "Bar"},
+        {"instruction": "Boo", "output": "Ahh"},
+    ]
 
     dataset = SFTDataset(
         data=data,
@@ -28,10 +31,14 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
     )
     assert len(dataset) == len(data)
 
-    expected_input_ids = torch.tensor([73, 110, 58, 32, 70, 111, 111, 32, 79, 117, 116, 58, 66, 97, 114, 1])
+    expected_input_ids = torch.tensor(
+        [73, 110, 58, 32, 70, 111, 111, 32, 79, 117, 116, 58, 66, 97, 114, 1]
+    )
     # If prompt is not masked, labels == input_ids
     expected_labels = (
-        torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1]) if mask_prompt else expected_input_ids
+        torch.tensor([i, i, i, i, i, i, i, i, i, i, i, i, 66, 97, 114, 1])
+        if mask_prompt
+        else expected_input_ids
     )
 
     if max_seq_length == -1:
@@ -60,13 +67,20 @@ def test_sft_collate_fn_padding(pad_id, ignore_index):
     ]
     expected = {
         "input_ids": torch.tensor([[1, 2, 3, pad_id, pad_id], [4, 5, 6, 7, 8]]),
-        "labels": torch.tensor([[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]]),
-        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])},
+        "labels": torch.tensor(
+            [[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]]
+        ),
+        "token_counts": {
+            "raw": torch.tensor([[3], [5]]),
+            "raw_plus_prompt_template": torch.tensor([[25], [27]]),
+        },
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
     for key in ("raw", "raw_plus_prompt_template"):
-        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), f"Token count mismatch for {key}"
+        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), (
+            f"Token count mismatch for {key}"
+        )
 
 
 def test_sft_collate_fn_truncation():
@@ -86,9 +100,14 @@ def test_sft_collate_fn_truncation():
     expected = {
         "input_ids": torch.tensor([[1, 2], [4, 5]]),
         "labels": torch.tensor([[10, 20], [40, 50]]),
-        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])},
+        "token_counts": {
+            "raw": torch.tensor([[3], [5]]),
+            "raw_plus_prompt_template": torch.tensor([[25], [27]]),
+        },
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
     for key in ("raw", "raw_plus_prompt_template"):
-        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), f"Token count mismatch for {key}"
+        assert torch.equal(batch["token_counts"][key], expected["token_counts"][key]), (
+            f"Token count mismatch for {key}"
+        )

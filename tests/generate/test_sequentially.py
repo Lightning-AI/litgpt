@@ -48,19 +48,27 @@ def test_sequential_layer_to_device_mapping_not_possible():
     config = Config(n_layer=1)
     with torch.device("meta"):
         model = GPT(config)
-    with pytest.raises(ValueError, match="number of layers in the model must be larger than the number of devices"):
+    with pytest.raises(
+        ValueError,
+        match="number of layers in the model must be larger than the number of devices",
+    ):
         sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=2)
 
     # Last device would get 0 layers
     config = Config(n_layer=6)
     with torch.device("meta"):
         model = GPT(config)
-    with pytest.raises(RuntimeError, match="Not able to distribute the 6 layers across 4 devices"):
+    with pytest.raises(
+        RuntimeError, match="Not able to distribute the 6 layers across 4 devices"
+    ):
         sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=4)
 
 
 def path_to_device(model):
-    return {k: str(v.device) for k, v in itertools.chain(model.named_parameters(), model.named_buffers())}
+    return {
+        k: str(v.device)
+        for k, v in itertools.chain(model.named_parameters(), model.named_buffers())
+    }
 
 
 def test_replace_device():
@@ -102,7 +110,9 @@ def test_replace_device():
     model.submodule.bar = model.submodule.bar.to("meta")
     with pytest.raises(
         ValueError,
-        match=escape("multiple devices: {'submodule.foo': device(type='cpu'), 'submodule.bar': device(type='meta')}"),
+        match=escape(
+            "multiple devices: {'submodule.foo': device(type='cpu'), 'submodule.bar': device(type='meta')}"
+        ),
     ):
         replace_device(model, torch.device("cpu"), torch.device("meta"))
 
@@ -264,11 +274,35 @@ def test_model_forward_hooks():
         "transformer.h.5.attn.kv_cache.v": "cuda:1",
     }
     assert hooks == {
-        "transformer.h.3": [("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {})],
-        "transformer.h.4": [("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {})],
+        "transformer.h.3": [
+            (
+                "forward_pre_hook",
+                "move_block_input",
+                (torch.device(type="cuda", index=1),),
+                {},
+            )
+        ],
+        "transformer.h.4": [
+            (
+                "forward_pre_hook",
+                "move_block_input",
+                (torch.device(type="cuda", index=1),),
+                {},
+            )
+        ],
         "transformer.h.5": [
-            ("forward_pre_hook", "move_block_input", (torch.device(type="cuda", index=1),), {}),
-            ("forward_hook", "move_block_output", (torch.device(type="cuda", index=0),), {}),
+            (
+                "forward_pre_hook",
+                "move_block_input",
+                (torch.device(type="cuda", index=1),),
+                {},
+            ),
+            (
+                "forward_hook",
+                "move_block_output",
+                (torch.device(type="cuda", index=0),),
+                {},
+            ),
         ],
     }
 
@@ -280,7 +314,9 @@ root = Path(__file__).parent.parent.resolve()
 @pytest.mark.flaky(reruns=5, reruns_delay=2)
 def test_base_with_sequentially(tmp_path):
     # download the tokenizer
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
     checkpoint_dir = tmp_path / "EleutherAI/pythia-14m"
     # save the config
     config = Config.from_name("pythia-14m")

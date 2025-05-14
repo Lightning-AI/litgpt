@@ -20,7 +20,9 @@ class LitLLM(L.LightningModule):
         litgpt.lora.mark_only_lora_as_trainable(self.model)
 
     def on_train_start(self):
-        state_dict = torch.load("checkpoints/meta-llama/Meta-Llama-3.1-8B/lit_model.pth", mmap=True)
+        state_dict = torch.load(
+            "checkpoints/meta-llama/Meta-Llama-3.1-8B/lit_model.pth", mmap=True
+        )
         self.model.load_state_dict(state_dict, strict=False)
 
     def training_step(self, batch):
@@ -32,8 +34,12 @@ class LitLLM(L.LightningModule):
 
     def configure_optimizers(self):
         warmup_steps = 10
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95))
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95)
+        )
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lambda step: step / warmup_steps
+        )
         return [optimizer], [scheduler]
 
 

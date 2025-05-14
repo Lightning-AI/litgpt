@@ -311,9 +311,15 @@ def copy_weights_phi(
             else:
                 weight_type = from_name.split(".")[-1]  # weight or bias
                 to_names = (
-                    f"model.layers.{{}}.self_attn.q_proj.{weight_type}".format(layer_idx),
-                    f"model.layers.{{}}.self_attn.k_proj.{weight_type}".format(layer_idx),
-                    f"model.layers.{{}}.self_attn.v_proj.{weight_type}".format(layer_idx),
+                    f"model.layers.{{}}.self_attn.q_proj.{weight_type}".format(
+                        layer_idx
+                    ),
+                    f"model.layers.{{}}.self_attn.k_proj.{weight_type}".format(
+                        layer_idx
+                    ),
+                    f"model.layers.{{}}.self_attn.v_proj.{weight_type}".format(
+                        layer_idx
+                    ),
                 )
                 params = param.split(
                     (
@@ -393,7 +399,9 @@ def copy_weights_qwen_2_5(
             state_dict[to_name] = param
 
 
-def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+def qkv_reassemble(
+    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
+) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
     """
@@ -413,7 +421,9 @@ def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Confi
 
 def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
     if any("lora" in wn for wn in lit_weights):
-        raise ValueError("Checkpoints with LoRA weights cannot be converted. Call `scripts/merge_lora.py` first.")
+        raise ValueError(
+            "Checkpoints with LoRA weights cannot be converted. Call `scripts/merge_lora.py` first."
+        )
     if any("adapter" in wn or "gating_factor" in wn for wn in lit_weights):
         raise NotImplementedError("Converting adapter models is not supported.")
 

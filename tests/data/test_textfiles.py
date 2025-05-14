@@ -18,7 +18,13 @@ def tokenize(data):
 
 
 def fake_chunk(path, data):
-    optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
+    optimize(
+        fn=tokenize,
+        inputs=[data] * len(data),
+        output_dir=str(path),
+        num_workers=1,
+        chunk_bytes="200MB",
+    )
 
 
 def test_textfiles_datamodule(tmp_path):

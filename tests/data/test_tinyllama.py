@@ -2,13 +2,19 @@
 from unittest import mock
 
 import pytest
-from litdata.streaming import CombinedStreamingDataset, StreamingDataLoader, StreamingDataset
+from litdata.streaming import (
+    CombinedStreamingDataset,
+    StreamingDataLoader,
+    StreamingDataset,
+)
 from torch.utils.data import DataLoader
 
 from litgpt.data import TinyLlama
 
 
-@mock.patch("litdata.streaming.dataset.subsample_streaming_dataset", return_value=([], []))
+@mock.patch(
+    "litdata.streaming.dataset.subsample_streaming_dataset", return_value=([], [])
+)
 def test_tinyllama(_, tmp_path):
     data = TinyLlama(data_path=(tmp_path / "data"))
     assert data.seq_length == 2048
@@ -18,7 +24,9 @@ def test_tinyllama(_, tmp_path):
     assert data.seq_length == 1025
     assert data.batch_size == 2
 
-    with pytest.raises(FileNotFoundError, match="The directory .*data/slimpajama/train does not exist"):
+    with pytest.raises(
+        FileNotFoundError, match="The directory .*data/slimpajama/train does not exist"
+    ):
         data.prepare_data()
 
     (tmp_path / "data" / "slimpajama" / "train").mkdir(parents=True)

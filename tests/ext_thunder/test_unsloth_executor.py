@@ -21,7 +21,9 @@ def test_unsloth_cross_entropy(reduction):
         # this is the variant supported by unsloth.
         # if different arguments are used, the implementation would no be lowered to unsloth and instead would get
         # decomposed
-        return torch.nn.functional.cross_entropy(logits, labels, reduction=reduction, ignore_index=-100)
+        return torch.nn.functional.cross_entropy(
+            logits, labels, reduction=reduction, ignore_index=-100
+        )
 
     cfoo = thunder.jit(foo, executors=[unsloth_ex])
     actual = cfoo(logits, labels)

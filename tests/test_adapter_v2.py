@@ -10,7 +10,10 @@ import pytest
 import torch
 import yaml
 from lightning import Fabric
-from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
+from lightning.fabric.plugins.precision.bitsandbytes import (
+    _BITSANDBYTES_AVAILABLE,
+    BitsandbytesPrecision,
+)
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
@@ -25,7 +28,11 @@ from litgpt.adapter_v2 import CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.model import GPT as BaseGPT
-from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_gemma_3, copy_weights_hf_llama
+from litgpt.scripts.convert_hf_checkpoint import (
+    copy_weights_gemma_2,
+    copy_weights_gemma_3,
+    copy_weights_hf_llama,
+)
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
 
@@ -78,7 +85,14 @@ def test_adapter_v2_filter(tmp_path):
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
 def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
-    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
+    model_config = dict(
+        block_size=128,
+        n_layer=2,
+        n_embd=8,
+        n_head=4,
+        padded_vocab_size=8,
+        adapter_start_layer=0,
+    )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
     monkeypatch.setattr(module, "load_checkpoint", Mock())
@@ -90,15 +104,27 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["adapter_v2.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(
             fake_checkpoint_dir,
             data=Alpaca(
-                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+                download_dir=alpaca_path.parent,
+                file_name=alpaca_path.name,
+                val_split_fraction=0.5,
+                num_workers=0,
             ),
             out_dir=out_dir,
             precision="32-true",
-            train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
+            train=TrainArgs(
+                global_batch_size=1,
+                save_interval=2,
+                epochs=1,
+                max_steps=6,
+                micro_batch_size=1,
+            ),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
 
@@ -125,10 +151,20 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
 
 
 def test_adapter_v2_gpt_init_weights():
-    config = Config(n_layer=1, n_head=6, n_embd=12, block_size=1, vocab_size=1, adapter_start_layer=0)
+    config = Config(
+        n_layer=1,
+        n_head=6,
+        n_embd=12,
+        block_size=1,
+        vocab_size=1,
+        adapter_start_layer=0,
+    )
     model = AdapterV2GPT(config)
 
-    for param in (model.transformer.h[0].attn.gating_factor, model.lm_head.adapter_bias):
+    for param in (
+        model.transformer.h[0].attn.gating_factor,
+        model.lm_head.adapter_bias,
+    ):
         assert (param == 0).all()
         torch.nn.init.constant_(param, 1.23)
         assert (param != 0).any()
@@ -138,7 +174,13 @@ def test_adapter_v2_gpt_init_weights():
 
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_adapter_v2_loaded(name):
-    kwargs = {"n_layer": 2, "n_head": 8, "n_query_groups": 4, "n_embd": 16, "padded_vocab_size": 32}
+    kwargs = {
+        "n_layer": 2,
+        "n_head": 8,
+        "n_query_groups": 4,
+        "n_embd": 16,
+        "padded_vocab_size": 32,
+    }
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
     lora_model = AdapterV2GPT.from_name(name, **kwargs, adapter_start_layer=0)
@@ -152,7 +194,9 @@ def test_base_model_can_be_adapter_v2_loaded(name):
 @torch.inference_mode()
 def test_adapter_v2_compile():
     model = AdapterV2GPT.from_name("pythia-14m", n_layer=3)
-    x = torch.randint(model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64)
+    x = torch.randint(
+        model.config.vocab_size, size=(2, model.config.block_size), dtype=torch.int64
+    )
 
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
@@ -206,7 +250,11 @@ def test_against_hf_mixtral():
     ours_model.load_state_dict(state_dict, strict=False)
 
     # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    x = torch.tensor(
+        [[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]],
+        dtype=torch.int32,
+        device=device,
+    )
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -219,7 +267,9 @@ def test_against_hf_gemma(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
     T = 5
-    ours_config = Config.from_name(model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86
+    )
     theirs_config = GemmaConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -308,7 +358,9 @@ def test_against_original_gemma_2(model_name):
         assert adapter_filter(k, None)
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -318,7 +370,9 @@ def test_against_original_gemma_2(model_name):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"))
+@pytest.mark.parametrize(
+    "model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it")
+)
 def test_against_original_gemma_3(model_name):
     device = torch.device("cpu")
     dtype = torch.float32
@@ -369,7 +423,9 @@ def test_against_original_gemma_3(model_name):
         assert adapter_filter(k, None)
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -379,14 +435,22 @@ def test_against_original_gemma_3(model_name):
 
 
 @_RunIf(min_cuda_gpus=1)
-def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path):
+def test_adapter_v2_bitsandbytes(
+    monkeypatch, tmp_path, fake_checkpoint_dir, alpaca_path
+):
     if not _BITSANDBYTES_AVAILABLE:
         pytest.skip("BNB not available")
 
     from bitsandbytes.optim import PagedAdamW
 
     model_config = dict(
-        block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0, bias=True
+        block_size=128,
+        n_layer=2,
+        n_embd=8,
+        n_head=4,
+        padded_vocab_size=8,
+        adapter_start_layer=0,
+        bias=True,
     )
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
 
@@ -405,11 +469,17 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
     monkeypatch.setattr(module, "fit", train_mock)
 
     stdout = StringIO()
-    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py", str(fake_checkpoint_dir)]):
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["adapter_v2.py", str(fake_checkpoint_dir)]),
+    ):
         module.setup(
             fake_checkpoint_dir,
             data=Alpaca(
-                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+                download_dir=alpaca_path.parent,
+                file_name=alpaca_path.name,
+                val_split_fraction=0.5,
+                num_workers=0,
             ),
             precision="16-true",
             quantize="bnb.nf4-dq",
@@ -487,7 +557,9 @@ def test_adapter_v2_bitsandbytes(monkeypatch, tmp_path, fake_checkpoint_dir, alp
         },
     }
 
-    assert {p.name for p in tmp_path.rglob("*.pth.adapter_v2")} == {"lit_model.pth.adapter_v2"}
+    assert {p.name for p in tmp_path.rglob("*.pth.adapter_v2")} == {
+        "lit_model.pth.adapter_v2"
+    }
     state_dict = torch.load(tmp_path / "final" / "lit_model.pth.adapter_v2")
     assert len(state_dict) == 1
     dtype_to_name = {"torch.float16": set()}
@@ -550,8 +622,12 @@ def test_load_legacy_state_dict():
     # make weights to be as-like in a legacy checkpoint, with `attn.attn.weight` instead of `attn.qkv.weight`
     # and make them interleaved
     state_dict = deepcopy(attention_1.state_dict())
-    state_dict["attn.linear.weight"] = make_qkv_interleaved(state_dict.pop("qkv.linear.weight"), config)
-    state_dict["attn.linear.bias"] = make_qkv_interleaved(state_dict.pop("qkv.linear.bias"), config)
+    state_dict["attn.linear.weight"] = make_qkv_interleaved(
+        state_dict.pop("qkv.linear.weight"), config
+    )
+    state_dict["attn.linear.bias"] = make_qkv_interleaved(
+        state_dict.pop("qkv.linear.bias"), config
+    )
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)

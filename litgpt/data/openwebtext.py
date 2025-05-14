@@ -36,25 +36,36 @@ class OpenWebText(DataModule):
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = 2048
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = 2048,
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
-        self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
+        self.seq_length = (
+            max_seq_length + 1
+        )  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
         from datasets import Dataset, load_dataset
         from litdata import optimize
 
         if str(self.data_path).startswith("s3://"):
-            print(f"The OpenWebText data path points to an S3 location: {self.data_path}. Skipping preprocessing.")
+            print(
+                f"The OpenWebText data path points to an S3 location: {self.data_path}. Skipping preprocessing."
+            )
             return
 
         if Path(self.data_path_train).is_dir() and Path(self.data_path_val).is_dir():
-            print(f"Found OpenWebText train and val dir: {self.data_path}. Skipping preprocessing.")
+            print(
+                f"Found OpenWebText train and val dir: {self.data_path}. Skipping preprocessing."
+            )
             return
 
-        dataset = load_dataset("openwebtext", num_proc=(os.cpu_count() // 2), trust_remote_code=True)
+        dataset = load_dataset(
+            "openwebtext", num_proc=(os.cpu_count() // 2), trust_remote_code=True
+        )
 
         # Split the data in training and validation
         split_dataset = dataset["train"].train_test_split(
@@ -81,7 +92,11 @@ class OpenWebText(DataModule):
         )
 
     def train_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         train_dataset = StreamingDataset(
             input_dir=self.data_path_train,
@@ -89,12 +104,20 @@ class OpenWebText(DataModule):
             shuffle=True,
         )
         train_dataloader = StreamingDataLoader(
-            train_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            train_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return train_dataloader
 
     def val_dataloader(self) -> DataLoader:
-        from litdata.streaming import StreamingDataLoader, StreamingDataset, TokensLoader
+        from litdata.streaming import (
+            StreamingDataLoader,
+            StreamingDataset,
+            TokensLoader,
+        )
 
         val_dataset = StreamingDataset(
             input_dir=self.data_path_val,
@@ -102,6 +125,10 @@ class OpenWebText(DataModule):
             shuffle=True,
         )
         val_dataloader = StreamingDataLoader(
-            val_dataset, batch_size=self.batch_size, pin_memory=True, num_workers=self.num_workers, drop_last=True
+            val_dataset,
+            batch_size=self.batch_size,
+            pin_memory=True,
+            num_workers=self.num_workers,
+            drop_last=True,
         )
         return val_dataloader

@@ -2,7 +2,16 @@
 
 from contextlib import nullcontext
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, ContextManager, Dict, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ContextManager,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import torch
 import torch.distributed
@@ -11,7 +20,9 @@ from lightning.fabric.plugins.collectives.torch_collective import default_pg_tim
 from lightning.fabric.plugins.environments.cluster_environment import ClusterEnvironment
 from lightning.fabric.plugins.io.checkpoint_io import CheckpointIO
 from lightning.fabric.plugins.precision import Precision
-from lightning.fabric.strategies.launchers.subprocess_script import _SubprocessScriptLauncher
+from lightning.fabric.strategies.launchers.subprocess_script import (
+    _SubprocessScriptLauncher,
+)
 from lightning.fabric.strategies.parallel import ParallelStrategy
 from lightning.fabric.strategies.strategy import TBroadcast, _BackwardSyncControl
 from lightning.fabric.utilities.distributed import (
@@ -63,12 +74,16 @@ class ThunderDDPStrategy(ParallelStrategy):
         """
         if not _THUNDER_AVAILABLE:
             raise ModuleNotFoundError(str(_THUNDER_AVAILABLE))
-        super().__init__(accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision)
+        super().__init__(
+            accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision
+        )
         self.parallel_devices = parallel_devices
         self.cluster_environment: Optional[ClusterEnvironment] = cluster_environment
 
         if not jit and executors is not None:
-            raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
+            raise ValueError(
+                f"Passing executors={executors} doesn't have an effect with `jit={jit}`"
+            )
         self.jit = jit
         self.executors = executors
         self._num_nodes = 1
@@ -99,13 +114,18 @@ class ThunderDDPStrategy(ParallelStrategy):
     @property
     @override
     def distributed_sampler_kwargs(self) -> Dict[str, Any]:
-        return {"num_replicas": self.num_nodes * self.num_processes, "rank": self.global_rank}
+        return {
+            "num_replicas": self.num_nodes * self.num_processes,
+            "rank": self.global_rank,
+        }
 
     @override
     def _configure_launcher(self) -> None:
         assert self.cluster_environment is not None
         if not self.cluster_environment.creates_processes_externally:
-            self._launcher = _SubprocessScriptLauncher(self.cluster_environment, self.num_processes, self.num_nodes)
+            self._launcher = _SubprocessScriptLauncher(
+                self.cluster_environment, self.num_processes, self.num_nodes
+            )
 
     @property
     def process_group_backend(self) -> Optional[str]:
@@ -114,7 +134,9 @@ class ThunderDDPStrategy(ParallelStrategy):
     @override
     def _configure_launcher(self) -> None:
         assert self.cluster_environment is not None
-        self._launcher = _SubprocessScriptLauncher(self.cluster_environment, self.num_processes, self.num_nodes)
+        self._launcher = _SubprocessScriptLauncher(
+            self.cluster_environment, self.num_processes, self.num_nodes
+        )
 
     @override
     def setup_environment(self) -> None:
@@ -150,7 +172,10 @@ class ThunderDDPStrategy(ParallelStrategy):
 
     @override
     def all_reduce(
-        self, tensor: Tensor, group: Optional[Any] = None, reduce_op: Optional[Union[ReduceOp, str]] = "mean"
+        self,
+        tensor: Tensor,
+        group: Optional[Any] = None,
+        reduce_op: Optional[Union[ReduceOp, str]] = "mean",
     ) -> Tensor:
         if isinstance(tensor, Tensor):
             return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
@@ -178,14 +203,21 @@ class ThunderDDPStrategy(ParallelStrategy):
         self._set_world_ranks()
         self._process_group_backend = self._get_process_group_backend()
         assert self.cluster_environment is not None
-        _init_dist_connection(self.cluster_environment, self._process_group_backend, timeout=self._timeout)
+        _init_dist_connection(
+            self.cluster_environment, self._process_group_backend, timeout=self._timeout
+        )
 
     def _get_process_group_backend(self) -> str:
-        return self._process_group_backend or _get_default_process_group_backend_for_device(self.root_device)
+        return (
+            self._process_group_backend
+            or _get_default_process_group_backend_for_device(self.root_device)
+        )
 
     def _set_world_ranks(self) -> None:
         if self.cluster_environment is not None:
-            self.cluster_environment.set_global_rank(self.node_rank * self.num_processes + self.local_rank)
+            self.cluster_environment.set_global_rank(
+                self.node_rank * self.num_processes + self.local_rank
+            )
             self.cluster_environment.set_world_size(self.num_nodes * self.num_processes)
         # `LightningEnvironment.set_global_rank` will do this too, but we cannot rely on that implementation detail
         # additionally, for some implementations, the setter is a no-op, so it's safer to access the getter
@@ -226,7 +258,9 @@ class _ThunderDataParalellBackwardSyncControl(_BackwardSyncControl):
 
         More info in https://github.com/Lightning-AI/lit-thunder-LEGACY/issues/2085
         """
-        if not getattr(module, "use_ddp", False) and not getattr(module, "use_fsdp", False):
+        if not getattr(module, "use_ddp", False) and not getattr(
+            module, "use_fsdp", False
+        ):
             raise TypeError(
                 "Blocking backward sync is only possible if the module passed to"
                 f" `{self.__class__.__name__}.no_backward_sync` is applied DDP or FSDP."

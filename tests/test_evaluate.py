@@ -17,7 +17,9 @@ from litgpt.scripts.download import download_from_hub
 
 def test_evaluate_script(tmp_path):
     ours_config = Config.from_name("pythia-14m")
-    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    download_from_hub(
+        repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path
+    )
     checkpoint_dir = tmp_path / "EleutherAI" / "pythia-14m"
     ours_model = GPT(ours_config)
     torch.save(ours_model.state_dict(), checkpoint_dir / "lit_model.pth")
@@ -36,7 +38,10 @@ def test_evaluate_script(tmp_path):
                 tasks="logiqa",
                 batch_size=0,  # Test for non-positive integer
             )
-        assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
+        assert (
+            "batch_size must be a positive integer, 'auto', or in the format 'auto:N'."
+            in str(excinfo.value)
+        )
 
         with pytest.raises(ValueError) as excinfo:
             module.convert_and_evaluate(
@@ -48,7 +53,10 @@ def test_evaluate_script(tmp_path):
                 tasks="logiqa",
                 batch_size="invalid",  # Test for invalid string
             )
-        assert "batch_size must be a positive integer, 'auto', or in the format 'auto:N'." in str(excinfo.value)
+        assert (
+            "batch_size must be a positive integer, 'auto', or in the format 'auto:N'."
+            in str(excinfo.value)
+        )
 
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["eval/evaluate.py"]):

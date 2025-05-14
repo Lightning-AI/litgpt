@@ -87,7 +87,9 @@ def main(fabric):
     data.setup()
     train_dataloader = data.train_dataloader()
     val_dataloader = data.val_dataloader()
-    train_dataloader, val_dataloader = fabric.setup_dataloaders(train_dataloader, val_dataloader)
+    train_dataloader, val_dataloader = fabric.setup_dataloaders(
+        train_dataloader, val_dataloader
+    )
 
     # print how many steps in an epoch
     fabric.print(f"Steps in an epoch: {len(train_dataloader)}")
@@ -95,17 +97,27 @@ def main(fabric):
     # setup model
     config = Config.from_file(f"checkpoints/{MODEL_NAME}/model_config.yaml")
     model = GPT(config)
-    fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
+    fabric.print(
+        f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}"
+    )
     model = fabric.setup(model)
 
     # setup optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-3, weight_decay=0.02, betas=(0.9, 0.95))
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=3e-3, weight_decay=0.02, betas=(0.9, 0.95)
+    )
     optimizer = fabric.setup_optimizers(optimizer)
 
     # setup lr scheduler
-    scheduler1 = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / LR_WARMUP_STEPS)
-    scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(MAX_STEPS - LR_WARMUP_STEPS))
-    scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[LR_WARMUP_STEPS])
+    scheduler1 = torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lambda step: step / LR_WARMUP_STEPS
+    )
+    scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=(MAX_STEPS - LR_WARMUP_STEPS)
+    )
+    scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer, [scheduler1, scheduler2], milestones=[LR_WARMUP_STEPS]
+    )
 
     # Start training!!!
     train(fabric, model, optimizer, scheduler, train_dataloader, val_dataloader)
@@ -114,7 +126,9 @@ def main(fabric):
 if __name__ == "__main__":
     # check that the model exists (downloaded to ./checkpoints/)
     if not os.path.exists(f"checkpoints/{MODEL_NAME}"):
-        print(f"Model {MODEL_NAME} not found. Please download it using `litgpt download --repo {MODEL_NAME}`")
+        print(
+            f"Model {MODEL_NAME} not found. Please download it using `litgpt download --repo {MODEL_NAME}`"
+        )
         exit()
 
     ### Setup and launch

@@ -70,13 +70,17 @@ def convert_and_evaluate(
         )
         return
 
-    checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
+    checkpoint_dir = auto_download_checkpoint(
+        model_name=checkpoint_dir, access_token=access_token
+    )
     pprint(locals())
 
     if not (isinstance(batch_size, int) and batch_size > 0) and not (
         isinstance(batch_size, str) and batch_size.startswith("auto")
     ):
-        raise ValueError("batch_size must be a positive integer, 'auto', or in the format 'auto:N'.")
+        raise ValueError(
+            "batch_size must be a positive integer, 'auto', or in the format 'auto:N'."
+        )
 
     from lm_eval import evaluator
 
@@ -89,7 +93,9 @@ def convert_and_evaluate(
         out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    save_filepath = out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
+    save_filepath = (
+        out_dir / Path("results.json") if save_filepath is None else Path(save_filepath)
+    )
 
     model_path = out_dir / "pytorch_model.bin"
     if not model_path.exists() or force_conversion:
@@ -105,7 +111,12 @@ def convert_and_evaluate(
 
     from lm_eval.models.huggingface import HFLM
 
-    model = HFLM(pretrained=str(out_dir.resolve()), device=device, batch_size=batch_size, dtype=dtype)
+    model = HFLM(
+        pretrained=str(out_dir.resolve()),
+        device=device,
+        batch_size=batch_size,
+        dtype=dtype,
+    )
 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

@@ -19,7 +19,12 @@ from litgpt.generate.base import generate as generate_fn
 from litgpt.generate.sequentially import sequential
 from litgpt.generate.tp import tensor_parallel
 from litgpt.model import GPT
-from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style, save_prompt_style
+from litgpt.prompts import (
+    PromptStyle,
+    has_prompt_style,
+    load_prompt_style,
+    save_prompt_style,
+)
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
@@ -77,7 +82,9 @@ class LLM(torch.nn.Module):
         return self.preprocessor.tokenizer
 
     def state_dict(self, destination=None, prefix="", keep_vars=False):
-        return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
+        return self.model.state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars
+        )
 
     def load_state_dict(self, state_dict, strict=True):
         return self.model.load_state_dict(state_dict, strict=strict)
@@ -114,7 +121,9 @@ class LLM(torch.nn.Module):
             self.load_state_dict(state_dict, strict=True)
 
         elif self.checkpoint_dir is not None:
-            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
+            state_dict = torch.load(
+                self.checkpoint_dir / "lit_model.pth", weights_only=False
+            )
             self.load_state_dict(state_dict, strict=False)
 
         else:
@@ -123,7 +132,9 @@ class LLM(torch.nn.Module):
                 "or ensure that `self.checkpoint_dir` points to a folder containing a `lit_model.pth` weight file."
             )
 
-    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None) -> None:
+    def save(
+        self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None
+    ) -> None:
         out_dir = Path(out_dir)
         save_path = out_dir / "lit_model.pth"
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -174,7 +185,9 @@ class LLM(torch.nn.Module):
 
         if init == "pretrained":
             checkpoint_dir = auto_download_checkpoint(
-                model_name=model, access_token=access_token, ignore_tokenizer_files=tokenizer_dir is not None
+                model_name=model,
+                access_token=access_token,
+                ignore_tokenizer_files=tokenizer_dir is not None,
             )
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
@@ -189,7 +202,9 @@ class LLM(torch.nn.Module):
                 return
 
         else:
-            raise ValueError(f"Invalid init option: {init}. Must be one of {allowed_init}")
+            raise ValueError(
+                f"Invalid init option: {init}. Must be one of {allowed_init}"
+            )
 
         torch.set_float32_matmul_precision("high")
 
@@ -199,7 +214,9 @@ class LLM(torch.nn.Module):
         elif checkpoint_dir is not None:
             tokenizer = Tokenizer(checkpoint_dir)
         else:
-            raise ValueError("Provide a path to a tokenizer directory via the `tokenizer_dir` setting.")
+            raise ValueError(
+                "Provide a path to a tokenizer directory via the `tokenizer_dir` setting."
+            )
 
         if checkpoint_dir is not None:
             prompt_style = (
@@ -237,7 +254,9 @@ class LLM(torch.nn.Module):
             model = fabric.setup_module(model)
 
         else:
-            preprocessor = Preprocessor(tokenizer, device="cuda" if torch.cuda.is_available() else "cpu")
+            preprocessor = Preprocessor(
+                tokenizer, device="cuda" if torch.cuda.is_available() else "cpu"
+            )
             model = None
             fabric = None
 
@@ -258,7 +277,9 @@ class LLM(torch.nn.Module):
         accelerator: Literal["cpu", "cuda", "auto"] = "auto",
         devices: Union[int, Literal["auto"]] = "auto",
         precision: Optional[Any] = None,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+        quantize: Optional[
+            Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]
+        ] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
     ) -> None:
@@ -293,7 +314,9 @@ class LLM(torch.nn.Module):
 
         allowed_accelerators = {"cpu", "gpu", "cuda", "mps", "auto"}
         if accelerator not in allowed_accelerators:
-            raise ValueError(f"Invalid accelerator: {accelerator}. Must be one of {allowed_accelerators}.")
+            raise ValueError(
+                f"Invalid accelerator: {accelerator}. Must be one of {allowed_accelerators}."
+            )
 
         if accelerator == "auto":
             if torch.cuda.is_available():
@@ -303,7 +326,10 @@ class LLM(torch.nn.Module):
             else:
                 accelerator = "cpu"
 
-        if generate_strategy in ("sequential", "tensor_parallel") and accelerator not in ("cuda", "gpu"):
+        if generate_strategy in (
+            "sequential",
+            "tensor_parallel",
+        ) and accelerator not in ("cuda", "gpu"):
             raise NotImplementedError(
                 f"generate_strategy='{generate_strategy}' is only supported for accelerator='cuda'|'gpu'."
             )
@@ -323,7 +349,10 @@ class LLM(torch.nn.Module):
             else:
                 total_devices = use_devices
 
-            if total_devices > 1 and generate_strategy not in ("sequential", "tensor_parallel"):
+            if total_devices > 1 and generate_strategy not in (
+                "sequential",
+                "tensor_parallel",
+            ):
                 raise NotImplementedError(
                     "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
                 )
@@ -331,7 +360,9 @@ class LLM(torch.nn.Module):
             total_devices = 1
 
         else:
-            raise ValueError(f"devices argument must be an integer or 'auto', got {devices}")
+            raise ValueError(
+                f"devices argument must be an integer or 'auto', got {devices}"
+            )
 
         print(f"Using {total_devices} device(s)", file=sys.stderr)
 
@@ -343,8 +374,14 @@ class LLM(torch.nn.Module):
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
             if "mixed" in precision:
-                raise ValueError("The combination of quantization and mixed precision is not supported.")
-            dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
+                raise ValueError(
+                    "The combination of quantization and mixed precision is not supported."
+                )
+            dtype = {
+                "16-true": torch.float16,
+                "bf16-true": torch.bfloat16,
+                "32-true": torch.float32,
+            }[precision]
             plugins = BitsandbytesPrecision(quantize[4:], dtype)
             precision = None
 
@@ -359,7 +396,11 @@ class LLM(torch.nn.Module):
             )
         else:
             fabric = L.Fabric(
-                accelerator=accelerator, devices=total_devices, strategy="ddp", precision=precision, plugins=plugins
+                accelerator=accelerator,
+                devices=total_devices,
+                strategy="ddp",
+                precision=precision,
+                plugins=plugins,
             )
             if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
                 check_nvlink_connectivity(fabric)
@@ -379,11 +420,16 @@ class LLM(torch.nn.Module):
             model = fabric.setup_module(model)
 
             if fixed_kv_cache_size is not None:
-                if fixed_kv_cache_size is None or fixed_kv_cache_size == "max_model_supported":
+                if (
+                    fixed_kv_cache_size is None
+                    or fixed_kv_cache_size == "max_model_supported"
+                ):
                     kv_cache_size = model.max_seq_length
                 else:
                     kv_cache_size = fixed_kv_cache_size
-                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device)
+                model.set_kv_cache(
+                    batch_size=1, max_seq_length=kv_cache_size, device=fabric.device
+                )
                 self.kv_cache_initialized = True
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
@@ -394,7 +440,10 @@ class LLM(torch.nn.Module):
 
             if generate_strategy == "sequential":
                 state_dict = torch.load(
-                    str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False
+                    str(self.checkpoint_dir / "lit_model.pth"),
+                    mmap=True,
+                    map_location="cpu",
+                    weights_only=False,
                 )
                 model.load_state_dict(state_dict, assign=True)
                 model = fabric.setup_module(model, move_to_device=False)
@@ -510,14 +559,21 @@ class LLM(torch.nn.Module):
                 device = self.fabric.device
             else:
                 device = self.preprocessor.device
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
+            self.model.set_kv_cache(
+                batch_size=1, max_seq_length=max_returned_tokens, device=device
+            )
             self.kv_cache_initialized = True
 
         # Dynamically grow the kv cache size if necessary
-        if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
+        if (
+            not self.fixed_kv_cache_size
+            and self.prev_generated_seq_length < max_returned_tokens
+        ):
             tmp_device = self.model.mask_cache.device
             self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
+            self.model.set_kv_cache(
+                batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device
+            )
 
         else:
             for block in self.model.transformer.h:
@@ -597,18 +653,23 @@ class LLM(torch.nn.Module):
                 outputs = self.generate(
                     **kwargs,
                 )
-            benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
+            benchmark_dict.setdefault("Seconds total", []).append(
+                time.perf_counter() - t0
+            )
 
-            benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
+            benchmark_dict.setdefault("Seconds to first token", []).append(
+                time_to_first_token
+            )
             tokens_generated = self.preprocessor.encode(outputs).size(0)
             benchmark_dict.setdefault("Tokens generated", []).append(tokens_generated)
             benchmark_dict.setdefault("Inference speed in tokens/sec", []).append(
-                benchmark_dict["Tokens generated"][-1] / benchmark_dict["Seconds total"][-1]
+                benchmark_dict["Tokens generated"][-1]
+                / benchmark_dict["Seconds total"][-1]
             )
             if self.fabric is not None and self.fabric.device.type == "cuda":
-                benchmark_dict.setdefault("Total GPU memory allocated in GB", []).append(
-                    torch.cuda.max_memory_allocated() / 1e9
-                )
+                benchmark_dict.setdefault(
+                    "Total GPU memory allocated in GB", []
+                ).append(torch.cuda.max_memory_allocated() / 1e9)
 
         return outputs, benchmark_dict
 
@@ -633,7 +694,13 @@ def calculate_number_of_devices(devices):
     """
     Utility function to calculate the number of devices.
     """
-    num_devices = devices if isinstance(devices, int) else len(devices) if isinstance(devices, list) else 0
+    num_devices = (
+        devices
+        if isinstance(devices, int)
+        else len(devices)
+        if isinstance(devices, list)
+        else 0
+    )
     return num_devices
 
 
@@ -641,12 +708,8 @@ def benchmark_dict_to_markdown_table(data):
     """
     Converts .benchmark() outputs to a markdown table
     """
-    markdown_table = (
-        "| Metric                              | Mean                        | Std Dev                     |\n"
-    )
-    markdown_table += (
-        "|-------------------------------------|-----------------------------|-----------------------------|\n"
-    )
+    markdown_table = "| Metric                              | Mean                        | Std Dev                     |\n"
+    markdown_table += "|-------------------------------------|-----------------------------|-----------------------------|\n"
 
     for key, values in data.items():
         mean_value = np.mean(values)
@@ -690,7 +753,10 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
 
     try:
         g_hash = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
         ).stdout.strip()
         print(f"Git Commit Hash: {g_hash}")
     except subprocess.CalledProcessError:
@@ -703,7 +769,9 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     llm = LLM.load(
         model=model_name,
     )
-    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    text, bench_d = llm.benchmark(
+        num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1
+    )
     print_table(f"Defaults ({model_name}), 1st time", bench_d)
     del llm
 
@@ -711,7 +779,9 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     llm = LLM.load(
         model=model_name,
     )
-    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1)
+    text, bench_d = llm.benchmark(
+        num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1
+    )
     print_table(f"Defaults ({model_name}), 2nd time", bench_d)
     del llm
 
@@ -719,7 +789,12 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     llm = LLM.load(
         model=model_name,
     )
-    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    text, bench_d = llm.benchmark(
+        num_iterations=num_iterations,
+        prompt="What do llamas eat?",
+        top_k=1,
+        stream=True,
+    )
     print_table("stream=True", bench_d)
     del llm
 
@@ -727,5 +802,10 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     llm = LLM.load(model=model_name, distribute=None)
     llm.distribute(fixed_kv_cache_size=500)
 
-    text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)
+    text, bench_d = llm.benchmark(
+        num_iterations=num_iterations,
+        prompt="What do llamas eat?",
+        top_k=1,
+        stream=True,
+    )
     print_table("stream=True + fixed_kv_cache=500", bench_d)

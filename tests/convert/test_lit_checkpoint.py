@@ -38,9 +38,13 @@ from litgpt.scripts.convert_lit_checkpoint import (
 from litgpt.utils import _RunIf
 
 
-@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
+@pytest.mark.parametrize(
+    "model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2")
+)
 def test_convert_lit_checkpoint(tmp_path, model_name):
-    ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    ours_config = Config.from_name(
+        model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128
+    )
     ours_model = GPT(ours_config)
     checkpoint_path = tmp_path / "lit_model.pth"
     config_path = tmp_path / "model_config.yaml"
@@ -50,7 +54,11 @@ def test_convert_lit_checkpoint(tmp_path, model_name):
     output_dir = tmp_path / "out_dir"
 
     convert_lit_checkpoint(checkpoint_path.parent, output_dir)
-    assert set(os.listdir(tmp_path)) == {"lit_model.pth", "model_config.yaml", "out_dir"}
+    assert set(os.listdir(tmp_path)) == {
+        "lit_model.pth",
+        "model_config.yaml",
+        "out_dir",
+    }
     assert os.path.isfile(output_dir / "model.pth")
 
     # check checkpoint is unwrapped
@@ -62,7 +70,9 @@ def test_convert_lit_checkpoint(tmp_path, model_name):
 
 @torch.inference_mode()
 def test_against_falcon_40b():
-    ours_config = Config.from_name("falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32)
+    ours_config = Config.from_name(
+        "falcon-40b", n_layer=2, n_head=8, n_query_groups=4, n_embd=32
+    )
     theirs_config = FalconConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -120,7 +130,12 @@ def test_against_original_gpt_neox():
     assert all("inv_freq" in k for k in keys.missing_keys)
 
     # test end to end
-    x = torch.randint(0, ours_config.padded_vocab_size, size=(2, ours_config.block_size), dtype=torch.int64)
+    x = torch.randint(
+        0,
+        ours_config.padded_vocab_size,
+        size=(2, ours_config.block_size),
+        dtype=torch.int64,
+    )
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
@@ -128,11 +143,21 @@ def test_against_original_gpt_neox():
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "ours_kwargs", [{"name": "Llama-2-7b-hf"}, {"name": "CodeLlama-7b-hf"}, {"name": "Llama-2-70b-chat-hf"}]
+    "ours_kwargs",
+    [
+        {"name": "Llama-2-7b-hf"},
+        {"name": "CodeLlama-7b-hf"},
+        {"name": "Llama-2-70b-chat-hf"},
+    ],
 )
 def test_against_hf_llama2(ours_kwargs):
     ours_config = Config.from_name(
-        padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=32, intermediate_size=86, **ours_kwargs
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=8,
+        n_embd=32,
+        intermediate_size=86,
+        **ours_kwargs,
     )
     T = 5
     theirs_config = LlamaConfig(
@@ -163,7 +188,9 @@ def test_against_hf_llama2(ours_kwargs):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("Mixtral-8x7B-Instruct-v0.1", "Mixtral-8x22B-Instruct-v0.1"))
+@pytest.mark.parametrize(
+    "model_name", ("Mixtral-8x7B-Instruct-v0.1", "Mixtral-8x22B-Instruct-v0.1")
+)
 def test_against_mixtral(model_name):
     ours_config = Config.from_name(
         model_name,
@@ -198,7 +225,9 @@ def test_against_mixtral(model_name):
     theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
-    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32)
+    x = torch.tensor(
+        [[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32
+    )
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"]
     torch.testing.assert_close(ours_y, theirs_y)
@@ -235,7 +264,12 @@ def test_against_olmo(model_name):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=(model_name == "OLMo-1B-hf"))
+    copy_weights_llama(
+        ours_config,
+        theirs_state_dict,
+        ours_state_dict,
+        untie_weights=(model_name == "OLMo-1B-hf"),
+    )
     theirs_model = OlmoForCausalLM(theirs_config)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -250,7 +284,9 @@ def test_against_olmo(model_name):
 
 @torch.inference_mode()
 def test_against_original_open_llama_3b():
-    ours_config = Config.from_name("open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        "open_llama_3b", n_layer=2, n_head=8, n_embd=32, intermediate_size=86
+    )
     T = 5
     theirs_config = LlamaConfig(
         hidden_size=ours_config.n_embd,
@@ -280,7 +316,12 @@ def test_against_original_open_llama_3b():
 @pytest.mark.parametrize("model_name", ("phi-1_5", "phi-2"))
 def test_against_hf_phi(model_name):
     ours_config = Config.from_name(
-        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256, rotary_percentage=0.5
+        model_name,
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_head=4,
+        n_embd=256,
+        rotary_percentage=0.5,
     )
     T = 5
     theirs_config = PhiConfig(
@@ -314,7 +355,9 @@ def test_against_hf_phi(model_name):
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("Phi-3-mini-4k-instruct",))
 def test_against_hf_phi_3(model_name):
-    ours_config = Config.from_name(model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256)
+    ours_config = Config.from_name(
+        model_name, padded_vocab_size=10000, n_layer=2, n_head=4, n_embd=256
+    )
     T = 5
     theirs_config = Phi3Config(
         attention_bias=ours_config.bias,
@@ -353,7 +396,9 @@ def test_against_hf_phi_3(model_name):
 @torch.inference_mode()
 def test_against_original_stablelm_zephyr_3b():
     T = 5
-    ours_config = Config.from_name("stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        "stablelm-zephyr-3b", n_layer=2, n_head=16, n_embd=32, intermediate_size=86
+    )
     theirs_config = AutoConfig.from_pretrained(
         "stabilityai/stablelm-zephyr-3b",
         trust_remote_code=True,
@@ -370,7 +415,9 @@ def test_against_original_stablelm_zephyr_3b():
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
     copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict)
-    theirs_model = AutoModelForCausalLM.from_config(theirs_config, trust_remote_code=True, torch_dtype=torch.float32)
+    theirs_model = AutoModelForCausalLM.from_config(
+        theirs_config, trust_remote_code=True, torch_dtype=torch.float32
+    )
     theirs_model.load_state_dict(theirs_state_dict)
 
     # test end to end
@@ -403,7 +450,9 @@ def test_against_original_gemma(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
     T = 5
-    ours_config = Config.from_name(model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86)
+    ours_config = Config.from_name(
+        model_name, n_layer=2, n_head=16, n_embd=32, intermediate_size=86
+    )
     theirs_config = GemmaConfig(
         vocab_size=ours_config.padded_vocab_size,
         hidden_size=ours_config.n_embd,
@@ -426,7 +475,9 @@ def test_against_original_gemma(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_llama(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_llama(
+        ours_config, theirs_state_dict, ours_state_dict, untie_weights=True
+    )
     theirs_model = GemmaForCausalLM(theirs_config).to(device)
     theirs_model.load_state_dict(
         theirs_state_dict,
@@ -501,13 +552,17 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_gemma_2(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_gemma_2(
+        ours_config, theirs_state_dict, ours_state_dict, untie_weights=True
+    )
     theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -515,7 +570,9 @@ def test_against_original_gemma_2(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"))
+@pytest.mark.parametrize(
+    "model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it")
+)
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -574,13 +631,17 @@ def test_against_original_gemma_3(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_gemma_3(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_gemma_3(
+        ours_config, theirs_state_dict, ours_state_dict, untie_weights=True
+    )
     theirs_model = Gemma3ForCausalLM(theirs_config).to(device)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
@@ -605,7 +666,14 @@ def test_check_conversion_supported_lora():
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "model_name", ["Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B"]
+    "model_name",
+    [
+        "Qwen2.5-1.5B",
+        "Qwen2.5-Coder-1.5B",
+        "Qwen2.5-Math-1.5B",
+        "QwQ-32B-Preview",
+        "QwQ-32B",
+    ],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
@@ -657,13 +725,17 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_qwen_2_5(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_qwen_2_5(
+        ours_config, theirs_state_dict, ours_state_dict, untie_weights=True
+    )
     theirs_model = Qwen2ForCausalLM(theirs_config).to(device)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
 
     # test end to end
-    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    x = torch.randint(
+        low=0, high=ours_config.padded_vocab_size, size=(T,), device=device
+    ).unsqueeze(0)
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float

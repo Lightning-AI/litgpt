@@ -11,7 +11,11 @@ from litgpt.__main__ import main
 
 def test_cli():
     out = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "-h"]):
+    with (
+        pytest.raises(SystemExit),
+        redirect_stdout(out),
+        mock.patch("sys.argv", ["litgpt", "-h"]),
+    ):
         main()
     out = out.getvalue()
     assert "usage: litgpt" in out
@@ -28,10 +32,17 @@ def test_cli():
     chat                Chat with a model."""
         in out
     )
-    assert """evaluate            Evaluate a model with the LM Evaluation Harness.""" in out
+    assert (
+        """evaluate            Evaluate a model with the LM Evaluation Harness."""
+        in out
+    )
     assert """serve               Serve a LitGPT model using LitServe.""" in out
     out = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "finetune_lora", "-h"]):
+    with (
+        pytest.raises(SystemExit),
+        redirect_stdout(out),
+        mock.patch("sys.argv", ["litgpt", "finetune_lora", "-h"]),
+    ):
         main()
     out = out.getvalue()
     assert (
@@ -45,7 +56,11 @@ def test_cli():
         return
 
     out = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):
+    with (
+        pytest.raises(SystemExit),
+        redirect_stdout(out),
+        mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]),
+    ):
         main()
     out = out.getvalue()
     print(out)
@@ -59,9 +74,17 @@ def test_cli():
 
 def test_rewrite_finetune_command():
     out1 = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out1), mock.patch("sys.argv", ["litgpt", "fineune", "-h"]):
+    with (
+        pytest.raises(SystemExit),
+        redirect_stdout(out1),
+        mock.patch("sys.argv", ["litgpt", "fineune", "-h"]),
+    ):
         main()
     out2 = StringIO()
-    with pytest.raises(SystemExit), redirect_stdout(out2), mock.patch("sys.argv", ["litgpt", "fineune_lora", "-h"]):
+    with (
+        pytest.raises(SystemExit),
+        redirect_stdout(out2),
+        mock.patch("sys.argv", ["litgpt", "fineune_lora", "-h"]),
+    ):
         main()
     assert out1.getvalue() == out2.getvalue()

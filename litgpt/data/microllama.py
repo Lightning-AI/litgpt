@@ -10,5 +10,12 @@ from litgpt.data.tinyllama import TinyLlama
 class MicroLlama(TinyLlama):
     """The MicroLlama data module is composed of only SlimPajama data."""
 
-    def __init__(self, data_path: Union[str, Path] = Path("data/"), seed: int = 42, num_workers: int = 8):
-        super().__init__(data_path=data_path, seed=seed, num_workers=num_workers, use_starcoder=False)
+    def __init__(
+        self,
+        data_path: Union[str, Path] = Path("data/"),
+        seed: int = 42,
+        num_workers: int = 8,
+    ):
+        super().__init__(
+            data_path=data_path, seed=seed, num_workers=num_workers, use_starcoder=False
+        )

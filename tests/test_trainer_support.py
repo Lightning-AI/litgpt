@@ -18,26 +18,36 @@ class LitLLM(L.LightningModule):
     def __init__(self, checkpoint_dir, tokenizer_dir=None, trainer_ckpt_path=None):
         super().__init__()
 
-        self.llm = LLM.load(checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None)
+        self.llm = LLM.load(
+            checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None
+        )
         self.trainer_ckpt_path = trainer_ckpt_path
 
     def setup(self, stage):
         self.llm.trainer_setup(trainer_ckpt=self.trainer_ckpt_path)
 
     def training_step(self, batch):
-        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        logits, loss = self.llm(
+            input_ids=batch["input_ids"], target_ids=batch["labels"]
+        )
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch):
-        logits, loss = self.llm(input_ids=batch["input_ids"], target_ids=batch["labels"])
+        logits, loss = self.llm(
+            input_ids=batch["input_ids"], target_ids=batch["labels"]
+        )
         self.log("validation_loss", loss, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
         warmup_steps = 10
-        optimizer = torch.optim.AdamW(self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95))
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+        optimizer = torch.optim.AdamW(
+            self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95)
+        )
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lambda step: step / warmup_steps
+        )
         return [optimizer], [scheduler]
 
 
@@ -49,11 +59,16 @@ def test_download_model():
 @pytest.mark.dependency(depends=["test_download_model"])
 @_RunIf(min_cuda_gpus=1)
 def test_usecase1_pretraining_from_random_weights(tmp_path):
-    llm = LLM.load("EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random")
+    llm = LLM.load(
+        "EleutherAI/pythia-14m", tokenizer_dir="EleutherAI/pythia-14m", init="random"
+    )
     llm.save("pythia-14m-random-weights")
     del llm
 
-    lit_model = LitLLM(checkpoint_dir="pythia-14m-random-weights", tokenizer_dir="EleutherAI/pythia-14m")
+    lit_model = LitLLM(
+        checkpoint_dir="pythia-14m-random-weights",
+        tokenizer_dir="EleutherAI/pythia-14m",
+    )
     data = Alpaca2k()
 
     data.connect(lit_model.llm.tokenizer, batch_size=4, max_seq_length=128)
@@ -90,7 +105,12 @@ def test_usecase2_continued_pretraining_from_checkpoint(tmp_path):
     assert isinstance(text, str)
 
 
-@pytest.mark.dependency(depends=["test_download_model", "test_usecase2_continued_pretraining_from_checkpoint"])
+@pytest.mark.dependency(
+    depends=[
+        "test_download_model",
+        "test_usecase2_continued_pretraining_from_checkpoint",
+    ]
+)
 @_RunIf(min_cuda_gpus=1)
 def test_usecase3_resume_from_trainer_checkpoint(tmp_path):
     def find_latest_checkpoint(directory):
@@ -109,7 +129,8 @@ def test_usecase3_resume_from_trainer_checkpoint(tmp_path):
         return latest_checkpoint
 
     lit_model = LitLLM(
-        checkpoint_dir="EleutherAI/pythia-14m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs")
+        checkpoint_dir="EleutherAI/pythia-14m",
+        trainer_ckpt_path=find_latest_checkpoint("lightning_logs"),
     )
 
     data = Alpaca2k()
@@ -127,7 +148,12 @@ def test_usecase3_resume_from_trainer_checkpoint(tmp_path):
     assert isinstance(text, str)
 
 
-@pytest.mark.dependency(depends=["test_download_model", "test_usecase2_continued_pretraining_from_checkpoint"])
+@pytest.mark.dependency(
+    depends=[
+        "test_download_model",
+        "test_usecase2_continued_pretraining_from_checkpoint",
+    ]
+)
 @_RunIf(min_cuda_gpus=1)
 def test_usecase4_manually_save_and_resume(tmp_path):
     lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-14m")

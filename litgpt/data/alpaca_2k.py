@@ -31,7 +31,9 @@ class Alpaca2k(Alpaca):
 
         dataset = load_dataset(self.repo_id, cache_dir=self.download_dir)
 
-        train_validation_split = dataset["train"].train_test_split(test_size=self.val_split_fraction, seed=self.seed)
+        train_validation_split = dataset["train"].train_test_split(
+            test_size=self.val_split_fraction, seed=self.seed
+        )
         train_data = train_validation_split["train"]
         test_data = train_validation_split["test"]
 
