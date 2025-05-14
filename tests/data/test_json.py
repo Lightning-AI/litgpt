@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
+from typing import Optional
 
 import pytest
 
@@ -10,7 +11,7 @@ from litgpt.prompts import PromptStyle
 @pytest.mark.parametrize("as_jsonl", [False, True])
 def test_json(as_jsonl, tmp_path, mock_tokenizer):
     class Style(PromptStyle):
-        def apply(self, prompt, **kwargs):
+        def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs) -> str:
             return f"X: {prompt} {kwargs['input']} Y:"
 
     json_path = tmp_path / ("data.jsonl" if as_jsonl else "data.json")
