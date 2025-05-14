@@ -21,7 +21,7 @@ ci:
   autoupdate_schedule: quarterly
   # submodules: true
 
-repos::
+repos:
   - repo: local
     hooks:
     - id: exec
