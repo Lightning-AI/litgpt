@@ -291,6 +291,9 @@ class CodeLlama(PromptStyle):
         # https://huggingface.co/blog/codellama#conversational-instructions
         # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
         b_inst, e_inst = "[INST]", "[/INST]"
+        if sys_prompt:
+            b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
+            return f"{b_inst} {b_sys}{sys_prompt}{e_sys}{prompt} {e_inst}"
         return f"{b_inst} {prompt} {e_inst}"
 
 
