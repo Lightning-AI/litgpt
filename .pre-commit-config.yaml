@@ -16,7 +16,11 @@ default_language_version:
   python: python3
 
 ci:
-
+  autofix_prs: false
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit suggestions"
+  autoupdate_schedule: quarterly
+  # submodules: true
+  
 repos:
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
