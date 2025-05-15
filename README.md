@@ -6,9 +6,9 @@
 **20+ high-performance LLMs with recipes to pretrain, finetune, and deploy at scale.**
 
 <pre>
-         ✅ From scratch implementations     ✅ No abstractions    ✅ Beginner friendly
-            ✅ Flash attention                  ✅ FSDP               ✅ LoRA, QLoRA, Adapter
-✅ Reduce GPU memory (fp4/8/16/32)  ✅ 1-1000+ GPUs/TPUs  ✅ 20+ LLMs
+✅ From scratch implementations      ✅ No abstractions         ✅ Beginner friendly
+   ✅ Flash attention                   ✅ FSDP                    ✅ LoRA, QLoRA, Adapter
+✅ Reduce GPU memory (fp4/8/16/32)   ✅ 1-1000+ GPUs/TPUs       ✅ 20+ LLMs
 </pre>
 
 
@@ -53,7 +53,7 @@ Every LLM is implemented from scratch with **no abstractions** and **full contro
 # Quick start
 Install LitGPT
 ```
-pip install 'litgpt[all]'
+pip install 'litgpt[extra]'
 ```
 
 Load and use any of the [20+ LLMs](#choose-from-20-llms):
@@ -185,7 +185,7 @@ Use the command line interface to run advanced workflows such as pretraining or 
 After installing LitGPT, select the model and workflow to run (finetune, pretrain, evaluate, deploy, etc...):
 
 ```bash
-# ligpt [action] [model]
+# litgpt [action] [model]
 litgpt  serve     meta-llama/Llama-3.2-3B-Instruct
 litgpt  finetune  meta-llama/Llama-3.2-3B-Instruct
 litgpt  pretrain  meta-llama/Llama-3.2-3B-Instruct

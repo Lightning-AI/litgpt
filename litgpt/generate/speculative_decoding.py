@@ -62,7 +62,7 @@ def speculative_decoding(
     target_model: GPT,
     token: torch.Tensor,
     input_pos: torch.Tensor,
-    input_pos_maxp1: torch.Tensor,
+    input_pos_maxp1: int,
     speculative_k: int,
     **sample_kwargs: Dict[str, Any],
 ) -> torch.Tensor:
@@ -100,7 +100,7 @@ def speculative_decoding(
     # Step 1: Generate candidate tokens using draft model
     # The draft model autoregressively generates k tokens, keeping track of probabilities
     draft_input_pos = input_pos.clone()
-    draft_input_pos_maxp1 = input_pos_maxp1.clone()
+    draft_input_pos_maxp1 = input_pos_maxp1
     draft_tokens, draft_probs = [], []
     draft_token = token
     for idx in range(speculative_k):
@@ -109,7 +109,7 @@ def speculative_decoding(
         )
         draft_token, draft_prob = sample(logits, **sample_kwargs)
         draft_input_pos.add_(1)
-        draft_input_pos_maxp1.add_(1)
+        draft_input_pos_maxp1 += 1
         draft_tokens.append(draft_token)
         draft_probs.append(draft_prob)
     draft_tokens = torch.cat(draft_tokens)
@@ -118,7 +118,7 @@ def speculative_decoding(
     # Feed both original token and draft tokens to get target probabilities
     candidate_tokens = torch.cat((token, draft_tokens))
     candidate_input_pos = input_pos + torch.arange(0, speculative_k + 1, device=input_pos.device)
-    candidate_input_pos_maxp1 = input_pos_maxp1.add(speculative_k)
+    candidate_input_pos_maxp1 = input_pos_maxp1 + speculative_k
     target_logits = target_model(
         idx=candidate_tokens.unsqueeze(0), input_pos=candidate_input_pos, input_pos_maxp1=candidate_input_pos_maxp1
     )
@@ -228,7 +228,10 @@ def generate(
 
     # Step 1: Prefill draft and target models with the prompt.
     input_pos = torch.arange(0, prompt_size, device=device, dtype=torch.int64)
-    input_pos_maxp1 = torch.tensor(prompt_size, device=device)
+    # We want to skip if ThunderModules are involved, either directly or wrapped in LightningModule etc.
+    input_pos_maxp1 = (
+        prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in target_model.modules()) else None
+    )
     next_token(
         draft_model,
         input_pos,
@@ -249,7 +252,7 @@ def generate(
     )
     # Update position trackers after prompt
     input_pos = torch.tensor([prompt_size], device=device, dtype=torch.int64)
-    input_pos_maxp1.add_(1)
+    input_pos_maxp1 += 1
 
     # Step 2: Main generation loop.
     tokens = []
@@ -289,7 +292,7 @@ def generate(
 
         # Update positions for next iteration
         input_pos.add_(accepted_tokens_len)
-        input_pos_maxp1.add_(accepted_tokens_len)
+        input_pos_maxp1 += accepted_tokens_len
         token = new_tokens[-1].unsqueeze(0)
 
     # Finalize generated sequence

@@ -31,7 +31,6 @@ from litgpt.utils import (
     chunked_cross_entropy,
     copy_config_files,
     extend_checkpoint_dir,
-    find_multiple,
     find_resume_path,
     fix_and_load_json,
     incremental_save,
@@ -43,16 +42,6 @@ from litgpt.utils import (
     save_hyperparameters,
     select_sft_generate_example,
 )
-
-
-def test_find_multiple():
-    assert find_multiple(17, 5) == 20
-    assert find_multiple(30, 7) == 35
-    assert find_multiple(10, 2) == 10
-    assert find_multiple(5, 10) == 10
-    assert find_multiple(50254, 128) == 50304
-    assert find_multiple(50254, 256) == 50432
-    assert find_multiple(50254, 512) == 50688
 
 
 # match fails on windows. why did they have to use backslashes?
