@@ -108,7 +108,7 @@ def layer_to_device(
 def move_block_input(device: torch.device, module: torch.nn.Module, ins):
     """``forward_pre_hook`` to move a Block's input before forward."""
     # during inference, none of the inputs are None: x, cos, sin, mask, input_pos
-    return tuple(t.to(device) for t in ins)
+    return tuple(t.to(device) if torch.is_tensor(t) else t for t in ins)
 
 
 def move_block_output(device: torch.device, module: torch.nn.Module, ins, outs) -> torch.Tensor:

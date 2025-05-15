@@ -66,7 +66,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -143,7 +143,7 @@ def setup(
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
+    if logger_name in ("tensorboard", "wandb", "mlflow"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
@@ -228,6 +228,19 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
+
+    # work around PyTorch issue https://github.com/pytorch/pytorch/issues/152162
+    # which does not like the lazy initialization to be called in dynamo.
+    # Happens with PyTorch 2.7.
+    if (
+        torch.__version__.startswith("2.7.")
+        and (model._forward_module.__class__.__name__ == "OptimizedModule")
+        and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
+    ):
+        from torch.distributed.fsdp._runtime_utils import _root_pre_forward
+
+        _root_pre_forward(model._forward_module._orig_mod, model._forward_module._orig_mod, [], {})
+
     fit(
         fabric=fabric,
         devices=devices,
