@@ -351,17 +351,16 @@ class ChatML(PromptStyle):
             return f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
         return f"<|im_start|>system\n{self.system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
+
 class Qwen2_5(ChatML):
     def __init__(self):
-        super().__init__(
-            "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-        )
+        super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
+
 
 class Qwen2_5_Math(ChatML):
     def __init__(self):
-        super().__init__(
-            "Please reason step by step, and put your final answer within \\boxed{}."
-        )
+        super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
+
 
 class QwQ(ChatML):
     def __init__(self):
@@ -369,15 +368,16 @@ class QwQ(ChatML):
             "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
         )
 
+
 class Qwen3(ChatML):
     def __init__(self):
         super().__init__()
 
+
 class SmolLM2(ChatML):
     def __init__(self):
-        super().__init__(
-            "You are a helpful AI assistant named SmolLM, trained by Hugging Face"
-        )
+        super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
+
 
 class Salamandra(ChatML):
     def __init__(self):

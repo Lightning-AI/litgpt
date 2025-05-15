@@ -532,6 +532,7 @@ def copy_weights_qwen_2_5(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
+
 def copy_weights_qwen_3(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],

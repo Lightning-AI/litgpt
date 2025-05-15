@@ -442,6 +442,7 @@ def copy_weights_qwen_3(
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
+
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]

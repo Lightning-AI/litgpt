@@ -31,6 +31,7 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 from transformers.models.qwen3 import Qwen3Config, Qwen3ForCausalLM
+
 import litgpt.config as config_module
 from litgpt import GPT, Config
 from litgpt.model import CausalSelfAttention, batched_index_copy_
@@ -1010,9 +1011,7 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    "model_name", ["Qwen3-8B"]
-)
+@pytest.mark.parametrize("model_name", ["Qwen3-8B"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
