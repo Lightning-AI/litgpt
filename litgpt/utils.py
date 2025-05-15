@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
 
 import lightning as L
+import psutil
 import torch
 import torch.nn as nn
 import torch.utils._device
@@ -27,7 +28,7 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
 from lightning_utilities.core.imports import module_available
 from packaging import version
 from torch.serialization import normalize_storage_type
@@ -544,7 +545,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 
 
 def choose_logger(
-    logger_name: Literal["csv", "tensorboard", "wandb"],
+    logger_name: Literal["csv", "tensorboard", "wandb", "mlflow"],
     out_dir: Path,
     name: str,
     log_interval: int = 1,
@@ -557,6 +558,8 @@ def choose_logger(
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
         return WandbLogger(project=name, resume=resume, **kwargs)
+    if logger_name == "mlflow":
+        return MLFlowLogger(experiment_name=name, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 
@@ -859,3 +862,17 @@ def _RunIf(thunder: bool = False, **kwargs):
         reasons.append("Thunder")
 
     return pytest.mark.skipif(condition=len(reasons) > 0, reason=f"Requires: [{' + '.join(reasons)}]", **marker_kwargs)
+
+
+def kill_process_tree(pid: int):
+    """
+    Kill a process and all its child processes given the parent PID.
+    """
+    try:
+        parent = psutil.Process(pid)
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass  # Process already exited
