@@ -2460,6 +2460,31 @@ qwq = [
 
 configs.extend(qwq)
 
+qwen_3 = [
+    # https://huggingface.co/Qwen/Qwen3-8B/blob/main/config.json
+    dict(
+        name="Qwen3-8B",
+        hf_config=dict(org="Qwen", name="Qwen3-8B"),
+        block_size=40960,
+        vocab_size=151936,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=32,
+        n_embd=4096,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=12288,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+    ),
+]
+
+configs.extend(qwen_3)
 
 #############
 # Salamandra
