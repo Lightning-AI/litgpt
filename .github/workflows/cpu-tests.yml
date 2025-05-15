@@ -25,6 +25,8 @@ env:
 
 jobs:
   testing-imports:
+    # no need to run it twice on a PR
+    if: github.event_name != 'pull_request_target'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -34,11 +36,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != 'pull_request_target'
-      - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request_target'
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -60,6 +57,13 @@ jobs:
           python -c "$modules"
 
   pytester:
+    # skip PR trigger if secrets are not shared as for all forked PRs
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
+      )
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -71,9 +75,11 @@ jobs:
           - { os: "windows-2022", python-version: "3.9" }
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout generic
+        uses: actions/checkout@v4
         if: github.event_name != 'pull_request_target'
-      - uses: actions/checkout@v4
+      - name: Checkout for `pull_request_target`
+        uses: actions/checkout@v4
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
