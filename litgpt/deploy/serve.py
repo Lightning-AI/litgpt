@@ -160,12 +160,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
             config = json.load(fp)
             chat_template = config.get("chat_template", None)
             if chat_template is None:
-                chat_template = (
-                    "{% for m in messages %}"
-                    "{{ m.role }}: {{ m.content }}\n"
-                    "{% endfor %}"
-                    "Assistant: "
-                )
+                chat_template = "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}Assistant: "
             self.chat_template = chat_template
 
         self.template = Template(self.chat_template)
