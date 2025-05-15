@@ -476,6 +476,7 @@ class LLM(torch.nn.Module):
             model: The model to use.
             prompt: The prompt string to use for generating the samples.
             sys_prompt: The system prompt string to use for generating the samples.
+                The system prompt allows the user to provide additional instructions to shape all responses by providing additional context, behavioral guidelines, style, and constraints.
             max_new_tokens: The maximum number of new tokens to return.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
