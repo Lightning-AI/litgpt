@@ -30,7 +30,7 @@ from transformers.models.mistral import MistralConfig, MistralForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
-
+from transformers.models.qwen3 import Qwen3Config, Qwen3ForCausalLM
 import litgpt.config as config_module
 from litgpt import GPT, Config
 from litgpt.model import CausalSelfAttention, batched_index_copy_
@@ -42,6 +42,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_hf_llama,
     copy_weights_phi,
     copy_weights_qwen_2_5,
+    copy_weights_qwen_3,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
@@ -997,6 +998,69 @@ def test_against_original_qwen_2_5(model_name, device, dtype):
     theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
     copy_weights_qwen_2_5(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize(
+    "model_name", ["Qwen3-8B"]
+)
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                _RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_qwen_3(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+    )
+    theirs_config = Qwen3Config(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=False,
+    )
+
+    theirs_model = Qwen3ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    # Gemma weights are shipped without `lm_head.weight`
+    theirs_state_dict.pop("lm_head.weight")
+    state_dict = {}
+    copy_weights_qwen_3(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
     ours_model.load_state_dict(state_dict)
 
