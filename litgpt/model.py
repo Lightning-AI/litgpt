@@ -11,10 +11,10 @@ from functools import partial
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from typing_extensions import Self
-import torch.distributed as dist
 
 from litgpt.config import Config
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
@@ -273,7 +273,11 @@ class Block(nn.Module):
             )
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx) if not config.latent_attention else MultiHeadLatentAttention(config, block_idx)
+        self.attn = (
+            CausalSelfAttention(config, block_idx)
+            if not config.latent_attention
+            else MultiHeadLatentAttention(config, block_idx)
+        )
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -706,8 +710,8 @@ class MultiHeadLatentAttention(nn.Module):
         k = torch.cat([k, k_for_rope], dim=-1)
         v = v  # already reshaped before the split
 
-        if input_pos is not None: # Indicates inference and KV cache usage
-            if not isinstance(self.kv_cache, KVCache): # Check for the correct cache type
+        if input_pos is not None:  # Indicates inference and KV cache usage
+            if not isinstance(self.kv_cache, KVCache):  # Check for the correct cache type
                 raise TypeError("You need to call `gpt.set_kv_cache()` with the appropriate KVCache for MLA.")
 
             k_full_cached, v_full_cached = self.kv_cache(input_pos, k, v)
@@ -770,7 +774,7 @@ class MultiHeadLatentAttention(nn.Module):
         v_head_dim = self.v_dim
 
         # To match DeepSeekV3's caching of K/V for all query heads
-        num_cached_kv_heads = self.config.n_head 
+        num_cached_kv_heads = self.config.n_head
 
         k_shape = (batch_size, num_cached_kv_heads, max_seq_length, k_head_dim)
         v_shape = (batch_size, num_cached_kv_heads, max_seq_length, v_head_dim)
@@ -854,6 +858,7 @@ class LLaMAMoE(nn.Module):
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
         return y.view(B, T, C)
 
+
 class DeepseekV3MoEGate(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -869,13 +874,9 @@ class DeepseekV3MoEGate(nn.Module):
         # topk selection algorithm
         self.norm_topk_prob = config.norm_topk_prob
         self.gating_dim = config.hidden_size
-        self.weight = nn.Parameter(
-            torch.empty((self.n_expert, self.gating_dim))
-        )
+        self.weight = nn.Parameter(torch.empty((self.n_expert, self.gating_dim)))
         if self.topk_method == "noaux_tc":
-            self.e_score_correction_bias = nn.Parameter(
-                torch.empty((self.n_expert))
-            )
+            self.e_score_correction_bias = nn.Parameter(torch.empty(self.n_expert))
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -887,55 +888,42 @@ class DeepseekV3MoEGate(nn.Module):
         bsz, seq_len, h = x.shape
         ### compute gating score
         x = x.view(-1, h)
-        logits = nn.Linear(
-            x.type(torch.float32), self.weight.type(torch.float32), None
-        )
+        logits = nn.Linear(x.type(torch.float32), self.weight.type(torch.float32), None)
 
         if self.scoring_func == "sigmoid":
             scores = logits.sigmoid()
         else:
-            raise NotImplementedError(
-                f"insupportable scoring function for MoE gating: {self.scoring_func}"
-            )
+            raise NotImplementedError(f"insupportable scoring function for MoE gating: {self.scoring_func}")
 
         ### select top-k experts
         if self.topk_method == "noaux_tc":
             assert not self.training
             scores_for_choice = scores.view(bsz * seq_len, -1) + self.e_score_correction_bias.unsqueeze(0)
             group_scores = (
-                scores_for_choice.view(bsz * seq_len, self.n_group, -1).topk(2, dim=-1)[0].sum(dim = -1)
+                scores_for_choice.view(bsz * seq_len, self.n_group, -1).topk(2, dim=-1)[0].sum(dim=-1)
             )  # [n, n_group]
-            group_idx = torch.topk(
-                group_scores, k=self.topk_group, dim=-1, sorted=False
-            )[
-                1
-            ]  # [n, top_k_group]
+            group_idx = torch.topk(group_scores, k=self.topk_group, dim=-1, sorted=False)[1]  # [n, top_k_group]
             group_mask = torch.zeros_like(group_scores)  # [n, n_group]
             group_mask.scatter_(1, group_idx, 1)  # [n, n_group]
             score_mask = (
                 group_mask.unsqueeze(-1)
-                .expand(
-                    bsz * seq_len, self.n_group, self.n_expert // self.n_group
-                )
+                .expand(bsz * seq_len, self.n_group, self.n_expert // self.n_group)
                 .reshape(bsz * seq_len, -1)
             )  # [n, e]
             tmp_scores = scores_for_choice.masked_fill(~score_mask.bool(), float("-inf"))  # [n, e]
-            _, topk_idx = torch.topk(
-                tmp_scores, k=self.top_k, dim=-1, sorted=False
-            )
+            _, topk_idx = torch.topk(tmp_scores, k=self.top_k, dim=-1, sorted=False)
             topk_weight = scores.gather(1, topk_idx)
         else:
-            raise NotImplementedError(
-                f"insupportable TopK function for MoE gating: {self.topk_method}"
-            )
+            raise NotImplementedError(f"insupportable TopK function for MoE gating: {self.topk_method}")
 
         ### norm gate to sum 1
         if self.top_k > 1 and self.norm_topk_prob:
             denominator = topk_weight.sum(dim=-1, keepdim=True) + 1e-20
             topk_weight = topk_weight / denominator
-        topk_weight = topk_weight * self.routed_scaling_factor # must multiply the scaling factor
+        topk_weight = topk_weight * self.routed_scaling_factor  # must multiply the scaling factor
 
         return topk_idx, topk_weight
+
 
 class DeepseekV3MoE(nn.Module):
     """
@@ -955,11 +943,8 @@ class DeepseekV3MoE(nn.Module):
             self.experts = nn.ModuleList(
                 [
                     (
-                        LLaMAMLP(
-                            config, intermediate_size=config.moe_intermediate_size
-                        )
-                        if i >= self.ep_rank * self.experts_per_rank
-                        and i < (self.ep_rank + 1) * self.experts_per_rank
+                        LLaMAMLP(config, intermediate_size=config.moe_intermediate_size)
+                        if i >= self.ep_rank * self.experts_per_rank and i < (self.ep_rank + 1) * self.experts_per_rank
                         else None
                     )
                     for i in range(config.n_expert)
@@ -970,19 +955,12 @@ class DeepseekV3MoE(nn.Module):
             self.experts_per_rank = config.n_expert
             self.ep_rank = 0
             self.experts = nn.ModuleList(
-                [
-                    LLaMAMLP(
-                        config, intermediate_size=config.moe_intermediate_size
-                    )
-                    for i in range(config.n_expert)
-                ]
+                [LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for i in range(config.n_expert)]
             )
         self.gate = DeepseekV3MoEGate(config)
         if config.n_shared_experts is not None:
             intermediate_size = config.moe_intermediate_size * config.n_shared_experts
-            self.shared_experts = LLaMAMLP(
-                config=config, intermediate_size=intermediate_size
-            )
+            self.shared_experts = LLaMAMLP(config=config, intermediate_size=intermediate_size)
 
     def forward(self, x: torch.Tensor):
         identity = x
@@ -1006,17 +984,9 @@ class DeepseekV3MoE(nn.Module):
         sorted_tokens_shape = sorted_tokens.shape
         if self.ep_size > 1:
             tokens_per_ep_rank = tokens_per_expert.view(self.ep_size, -1).sum(dim=1)
-            tokens_per_expert_group = tokens_per_expert.new_empty(
-                tokens_per_expert.shape[0]
-            )
+            tokens_per_expert_group = tokens_per_expert.new_empty(tokens_per_expert.shape[0])
             dist.all_to_all_single(tokens_per_expert_group, tokens_per_expert)
-            output_splits = (
-                tokens_per_expert_group.view(self.ep_size, -1)
-                .sum(1)
-                .cpu()
-                .numpy()
-                .tolist()
-            )
+            output_splits = tokens_per_expert_group.view(self.ep_size, -1).sum(1).cpu().numpy().tolist()
             gathered_tokens = sorted_tokens.new_empty(
                 tokens_per_expert_group.sum(dim=0).cpu().item(), sorted_tokens.shape[1]
             )
@@ -1025,9 +995,7 @@ class DeepseekV3MoE(nn.Module):
                 list(gathered_tokens.split(output_splits)),
                 list(sorted_tokens.split(input_split_sizes)),
             )
-            tokens_per_expert_post_gather = tokens_per_expert_group.view(
-                self.ep_size, self.experts_per_rank
-            ).sum(dim=0)
+            tokens_per_expert_post_gather = tokens_per_expert_group.view(self.ep_size, self.experts_per_rank).sum(dim=0)
             gatherd_idxs = np.zeros(shape=(gathered_tokens.shape[0],), dtype=np.int32)
             s = 0
             for i, k in enumerate(tokens_per_expert_group.cpu().numpy()):
@@ -1071,6 +1039,7 @@ class DeepseekV3MoE(nn.Module):
             .type(new_x.dtype)
         )
         return final_out
+
 
 def build_rope_cache(
     seq_len: int,
@@ -1299,7 +1268,6 @@ class KVCache(nn.Module):
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
-
 
 
 def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
