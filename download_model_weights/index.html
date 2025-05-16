@@ -1,0 +1,1742 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../deploy/">
+      
+      
+        <link rel="next" href="../evaluation/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>Download Model Weights with LitGPT - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#download-model-weights-with-litgpt" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Download Model Weights with LitGPT
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      General Instructions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="General Instructions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-list-available-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. List Available Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-download-model-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Download Model Weights
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-additional-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Additional Help
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-run-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Run the Model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tinyllama-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tinyllama Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specific-models-and-access-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specific models and access tokens
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetunes-and-other-model-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetunes and Other Model Variants
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-for-gpu-memory-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips for GPU Memory Limitations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-checkpoints-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Checkpoints Manually
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#downloading-tokenizers-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      Downloading Tokenizers Only
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#general-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      General Instructions
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="General Instructions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-list-available-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. List Available Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-download-model-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Download Model Weights
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-additional-help" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Additional Help
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-run-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Run the Model
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tinyllama-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tinyllama Example
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#specific-models-and-access-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specific models and access tokens
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetunes-and-other-model-variants" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetunes and Other Model Variants
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tips-for-gpu-memory-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tips for GPU Memory Limitations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-checkpoints-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Checkpoints Manually
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#downloading-tokenizers-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      Downloading Tokenizers Only
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="download-model-weights-with-litgpt">Download Model Weights with LitGPT</h1>
+<p>LitGPT supports a variety of LLM architectures with publicly available weights. You can download model weights and access a list of supported models using the <code>litgpt download list</code> command.</p>
+<p>&nbsp;</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Model size</th>
+<th>Author</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CodeGemma</td>
+<td>7B</td>
+<td>Google</td>
+<td><a href="https://ai.google.dev/gemma/docs/codegemma">Google Team, Google Deepmind</a></td>
+</tr>
+<tr>
+<td>Code Llama</td>
+<td>7B, 13B, 34B, 70B</td>
+<td>Meta AI</td>
+<td><a href="https://arxiv.org/abs/2308.12950">Rozière et al. 2023</a></td>
+</tr>
+<tr>
+<td>Danube2</td>
+<td>1.8B</td>
+<td>H2O.ai</td>
+<td><a href="https://h2o.ai/platform/danube-1-8b/">H2O.ai</a></td>
+</tr>
+<tr>
+<td>Dolly</td>
+<td>3B, 7B, 12B</td>
+<td>Databricks</td>
+<td><a href="https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm">Conover et al. 2023</a></td>
+</tr>
+<tr>
+<td>Falcon</td>
+<td>7B, 40B, 180B</td>
+<td>TII UAE</td>
+<td><a href="https://falconllm.tii.ae">TII 2023</a></td>
+</tr>
+<tr>
+<td>Falcon 3</td>
+<td>1B, 3B, 7B, 10B</td>
+<td>TII UAE</td>
+<td><a href="https://huggingface.co/blog/falcon3">TII 2024</a></td>
+</tr>
+<tr>
+<td>FreeWilly2 (Stable Beluga 2)</td>
+<td>70B</td>
+<td>Stability AI</td>
+<td><a href="https://stability.ai/blog/stable-beluga-large-instruction-fine-tuned-models">Stability AI 2023</a></td>
+</tr>
+<tr>
+<td>Function Calling Llama 2</td>
+<td>7B</td>
+<td>Trelis</td>
+<td><a href="https://huggingface.co/Trelis/Llama-2-7b-chat-hf-function-calling-v2">Trelis et al. 2023</a></td>
+</tr>
+<tr>
+<td>Gemma</td>
+<td>2B, 7B</td>
+<td>Google</td>
+<td><a href="https://storage.googleapis.com/deepmind-media/gemma/gemma-report.pdf">Google Team, Google Deepmind</a></td>
+</tr>
+<tr>
+<td>Gemma 2</td>
+<td>2B, 9B, 27B</td>
+<td>Google</td>
+<td><a href="https://storage.googleapis.com/deepmind-media/gemma/gemma-2-report.pdf">Google Team, Google Deepmind</a></td>
+</tr>
+<tr>
+<td>Gemma 3</td>
+<td>1B, 4B, 12B, 27B</td>
+<td>Google</td>
+<td><a href="https://arxiv.org/pdf/2503.19786">Google Team, Google Deepmind</a></td>
+</tr>
+<tr>
+<td>Llama 2</td>
+<td>7B, 13B, 70B</td>
+<td>Meta AI</td>
+<td><a href="https://arxiv.org/abs/2307.09288">Touvron et al. 2023</a></td>
+</tr>
+<tr>
+<td>Llama 3</td>
+<td>8B, 70B</td>
+<td>Meta AI</td>
+<td><a href="https://github.com/meta-llama/llama3">Meta AI 2024</a></td>
+</tr>
+<tr>
+<td>Llama 3.1</td>
+<td>8B, 70B, 405B</td>
+<td>Meta AI</td>
+<td><a href="https://github.com/meta-llama/llama3">Meta AI 2024</a></td>
+</tr>
+<tr>
+<td>Llama 3.2</td>
+<td>1B, 3B</td>
+<td>Meta AI</td>
+<td><a href="https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/MODEL_CARD.md">Meta AI 2024</a></td>
+</tr>
+<tr>
+<td>Llama 3.3</td>
+<td>70B</td>
+<td>Meta AI</td>
+<td><a href="https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct">Meta AI 2024</a></td>
+</tr>
+<tr>
+<td>Llama 3.1 Nemotron</td>
+<td>70B</td>
+<td>NVIDIA</td>
+<td><a href="https://build.nvidia.com/nvidia/llama-3_1-nemotron-70b-instruct/modelcard">NVIDIA AI 2024</a></td>
+</tr>
+<tr>
+<td>LongChat</td>
+<td>7B, 13B</td>
+<td>LMSYS</td>
+<td><a href="https://lmsys.org/blog/2023-06-29-longchat/">LongChat Team 2023</a></td>
+</tr>
+<tr>
+<td>Mathstral</td>
+<td>7B</td>
+<td>Mistral AI</td>
+<td><a href="https://mistral.ai/news/mathstral/">Mistral AI 2024</a></td>
+</tr>
+<tr>
+<td>MicroLlama</td>
+<td>300M</td>
+<td>Ken Wang</td>
+<td><a href="https://github.com/keeeeenw/MicroLlama">MicroLlama repo</a></td>
+</tr>
+<tr>
+<td>Mixtral MoE</td>
+<td>8x7B</td>
+<td>Mistral AI</td>
+<td><a href="https://mistral.ai/news/mixtral-of-experts/">Mistral AI 2023</a></td>
+</tr>
+<tr>
+<td>Mistral</td>
+<td>7B, 123B</td>
+<td>Mistral AI</td>
+<td><a href="https://mistral.ai/news/announcing-mistral-7b/">Mistral AI 2023</a></td>
+</tr>
+<tr>
+<td>Mixtral MoE</td>
+<td>8x22B</td>
+<td>Mistral AI</td>
+<td><a href="https://mistral.ai/news/mixtral-8x22b/">Mistral AI 2024</a></td>
+</tr>
+<tr>
+<td>Nous-Hermes</td>
+<td>7B, 13B, 70B</td>
+<td>NousResearch</td>
+<td><a href="https://huggingface.co/NousResearch">Org page</a></td>
+</tr>
+<tr>
+<td>OLMo</td>
+<td>1B, 7B</td>
+<td>Allen Institute for AI (AI2)</td>
+<td><a href="https://aclanthology.org/2024.acl-long.841/">Groeneveld et al. 2024</a></td>
+</tr>
+<tr>
+<td>OpenLLaMA</td>
+<td>3B, 7B, 13B</td>
+<td>OpenLM Research</td>
+<td><a href="https://github.com/openlm-research/open_llama">Geng &amp; Liu 2023</a></td>
+</tr>
+<tr>
+<td>Phi 1.5 &amp; 2</td>
+<td>1.3B, 2.7B</td>
+<td>Microsoft Research</td>
+<td><a href="https://arxiv.org/abs/2309.05463">Li et al. 2023</a></td>
+</tr>
+<tr>
+<td>Phi 3 &amp; 3.5</td>
+<td>3.8B</td>
+<td>Microsoft Research</td>
+<td><a href="https://arxiv.org/abs/2404.14219">Abdin et al. 2024</a></td>
+</tr>
+<tr>
+<td>Phi 4</td>
+<td>14B</td>
+<td>Microsoft Research</td>
+<td><a href="https://arxiv.org/abs/2412.08905">Abdin et al. 2024</a></td>
+</tr>
+<tr>
+<td>Phi 4 Mini Instruct</td>
+<td>3.8B</td>
+<td>Microsoft Research</td>
+<td><a href="https://arxiv.org/abs/2503.01743">Microsoft 2025</a></td>
+</tr>
+<tr>
+<td>Platypus</td>
+<td>7B, 13B, 70B</td>
+<td>Lee et al.</td>
+<td><a href="https://arxiv.org/abs/2308.07317">Lee, Hunter, and Ruiz 2023</a></td>
+</tr>
+<tr>
+<td>Pythia</td>
+<td>{14,31,70,160,410}M, {1,1.4,2.8,6.9,12}B</td>
+<td>EleutherAI</td>
+<td><a href="https://arxiv.org/abs/2304.01373">Biderman et al. 2023</a></td>
+</tr>
+<tr>
+<td>Qwen2.5</td>
+<td>0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B</td>
+<td>Alibaba Group</td>
+<td><a href="https://qwenlm.github.io/blog/qwen2.5/">Qwen Team 2024</a></td>
+</tr>
+<tr>
+<td>Qwen2.5 Coder</td>
+<td>0.5B, 1.5B, 3B, 7B, 14B, 32B</td>
+<td>Alibaba Group</td>
+<td><a href="https://arxiv.org/abs/2409.12186">Hui, Binyuan et al. 2024</a></td>
+</tr>
+<tr>
+<td>Qwen2.5 Math</td>
+<td>1.5B, 7B, 72B</td>
+<td>Alibaba Group</td>
+<td><a href="https://arxiv.org/abs/2409.12122">An, Yang et al. 2024</a></td>
+</tr>
+<tr>
+<td>QwQ</td>
+<td>32B</td>
+<td>Alibaba Group</td>
+<td><a href="https://qwenlm.github.io/blog/qwq-32b/">Qwen Team 2025</a></td>
+</tr>
+<tr>
+<td>QwQ-Preview</td>
+<td>32B</td>
+<td>Alibaba Group</td>
+<td><a href="https://qwenlm.github.io/blog/qwq-32b-preview/">Qwen Team 2024</a></td>
+</tr>
+<tr>
+<td>R1 Distll Llama</td>
+<td>8B, 70B</td>
+<td>DeepSeek AI</td>
+<td><a href="https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf">DeepSeek AI 2025</a></td>
+</tr>
+<tr>
+<td>RedPajama-INCITE</td>
+<td>3B, 7B</td>
+<td>Together</td>
+<td><a href="https://together.ai/blog/redpajama-models-v1">Together 2023</a></td>
+</tr>
+<tr>
+<td>SmolLM2</td>
+<td>135M, 360M, 1.7B</td>
+<td>Hugging Face</td>
+<td><a href="https://github.com/huggingface/smollm">Hugging Face 2024</a></td>
+</tr>
+<tr>
+<td>StableCode</td>
+<td>3B</td>
+<td>Stability AI</td>
+<td><a href="https://stability.ai/blog/stablecode-llm-generative-ai-coding">Stability AI 2023</a></td>
+</tr>
+<tr>
+<td>Salamandra</td>
+<td>2B, 7B</td>
+<td>Barcelona Supercomputing Centre</td>
+<td><a href="https://github.com/BSC-LTC/salamandra">BSC-LTC 2024</a></td>
+</tr>
+<tr>
+<td>StableLM</td>
+<td>3B, 7B</td>
+<td>Stability AI</td>
+<td><a href="https://github.com/Stability-AI/StableLM">Stability AI 2023</a></td>
+</tr>
+<tr>
+<td>StableLM Zephyr</td>
+<td>3B</td>
+<td>Stability AI</td>
+<td><a href="https://stability.ai/blog/stablecode-llm-generative-ai-coding">Stability AI 2023</a></td>
+</tr>
+<tr>
+<td>TinyLlama</td>
+<td>1.1B</td>
+<td>Zhang et al.</td>
+<td><a href="https://github.com/jzhang38/TinyLlama">Zhang et al. 2023</a></td>
+</tr>
+<tr>
+<td>Vicuna</td>
+<td>7B, 13B, 33B</td>
+<td>LMSYS</td>
+<td><a href="https://lmsys.org/blog/2023-03-30-vicuna/">Li et al. 2023</a></td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h2 id="general-instructions">General Instructions</h2>
+<h3 id="1-list-available-models">1. List Available Models</h3>
+<p>To see all supported models, run the following command:</p>
+<pre><code class="language-bash">litgpt download list
+</code></pre>
+<p>The output is shown below:</p>
+<pre><code>allenai/OLMo-1B-hf
+allenai/OLMo-7B-hf
+allenai/OLMo-7B-Instruct-hf
+bsc-lt/salamandra-2b
+bsc-lt/salamandra-2b-instruct
+bsc-lt/salamandra-7b
+bsc-lt/salamandra-7b-instruct
+codellama/CodeLlama-13b-hf
+codellama/CodeLlama-13b-Instruct-hf
+codellama/CodeLlama-13b-Python-hf
+codellama/CodeLlama-34b-hf
+codellama/CodeLlama-34b-Instruct-hf
+codellama/CodeLlama-34b-Python-hf
+codellama/CodeLlama-70b-hf
+codellama/CodeLlama-70b-Instruct-hf
+codellama/CodeLlama-70b-Python-hf
+codellama/CodeLlama-7b-hf
+codellama/CodeLlama-7b-Instruct-hf
+codellama/CodeLlama-7b-Python-hf
+databricks/dolly-v2-12b
+databricks/dolly-v2-3b
+databricks/dolly-v2-7b
+deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+EleutherAI/pythia-1.4b
+EleutherAI/pythia-1.4b-deduped
+EleutherAI/pythia-12b
+EleutherAI/pythia-12b-deduped
+EleutherAI/pythia-14m
+EleutherAI/pythia-160m
+EleutherAI/pythia-160m-deduped
+EleutherAI/pythia-1b
+EleutherAI/pythia-1b-deduped
+EleutherAI/pythia-2.8b
+EleutherAI/pythia-2.8b-deduped
+EleutherAI/pythia-31m
+EleutherAI/pythia-410m
+EleutherAI/pythia-410m-deduped
+EleutherAI/pythia-6.9b
+EleutherAI/pythia-6.9b-deduped
+EleutherAI/pythia-70m
+EleutherAI/pythia-70m-deduped
+garage-bAInd/Camel-Platypus2-13B
+garage-bAInd/Camel-Platypus2-70B
+garage-bAInd/Platypus-30B
+garage-bAInd/Platypus2-13B
+garage-bAInd/Platypus2-70B
+garage-bAInd/Platypus2-70B-instruct
+garage-bAInd/Platypus2-7B
+garage-bAInd/Stable-Platypus2-13B
+google/codegemma-7b-it
+google/gemma-3-27b-it
+google/gemma-3-12b-it
+google/gemma-3-4b-it
+google/gemma-3-1b-it
+google/gemma-2-27b
+google/gemma-2-27b-it
+google/gemma-2-2b
+google/gemma-2-2b-it
+google/gemma-2-9b
+google/gemma-2-9b-it
+google/gemma-2b
+google/gemma-2b-it
+google/gemma-7b
+google/gemma-7b-it
+h2oai/h2o-danube2-1.8b-chat
+HuggingFaceTB/SmolLM2-135M
+HuggingFaceTB/SmolLM2-135M-Instruct
+HuggingFaceTB/SmolLM2-360M
+HuggingFaceTB/SmolLM2-360M-Instruct
+HuggingFaceTB/SmolLM2-1.7B
+HuggingFaceTB/SmolLM2-1.7B-Instruct
+lmsys/longchat-13b-16k
+lmsys/longchat-7b-16k
+lmsys/vicuna-13b-v1.3
+lmsys/vicuna-13b-v1.5
+lmsys/vicuna-13b-v1.5-16k
+lmsys/vicuna-33b-v1.3
+lmsys/vicuna-7b-v1.3
+lmsys/vicuna-7b-v1.5
+lmsys/vicuna-7b-v1.5-16k
+meta-llama/Llama-2-13b-chat-hf
+meta-llama/Llama-2-13b-hf
+meta-llama/Llama-2-70b-chat-hf
+meta-llama/Llama-2-70b-hf
+meta-llama/Llama-2-7b-chat-hf
+meta-llama/Llama-2-7b-hf
+meta-llama/Llama-3.2-1B
+meta-llama/Llama-3.2-1B-Instruct
+meta-llama/Llama-3.2-3B
+meta-llama/Llama-3.2-3B-Instruct
+meta-llama/Llama-3.3-70B-Instruct
+meta-llama/Meta-Llama-3-70B
+meta-llama/Meta-Llama-3-70B-Instruct
+meta-llama/Meta-Llama-3-8B
+meta-llama/Meta-Llama-3-8B-Instruct
+meta-llama/Meta-Llama-3.1-405B
+meta-llama/Meta-Llama-3.1-405B-Instruct
+meta-llama/Meta-Llama-3.1-70B
+meta-llama/Meta-Llama-3.1-70B-Instruct
+meta-llama/Meta-Llama-3.1-8B
+meta-llama/Meta-Llama-3.1-8B-Instruct
+microsoft/phi-1_5
+microsoft/phi-2
+microsoft/Phi-3-mini-128k-instruct
+microsoft/Phi-3-mini-4k-instruct
+microsoft/Phi-3.5-mini-instruct
+microsoft/phi-4
+microsoft/Phi-4-mini-instruct
+mistralai/mathstral-7B-v0.1
+mistralai/Mistral-7B-Instruct-v0.1
+mistralai/Mistral-7B-Instruct-v0.2
+mistralai/Mistral-7B-Instruct-v0.3
+mistralai/Mistral-7B-v0.1
+mistralai/Mistral-7B-v0.3
+mistralai/Mistral-Large-Instruct-2407
+mistralai/Mistral-Large-Instruct-2411
+mistralai/Mixtral-8x7B-Instruct-v0.1
+mistralai/Mixtral-8x7B-v0.1
+mistralai/Mixtral-8x22B-Instruct-v0.1
+mistralai/Mixtral-8x22B-v0.1
+NousResearch/Nous-Hermes-13b
+NousResearch/Nous-Hermes-llama-2-7b
+NousResearch/Nous-Hermes-Llama2-13b
+nvidia/Llama-3.1-Nemotron-70B-Instruct-HF
+openlm-research/open_llama_13b
+openlm-research/open_llama_3b
+openlm-research/open_llama_7b
+Qwen/Qwen2.5-0.5B
+Qwen/Qwen2.5-0.5B-Instruct
+Qwen/Qwen2.5-1.5B
+Qwen/Qwen2.5-1.5B-Instruct
+Qwen/Qwen2.5-3B
+Qwen/Qwen2.5-3B-Instruct
+Qwen/Qwen2.5-7B
+Qwen/Qwen2.5-7B-Instruct
+Qwen/Qwen2.5-14B
+Qwen/Qwen2.5-14B-Instruct
+Qwen/Qwen2.5-32B
+Qwen/Qwen2.5-32B-Instruct
+Qwen/Qwen2.5-72B
+Qwen/Qwen2.5-72B-Instruct
+Qwen/Qwen2.5-Coder-0.5B
+Qwen/Qwen2.5-Coder-0.5B-Instruct
+Qwen/Qwen2.5-Coder-1.5B
+Qwen/Qwen2.5-Coder-1.5B-Instruct
+Qwen/Qwen2.5-Coder-3B
+Qwen/Qwen2.5-Coder-3B-Instruct
+Qwen/Qwen2.5-Coder-7B
+Qwen/Qwen2.5-Coder-7B-Instruct
+Qwen/Qwen2.5-Coder-14B
+Qwen/Qwen2.5-Coder-14B-Instruct
+Qwen/Qwen2.5-Coder-32B
+Qwen/Qwen2.5-Coder-32B-Instruct
+Qwen/Qwen2.5-Math-1.5B
+Qwen/Qwen2.5-Math-1.5B-Instruct
+Qwen/Qwen2.5-Math-7B
+Qwen/Qwen2.5-Math-7B-Instruct
+Qwen/Qwen2.5-Math-72B
+Qwen/Qwen2.5-Math-72B-Instruct
+Qwen/QwQ-32B
+Qwen/QwQ-32B-Preview
+stabilityai/FreeWilly2
+stabilityai/stable-code-3b
+stabilityai/stablecode-completion-alpha-3b
+stabilityai/stablecode-completion-alpha-3b-4k
+stabilityai/stablecode-instruct-alpha-3b
+stabilityai/stablelm-3b-4e1t
+stabilityai/stablelm-base-alpha-3b
+stabilityai/stablelm-base-alpha-7b
+stabilityai/stablelm-tuned-alpha-3b
+stabilityai/stablelm-tuned-alpha-7b
+stabilityai/stablelm-zephyr-3b
+tiiuae/falcon-180B
+tiiuae/falcon-180B-chat
+tiiuae/falcon-40b
+tiiuae/falcon-40b-instruct
+tiiuae/falcon-7b
+tiiuae/falcon-7b-instruct
+tiiuae/Falcon3-1B-Base
+tiiuae/Falcon3-1B-Instruct
+tiiuae/Falcon3-3B-Base
+tiiuae/Falcon3-3B-Instruct
+tiiuae/Falcon3-7B-Base
+tiiuae/Falcon3-7B-Instruct
+tiiuae/Falcon3-10B-Base
+tiiuae/Falcon3-10B-Instruct
+TinyLlama/TinyLlama-1.1B-Chat-v1.0
+TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+togethercomputer/LLaMA-2-7B-32K
+togethercomputer/RedPajama-INCITE-7B-Base
+togethercomputer/RedPajama-INCITE-7B-Chat
+togethercomputer/RedPajama-INCITE-7B-Instruct
+togethercomputer/RedPajama-INCITE-Base-3B-v1
+togethercomputer/RedPajama-INCITE-Base-7B-v0.1
+togethercomputer/RedPajama-INCITE-Chat-3B-v1
+togethercomputer/RedPajama-INCITE-Chat-7B-v0.1
+togethercomputer/RedPajama-INCITE-Instruct-3B-v1
+togethercomputer/RedPajama-INCITE-Instruct-7B-v0.1
+Trelis/Llama-2-7b-chat-hf-function-calling-v2
+unsloth/Mistral-7B-v0.2
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+To sort the list above by model name after the <code>/</code>, use <code>litgpt download list | sort -f -t'/' -k2</code>.</p>
+</blockquote>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+If you want to adopt a model variant that is not listed in the table above but has a similar architecture as one of the supported models, you can use this model by by using the <code>--model_name</code> argument as shown below:</p>
+<p><code>bash
+litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
+ --model_name Mistral-7B-v0.1</code></p>
+</blockquote>
+<p>&nbsp;</p>
+<h3 id="2-download-model-weights">2. Download Model Weights</h3>
+<p>To download the weights for a specific model provide a <code>&lt;repo_id&gt;</code> with the model's repository ID. For example:</p>
+<pre><code class="language-bash">litgpt download &lt;repo_id&gt;
+</code></pre>
+<p>This command downloads the model checkpoint into the <code>checkpoints/</code> directory.</p>
+<p>&nbsp;</p>
+<h3 id="3-additional-help">3. Additional Help</h3>
+<p>For more options, add the <code>--help</code> flag when running the script:</p>
+<pre><code class="language-bash">litgpt download --help
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="4-run-the-model">4. Run the Model</h3>
+<p>After conversion, run the model with the given checkpoint path as input, adjusting <code>repo_id</code> accordingly:</p>
+<pre><code class="language-bash">litgpt chat &lt;repo_id&gt;
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="tinyllama-example">Tinyllama Example</h2>
+<p>This section shows a typical end-to-end example for downloading and using TinyLlama:</p>
+<ol>
+<li>List available TinyLlama checkpoints:</li>
+</ol>
+<pre><code class="language-bash">litgpt download list | grep Tiny
+</code></pre>
+<pre><code>TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+TinyLlama/TinyLlama-1.1B-Chat-v1.0
+</code></pre>
+<ol>
+<li>Download a TinyLlama checkpoint:</li>
+</ol>
+<pre><code class="language-bash">export repo_id=TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+litgpt download $repo_id
+</code></pre>
+<ol>
+<li>Use the TinyLlama model:</li>
+</ol>
+<pre><code class="language-bash">litgpt chat $repo_id
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="specific-models-and-access-tokens">Specific models and access tokens</h2>
+<p>Note that certain models require that you've been granted access to the weights on the Hugging Face Hub.</p>
+<p>For example, to get access to the Gemma 2B model, you can do so by following the steps at <a href="https://huggingface.co/google/gemma-2b">https://huggingface.co/google/gemma-2b</a>. After access is granted, you can find your HF hub token in <a href="https://huggingface.co/settings/tokens">https://huggingface.co/settings/tokens</a>.</p>
+<p>Once you've been granted access and obtained the access token you need to pass the additional <code>--access_token</code>:</p>
+<pre><code class="language-bash">litgpt download google/gemma-2b \
+  --access_token your_hf_token
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="finetunes-and-other-model-variants">Finetunes and Other Model Variants</h2>
+<p>Sometimes you want to download the weights of a finetune of one of the models listed above. To do this, you need to manually specify the <code>model_name</code> associated to the config to use. For example:</p>
+<pre><code class="language-bash">litgpt download NousResearch/Hermes-2-Pro-Mistral-7B \
+  --model_name Mistral-7B-v0.1
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="tips-for-gpu-memory-limitations">Tips for GPU Memory Limitations</h2>
+<p>The <code>litgpt download</code> command will automatically convert the downloaded model checkpoint into a LitGPT-compatible format. In case this conversion fails due to GPU memory constraints, you can try to reduce the memory requirements by passing the  <code>--dtype bf16-true</code> flag to convert all parameters into this smaller precision (however, note that most model weights are already in a bfloat16 format, so it may not have any effect):</p>
+<pre><code class="language-bash">litgpt download &lt;repo_id&gt;
+  --dtype bf16-true
+</code></pre>
+<p>(If your GPU does not support the bfloat16 format, you can also try a regular 16-bit float format via <code>--dtype 16-true</code>.)</p>
+<p>&nbsp;</p>
+<h2 id="converting-checkpoints-manually">Converting Checkpoints Manually</h2>
+<p>For development purposes, for example, when adding or experimenting with new model configurations, it may be beneficial to split the weight download and model conversion into two separate steps.</p>
+<p>You can do this by passing the <code>--convert_checkpoint false</code> option to the download script:</p>
+<pre><code class="language-bash">litgpt download &lt;repo_id&gt; \
+  --convert_checkpoint false
+</code></pre>
+<p>and then calling the <code>convert_hf_checkpoint</code> command:</p>
+<pre><code class="language-bash">litgpt convert_to_litgpt &lt;repo_id&gt;
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="downloading-tokenizers-only">Downloading Tokenizers Only</h2>
+<p>In some cases we don't need the model weight, for example, when we are pretraining a model from scratch instead of finetuning it. For cases like this, you can use the <code>--tokenizer_only</code> flag to only download a model's tokenizer, which can then be used in the pretraining scripts:</p>
+<pre><code class="language-bash">litgpt download TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+  --tokenizer_only true
+</code></pre>
+<p>and</p>
+<pre><code class="language-bash">litgpt pretrain tiny-llama-1.1b \
+  --data ... \
+  --tokenizer_dir TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>
