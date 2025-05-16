@@ -432,6 +432,7 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
+    sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
     top_k: Optional[int] = 50,
@@ -448,6 +449,7 @@ def main(
     Args:
         checkpoint_dir: The checkpoint directory to load.
         prompt: The prompt string to use for generating the samples.
+        sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
         top_k: The number of top most probable tokens to consider in the sampling process.
@@ -504,7 +506,7 @@ def main(
         load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
     )
 
-    prompt = prompt_style.apply(prompt)
+    prompt = prompt_style.apply(prompt, sys_prompt=sys_prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
