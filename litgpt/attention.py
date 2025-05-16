@@ -322,7 +322,10 @@ def build_mask_cache(
     """
     # Usual causal mask:
     mask = torch.ones(
-        max_seq_length, max_seq_length, device=device, dtype=dtype,
+        max_seq_length,
+        max_seq_length,
+        device=device,
+        dtype=dtype,
     ).triu(diagonal=1)
     if sliding_window_size is not None:
         mask += torch.ones_like(mask).tril(diagonal=-sliding_window_size)
@@ -360,7 +363,10 @@ def build_mask_slice(
     device = token_positions.device
     tp_dtype = token_positions.dtype
     bool_mask = torch.arange(
-        input_pos, input_pos + num, device=device, dtype=tp_dtype,
+        input_pos,
+        input_pos + num,
+        device=device,
+        dtype=tp_dtype,
     ).view(1, 1, -1, 1) < token_positions.unsqueeze(2)
     if sliding_window_size is not None:
         extra_mask = torch.arange(
