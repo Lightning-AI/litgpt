@@ -160,7 +160,8 @@ class OpenAISpecLitAPI(BaseLitAPI):
             config = json.load(fp)
             chat_template = config.get("chat_template", None)
             if chat_template is None:
-                raise ValueError("chat_template not found in tokenizer config file.")
+                print("The tokenizer config does not contain chat_template, falling back to a default.")
+                chat_template = "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}Assistant: "
             self.chat_template = chat_template
 
         self.template = Template(self.chat_template)
