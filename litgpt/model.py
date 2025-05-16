@@ -282,7 +282,7 @@ class Block(nn.Module):
             self.mlp = (
                 DeepseekV3MoE(config)
                 if (
-                    config.n_routed_experts is not None
+                    config.n_expert is not None
                     and block_idx >= config.first_k_dense_replace
                     and block_idx % config.moe_layer_freq == 0
                 )
@@ -859,7 +859,7 @@ class DeepseekV3MoEGate(nn.Module):
         super().__init__()
         self.config = config
         self.top_k = config.num_experts_per_tok
-        self.n_routed_experts = config.n_routed_experts
+        self.n_expert = config.n_expert
         self.routed_scaling_factor = config.routed_scaling_factor
         self.scoring_func = config.scoring_func
         self.topk_method = config.topk_method
@@ -870,11 +870,11 @@ class DeepseekV3MoEGate(nn.Module):
         self.norm_topk_prob = config.norm_topk_prob
         self.gating_dim = config.hidden_size
         self.weight = nn.Parameter(
-            torch.empty((self.n_routed_experts, self.gating_dim))
+            torch.empty((self.n_expert, self.gating_dim))
         )
         if self.topk_method == "noaux_tc":
             self.e_score_correction_bias = nn.Parameter(
-                torch.empty((self.n_routed_experts))
+                torch.empty((self.n_expert))
             )
         self.reset_parameters()
 
@@ -915,7 +915,7 @@ class DeepseekV3MoEGate(nn.Module):
             score_mask = (
                 group_mask.unsqueeze(-1)
                 .expand(
-                    bsz * seq_len, self.n_group, self.n_routed_experts // self.n_group
+                    bsz * seq_len, self.n_group, self.n_expert // self.n_group
                 )
                 .reshape(bsz * seq_len, -1)
             )  # [n, e]
@@ -945,12 +945,12 @@ class DeepseekV3MoE(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.num_experts_per_tok = config.num_experts_per_tok
+        self.num_experts_per_tok = config.n_expert_per_token
 
         if hasattr(config, "ep_size") and config.ep_size > 1:
             assert config.ep_size == dist.get_world_size()
             self.ep_size = config.ep_size
-            self.experts_per_rank = config.n_routed_experts // config.ep_size
+            self.experts_per_rank = config.n_expert // config.ep_size
             self.ep_rank = dist.get_rank()
             self.experts = nn.ModuleList(
                 [
@@ -962,19 +962,19 @@ class DeepseekV3MoE(nn.Module):
                         and i < (self.ep_rank + 1) * self.experts_per_rank
                         else None
                     )
-                    for i in range(config.n_routed_experts)
+                    for i in range(config.n_expert)
                 ]
             )
         else:
             self.ep_size = 1
-            self.experts_per_rank = config.n_routed_experts
+            self.experts_per_rank = config.n_expert
             self.ep_rank = 0
             self.experts = nn.ModuleList(
                 [
                     LLaMAMLP(
                         config, intermediate_size=config.moe_intermediate_size
                     )
-                    for i in range(config.n_routed_experts)
+                    for i in range(config.n_expert)
                 ]
             )
         self.gate = DeepseekV3MoEGate(config)
