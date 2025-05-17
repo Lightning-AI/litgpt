@@ -557,7 +557,9 @@ class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
-        self.experts = nn.ModuleList(LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert))
+        self.experts = nn.ModuleList(
+            LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert)
+        )
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
