@@ -341,8 +341,8 @@ def test_against_hf_phi(model_name, device, dtype):
         "Phi-3.5-mini-instruct",
         "phi-4",
         "Phi-4-mini-instruct",
-        "phi-4-reasoning",
-        "phi-4-mini-reasoning",
+        "Phi-4-reasoning",
+        "Phi-4-mini-reasoning",
     ),
 )
 @pytest.mark.parametrize(
