@@ -325,8 +325,11 @@ class Phi3(PromptStyle):
 
 class Phi4(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
-        return f"<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
-
+        res = ""
+        if sys_prompt:
+            res += f"<|im_start|>system<|im_sep|>{sys_prompt}<|im_end|>"
+        res += f"<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
+        return res
 
 class Phi4Reasoning(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
@@ -336,6 +339,13 @@ class Phi4Reasoning(PromptStyle):
         )
         return f"<|im_start>system<|im_sep|>{sys_prompt}<|im_end|><|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
 
+class Phi4Mini(PromptStyle):
+    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+        res = ""
+        if sys_prompt:
+            res += f"<|system|>{sys_prompt}<|end|>"
+        res += f"<|user|>{prompt}<|end|><|assistant|>"
+        return res
 
 class Phi4MiniReasoning(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
@@ -419,8 +429,9 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "phi-2": Phi2,
     "phi-3": Phi3,
     "phi-4": Phi4,
-    "Phi-4-reasoning": Phi4Reasoning,
-    "Phi-4-mini-reasoning": Phi4MiniReasoning,
+    "phi-4-reasoning": Phi4Reasoning,
+    "phi-4-mini": Phi4Mini,
+    "phi-4-mini-reasoning": Phi4MiniReasoning,
     "tinyllama": TinyLlama,
     "gemma": Gemma,
     "llama3": Llama3,
@@ -470,6 +481,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Phi4Reasoning()
     if re.search("Phi-4-mini-reasoning", model_name):
         return Phi4MiniReasoning()
+    if re.search("Phi-4-mini", model_name):
+        return Phi4Mini()
     if re.search("phi-4", model_name):
         return Phi4()
     if re.search(r"tiny-llama.*chat", model_name):
