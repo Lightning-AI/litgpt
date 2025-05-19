@@ -1744,10 +1744,10 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
     ),
-    # https://huggingface.co/microsoft/phi-4-reasoning/blob/main/config.json
+    # https://huggingface.co/microsoft/Phi-4-reasoning/blob/main/config.json
     dict(
-        name="phi-4-reasoning",
-        hf_config=dict(org="microsoft", name="phi-4-reasoning"),
+        name="Phi-4-reasoning",
+        hf_config=dict(org="microsoft", name="Phi-4-reasoning"),
         vocab_size=100352,
         padded_vocab_size=100352,
         block_size=32768,
@@ -1763,10 +1763,10 @@ phi = [
         mlp_class_name="LLaMAMLP",
         parallel_residual=False,
     ),
-    # https://huggingface.co/microsoft/phi-4-reasoning-plus/blob/main/config.json
+    # https://huggingface.co/microsoft/Phi-4-reasoning-plus/blob/main/config.json
     dict(
-        name="phi-4-reasoning-plus",
-        hf_config=dict(org="microsoft", name="phi-4-reasoning-plus"),
+        name="Phi-4-reasoning-plus",
+        hf_config=dict(org="microsoft", name="Phi-4-reasoning-plus"),
         vocab_size=100352,
         padded_vocab_size=100352,
         block_size=32768,
