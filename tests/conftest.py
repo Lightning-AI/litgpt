@@ -19,6 +19,11 @@ else:
     warnings.warn(f"Could not find extensions directory at {wd}")
 
 
+def pytest_runtest_setup(item):
+    if "test_hf_for_nemo" in item.nodeid and "Qwen/Qwen2.5-7B-Instruct" in item.nodeid:
+        pytest.xfail("Known failure from Thunder (SymInt issue with Qwen)")
+
+
 @pytest.fixture()
 def fake_checkpoint_dir(tmp_path):
     os.chdir(tmp_path)
