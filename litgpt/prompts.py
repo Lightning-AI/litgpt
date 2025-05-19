@@ -331,6 +331,7 @@ class Phi4(PromptStyle):
         res += f"<|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
         return res
 
+
 class Phi4Reasoning(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
         sys_prompt = (
@@ -339,6 +340,7 @@ class Phi4Reasoning(PromptStyle):
         )
         return f"<|im_start>system<|im_sep|>{sys_prompt}<|im_end|><|im_start|>user<|im_sep|>{prompt}<|im_end|><|im_start|>assistant<|im_sep|>"
 
+
 class Phi4Mini(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
         res = ""
@@ -346,6 +348,7 @@ class Phi4Mini(PromptStyle):
             res += f"<|system|>{sys_prompt}<|end|>"
         res += f"<|user|>{prompt}<|end|><|assistant|>"
         return res
+
 
 class Phi4MiniReasoning(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
