@@ -141,8 +141,6 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
                             reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
                         )
                     )
-                    print(f"xfailing {test.nodeid} because of a known issue")
-
                 if already_skipped:
                     # the test was going to be skipped anyway, filter it out
                     items.pop(i)
