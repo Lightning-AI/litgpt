@@ -134,13 +134,6 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             conditions.append(env_var)
             for i, test in reversed(list(enumerate(items))):  # loop in reverse, since we are going to pop items
                 already_skipped = any(marker.name == "skip" for marker in test.own_markers)
-                if "test_hf_for_nemo" in test.nodeid and "Qwen/Qwen2.5-7B-Instruct" in test.nodeid:
-                    test.add_marker(
-                        pytest.mark.xfail(
-                            raises=TypeError,
-                            reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
-                        )
-                    )
                 if already_skipped:
                     # the test was going to be skipped anyway, filter it out
                     items.pop(i)
@@ -164,3 +157,15 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
+
+    for test in items:
+        if "test_hf_for_nemo" in test.nodeid and "Qwen/Qwen2.5-7B-Instruct" in test.nodeid:
+            test.add_marker(
+                # Don't use `raises=TypeError` because the actual exception is
+                # wrapped inside `torch._dynamo.exc.BackendCompilerFailed`,
+                # which prevents pytest from recognizing it as a TypeError.
+                pytest.mark.xfail(
+                    reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
+                )
+            )
+            print(f"got {test.nodeid} and added xfail marker")
