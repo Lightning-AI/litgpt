@@ -21,7 +21,7 @@ else:
 
 def pytest_runtest_setup(item):
     if "test_hf_for_nemo" in item.nodeid and "Qwen/Qwen2.5-7B-Instruct" in item.nodeid:
-        pytest.xfail("xfailing due to TypeError, , see https://github.com/Lightning-AI/lightning-thunder/issues/2085")
+        pytest.xfail("currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085")
 
 
 @pytest.fixture()
