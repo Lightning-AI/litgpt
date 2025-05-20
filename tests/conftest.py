@@ -168,4 +168,3 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
                     reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
                 )
             )
-            print(f"got {test.nodeid} and added xfail marker")
