@@ -1,5 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+from typing import Optional
+
 import pytest
 import torch
 
@@ -12,7 +14,7 @@ from litgpt.prompts import PromptStyle
 @pytest.mark.parametrize("max_seq_length", [1000, 5, -1])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
     class Style(PromptStyle):
-        def apply(self, prompt, **kwargs):
+        def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs) -> str:
             return f"In: {prompt} Out:"
 
     i = ignore_index

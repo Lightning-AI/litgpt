@@ -52,7 +52,7 @@ optional-dependencies.extra = [
   "datasets>=2.18",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
-  "litdata==0.2.17",
+  "litdata==0.2.45",
   # litgpt.deploy:
   "litserve<=0.2.7",
   "lm-eval>=0.4.2",
