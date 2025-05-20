@@ -53,7 +53,7 @@ Every LLM is implemented from scratch with **no abstractions** and **full contro
 # Quick start
 Install LitGPT
 ```
-pip install 'litgpt[all]'
+pip install 'litgpt[extra]'
 ```
 
 Load and use any of the [20+ LLMs](#choose-from-20-llms):

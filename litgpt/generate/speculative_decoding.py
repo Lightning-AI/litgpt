@@ -331,6 +331,7 @@ def main(
     target_model_checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
+    sys_prompt: Optional[str] = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
     speculative_k: int = 3,
@@ -349,6 +350,7 @@ def main(
         draft_model: Smaller/faster model used for initial token predictions
         target_model: Larger/more accurate model used to verify draft predictions
         prompt: The prompt string to use for generating the samples.
+        sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.
         max_new_tokens: The number of generation steps to take.
         speculative_k: Number of tokens to speculatively generate at each step
@@ -413,7 +415,7 @@ def main(
         if has_prompt_style(target_model_checkpoint_dir)
         else PromptStyle.from_config(target_config)
     )
-    prompt = prompt_style.apply(prompt)
+    prompt = prompt_style.apply(prompt, sys_prompt=sys_prompt)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
