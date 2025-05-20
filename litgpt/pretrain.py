@@ -19,7 +19,7 @@ from torchmetrics.aggregation import RunningMean
 from typing_extensions import Literal
 
 from litgpt import Tokenizer
-from litgpt.args import EvalArgs, TrainArgs, LogArgs
+from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
@@ -129,7 +129,12 @@ def setup(
     tokenizer = Tokenizer(tokenizer_dir) if tokenizer_dir is not None else None
 
     logger = choose_logger(
-        logger_name, out_dir, name=f"pretrain-{config.name}", resume=bool(resume), log_interval=train.log_interval, log_args=asdict(log)
+        logger_name,
+        out_dir,
+        name=f"pretrain-{config.name}",
+        resume=bool(resume),
+        log_interval=train.log_interval,
+        log_args=asdict(log),
     )
 
     if devices * num_nodes > 1:

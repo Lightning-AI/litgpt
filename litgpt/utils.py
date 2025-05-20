@@ -559,6 +559,7 @@ def choose_logger(
         return MLFlowLogger(experiment_name=name, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
+
 def get_argument_names(cls):
     sig = inspect.signature(cls.__init__)
     return {

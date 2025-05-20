@@ -18,7 +18,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
-from litgpt.args import EvalArgs, TrainArgs, LogArgs
+from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
@@ -98,7 +98,13 @@ def setup(
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     precision = precision or get_default_supported_precision(training=True)
-    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval, log_args=dataclasses.asdict(log))
+    logger = choose_logger(
+        logger_name,
+        out_dir,
+        name=f"finetune-{config.name}",
+        log_interval=train.log_interval,
+        log_args=dataclasses.asdict(log),
+    )
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):

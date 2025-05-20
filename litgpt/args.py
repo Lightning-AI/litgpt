@@ -91,6 +91,7 @@ class EvalArgs:
     """How to pick an example instruction to evaluate periodically during training.
        Can be "first", "random", or an integer index to pick a specific example."""
 
+
 @dataclass
 class LogArgs:
     """Logging-related arguments"""
@@ -101,4 +102,3 @@ class LogArgs:
     """Wandb run name"""
     wandb_group: Optional[str] = None
     """Wandb group name"""
-    
