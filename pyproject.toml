@@ -8,7 +8,7 @@ requires = [
 
 [project]
 name = "litgpt"
-version = "0.5.8.dev1"
+version = "0.5.9.dev1"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -29,12 +29,13 @@ dependencies = [
   "huggingface-hub>=0.23.5",
   "jsonargparse[signatures]>=4.30.1,<=4.32.1; python_version<='3.9'", # 4.33 does not seem to be compatible with Python 3.9
   "jsonargparse[signatures]>=4.37; python_version>'3.9'",             # required to work with python3.12+
-  "lightning>=2.5,<2.6",
+  "lightning>=2.5",
   "numpy<2",                                                          # for older Torch versions
+  "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.15.2",
-  "torch>=2.5,<2.7",
+  "torch>=2.5",
   # convert_hf_checkpoint
   "tqdm>=4.66",
 ]
@@ -51,9 +52,9 @@ optional-dependencies.extra = [
   "datasets>=2.18",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
-  "litdata==0.2.17",
+  "litdata==0.2.45",
   # litgpt.deploy:
-  "litserve<=0.2.4",
+  "litserve<=0.2.7",
   "lm-eval>=0.4.2",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
@@ -65,20 +66,21 @@ optional-dependencies.extra = [
   # litgpt.pretrain:
   "tensorboard>=2.14",
   "torchmetrics>=1.3.1",
-  "transformers==4.47.1",
+  "transformers>=4.48,<4.51",
   # litdata, only on non-Windows:
   "uvloop>=0.2; sys_platform!='win32'",
   # litgpt.data.prepare_slimpajama.py:
   "zstandard>=0.22",
 ]
 optional-dependencies.test = [
-  "einops >=0.7",
-  "protobuf >=4.23.4",
-  "pytest >=8.1.1",
-  "pytest-dependency >=0.6",
-  "pytest-rerunfailures >=14",
-  "pytest-timeout >=2.3.1",
-  "transformers ==4.47.1",     # numerical comparisons
+  "einops>=0.7",
+  "protobuf>=4.23.4",
+  "pydantic>=2.11",
+  "pytest>=8.1.1",
+  "pytest-benchmark>=5.1",
+  "pytest-dependency>=0.6",
+  "pytest-rerunfailures>=14",
+  "pytest-timeout>=2.3.1",
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
@@ -96,6 +98,37 @@ litgpt = [
   "LICENSE",
   "README.md",
 ]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 120
+exclude = [
+  "build",
+  "dist",
+  "docs",
+]
+
+lint.select = [
+  "E",
+  "F",  # see: https://pypi.org/project/pyflakes
+  "I",  # implementation for isort
+  "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
+  "W",  # see: https://pypi.org/project/pycodestyle
+]
+#extend-select = [
+#    "C4",  # see: https://pypi.org/project/flake8-comprehensions
+#    "PT",  # see: https://pypi.org/project/flake8-pytest-style
+#    "RET",  # see: https://pypi.org/project/flake8-return
+#    "SIM",  # see: https://pypi.org/project/flake8-simplify
+#]
+lint.ignore = [
+  "E501", # Line too long
+  "E731", # Do not assign a lambda expression, use a def
+  "E741", # todo: Ambiguous variable name
+  "F841", # todo: Local variable is assigned to but never used
+]
+# Use Google-style docstrings.
+lint.pydocstyle.convention = "google"
 
 [tool.codespell]
 #skip = '*.py'

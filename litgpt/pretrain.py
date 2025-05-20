@@ -7,7 +7,7 @@ from dataclasses import asdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Union, Dict
+from typing import Dict, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -68,7 +68,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -137,13 +137,7 @@ def setup(
     else:
         strategy = "auto"
 
-    fabric = L.Fabric(
-        devices=devices,
-        num_nodes=num_nodes,
-        strategy=strategy,
-        precision=precision,
-        loggers=[logger]
-    )
+    fabric = L.Fabric(devices=devices, num_nodes=num_nodes, strategy=strategy, precision=precision, loggers=[logger])
 
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
@@ -151,7 +145,7 @@ def setup(
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
+    if logger_name in ("tensorboard", "wandb", "mlflow"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
@@ -236,10 +230,30 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
+
+    # work around PyTorch issue https://github.com/pytorch/pytorch/issues/152162
+    # which does not like the lazy initialization to be called in dynamo.
+    # Happens with PyTorch 2.7.
+    if (
+        torch.__version__.startswith("2.7.")
+        and (model._forward_module.__class__.__name__ == "OptimizedModule")
+        and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
+    ):
+        from torch.distributed.fsdp._runtime_utils import _root_pre_forward
+
+        _root_pre_forward(model._forward_module._orig_mod, model._forward_module._orig_mod, [], {})
+
     fit(
-        fabric=fabric, devices=devices, num_nodes=num_nodes, state=state,
-        train_dataloader=train_dataloader, val_dataloader=val_dataloader,
-        out_dir=out_dir, tokenizer_dir=tokenizer_dir, train=train, eval=eval
+        fabric=fabric,
+        devices=devices,
+        num_nodes=num_nodes,
+        state=state,
+        train_dataloader=train_dataloader,
+        val_dataloader=val_dataloader,
+        out_dir=out_dir,
+        tokenizer_dir=tokenizer_dir,
+        train=train,
+        eval=eval,
     )
 
     # Save final checkpoint
@@ -252,7 +266,7 @@ def main(
     fabric.print(separator)
     fabric.print("| Performance")
     fabric.print(f"| - Total tokens  : {total_tokens:,}")
-    fabric.print(f"| - Training Time : {(time.perf_counter()-train_time):.2f} s")
+    fabric.print(f"| - Training Time : {(time.perf_counter() - train_time):.2f} s")
     fabric.print(f"| - Tok/sec       : {total_tokens / train_time:.2f} tok/s")
     fabric.print("| " + "-" * 40)
 
@@ -283,7 +297,7 @@ def fit(
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)   # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -291,8 +305,8 @@ def fit(
     with torch.device("meta"):
         meta_model = GPT(model.config)
         x = torch.randint(0, 1, (train.micro_batch_size, meta_model.max_seq_length))
-        model_fwd = lambda: meta_model(x)
-        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)
+        model_fwd = lambda: meta_model(x)  # noqa: F821
+        model_loss = lambda y: chunked_cross_entropy(y, x, chunk_size=0)  # noqa: F821
         measured_flops = measure_flops(meta_model, model_fwd, model_loss)
         fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
@@ -367,7 +381,7 @@ def fit(
             if isinstance(val_loss, float):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"
@@ -402,7 +416,9 @@ def fit(
 
 
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True
+) -> torch.Tensor:
     fabric.barrier()
     if verbose:
         fabric.print("Validating ...")

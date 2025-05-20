@@ -1,31 +1,26 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 #
 # This file implements the LitGPT Python API
-from pathlib import Path
 import sys
 import time
-from typing import Any, Callable, List, Literal, Optional, Union, Tuple
+from pathlib import Path
+from typing import Any, Callable, List, Literal, Optional, Tuple, Union
 
-import numpy as np
-from tqdm import tqdm
-import torch
 import lightning as L
-from lightning.fabric.plugins import BitsandbytesPrecision
+import numpy as np
+import torch
 from lightning.fabric.accelerators import CUDAAccelerator
+from lightning.fabric.plugins import BitsandbytesPrecision
+from tqdm import tqdm
 
-from litgpt.model import GPT
-from litgpt.config import name_to_config, Config
-from litgpt.tokenizer import Tokenizer
+from litgpt.chat.base import generate as stream_generate_fn
+from litgpt.config import Config, name_to_config
+from litgpt.generate.base import generate as generate_fn
 from litgpt.generate.sequentially import sequential
 from litgpt.generate.tp import tensor_parallel
-from litgpt.generate.base import generate as generate_fn
-from litgpt.chat.base import generate as stream_generate_fn
-from litgpt.prompts import (
-    load_prompt_style,
-    has_prompt_style,
-    save_prompt_style,
-    PromptStyle
-)
+from litgpt.model import GPT
+from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style, save_prompt_style
+from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
@@ -51,7 +46,7 @@ class LLM(torch.nn.Module):
         fabric: L.Fabric = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
         kv_cache_initialized: bool = False,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
     ) -> None:
         super().__init__()
         self.model = model
@@ -76,6 +71,7 @@ class LLM(torch.nn.Module):
         text = llm.generate("What do Llamas eat?", top_k=1)
         print(text)
     """
+
     @property
     def tokenizer(self):
         return self.preprocessor.tokenizer
@@ -90,7 +86,7 @@ class LLM(torch.nn.Module):
         self,
         input_ids: torch.Tensor,
         target_ids: Optional[torch.Tensor] = None,
-        loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None
+        loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         logits = self.model(input_ids)
         if target_ids is not None:
@@ -155,7 +151,7 @@ class LLM(torch.nn.Module):
         init: Optional[Literal["pretrained", "random"]] = "pretrained",
         tokenizer_dir: Optional[Path] = None,
         access_token: Optional[str] = None,
-        distribute: Optional[Literal["auto"]] = "auto"
+        distribute: Optional[Literal["auto"]] = "auto",
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -177,7 +173,9 @@ class LLM(torch.nn.Module):
         allowed_init = {"pretrained", "random"}
 
         if init == "pretrained":
-            checkpoint_dir = auto_download_checkpoint(model_name=model, access_token=access_token, ignore_tokenizer_files=tokenizer_dir is not None)
+            checkpoint_dir = auto_download_checkpoint(
+                model_name=model, access_token=access_token, ignore_tokenizer_files=tokenizer_dir is not None
+            )
             config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
         elif init == "random":
@@ -244,9 +242,15 @@ class LLM(torch.nn.Module):
             fabric = None
 
         return cls(
-            model=model, preprocessor=preprocessor, prompt_style=prompt_style,
-            config=config, checkpoint_dir=checkpoint_dir, fabric=fabric, generate_strategy=None,
-            kv_cache_initialized=False, fixed_kv_cache_size=False
+            model=model,
+            preprocessor=preprocessor,
+            prompt_style=prompt_style,
+            config=config,
+            checkpoint_dir=checkpoint_dir,
+            fabric=fabric,
+            generate_strategy=None,
+            kv_cache_initialized=False,
+            fixed_kv_cache_size=False,
         )
 
     def distribute(
@@ -256,7 +260,7 @@ class LLM(torch.nn.Module):
         precision: Optional[Any] = None,
         quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None
+        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
     ) -> None:
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
@@ -300,14 +304,16 @@ class LLM(torch.nn.Module):
                 accelerator = "cpu"
 
         if generate_strategy in ("sequential", "tensor_parallel") and accelerator not in ("cuda", "gpu"):
-            raise NotImplementedError(f"generate_strategy='{generate_strategy}' is only supported for accelerator='cuda'|'gpu'.")
+            raise NotImplementedError(
+                f"generate_strategy='{generate_strategy}' is only supported for accelerator='cuda'|'gpu'."
+            )
 
         if devices == "auto":
             if generate_strategy in ("sequential", "tensor_parallel"):
                 total_devices = CUDAAccelerator.auto_device_count()
             else:
                 total_devices = 1
-        elif isinstance(devices, int):
+        elif isinstance(devices, int) and accelerator == "cuda":
             use_devices = calculate_number_of_devices(devices)
             total_devices = CUDAAccelerator.auto_device_count()
             if use_devices > total_devices:
@@ -321,6 +327,8 @@ class LLM(torch.nn.Module):
                 raise NotImplementedError(
                     "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
                 )
+        elif accelerator == "cpu" or accelerator == "mps":
+            total_devices = 1
 
         else:
             raise ValueError(f"devices argument must be an integer or 'auto', got {devices}")
@@ -329,6 +337,8 @@ class LLM(torch.nn.Module):
 
         if precision is None:
             precision = get_default_supported_precision(training=False)
+
+        print("Precision set", file=sys.stderr)
 
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
@@ -343,21 +353,19 @@ class LLM(torch.nn.Module):
             fabric = L.Fabric(
                 accelerator=accelerator,
                 devices=1,  # Otherwise sequential wouldn't work, see litgpt/generate/sequentially.py
-                #devices=devices,
+                # devices=devices,
                 precision=precision,
-                plugins=plugins
+                plugins=plugins,
             )
         else:
             fabric = L.Fabric(
-                accelerator=accelerator,
-                devices=total_devices,
-                strategy="ddp",
-                precision=precision,
-                plugins=plugins
+                accelerator=accelerator, devices=total_devices, strategy="ddp", precision=precision, plugins=plugins
             )
             if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
                 check_nvlink_connectivity(fabric)
                 fabric.launch()
+
+        print("Fabric launched", file=sys.stderr)
 
         self.kv_cache_initialized = False
         if generate_strategy is None:
@@ -380,13 +388,14 @@ class LLM(torch.nn.Module):
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
         elif generate_strategy in ("sequential", "tensor_parallel"):
-
             with fabric.init_tensor(), torch.device("meta"):
                 model = GPT(self.config)
             model.eval()
 
             if generate_strategy == "sequential":
-                state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False)
+                state_dict = torch.load(
+                    str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False
+                )
                 model.load_state_dict(state_dict, assign=True)
                 model = fabric.setup_module(model, move_to_device=False)
 
@@ -405,7 +414,12 @@ class LLM(torch.nn.Module):
                     pbar = tqdm(total=fabric.world_size, desc="Loading model weights")
                 for rank in range(fabric.world_size):
                     if fabric.global_rank == rank:
-                        state_dict = torch.load(str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False)
+                        state_dict = torch.load(
+                            str(self.checkpoint_dir / "lit_model.pth"),
+                            mmap=True,
+                            map_location="cpu",
+                            weights_only=False,
+                        )
                         model.load_state_dict(state_dict, assign=True)
 
                         # cannot use `.setup_module` because it will wrap with DDP
@@ -447,12 +461,13 @@ class LLM(torch.nn.Module):
     def generate(
         self,
         prompt: str,
+        sys_prompt: Optional[str] = None,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
         top_k: Optional[int] = None,
         top_p: float = 1.0,
         return_as_token_ids: bool = False,
-        stream: bool = False
+        stream: bool = False,
     ) -> Union[str, torch.Tensor]:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -460,6 +475,8 @@ class LLM(torch.nn.Module):
         Arguments:
             model: The model to use.
             prompt: The prompt string to use for generating the samples.
+            sys_prompt: The system prompt string to use for generating the samples.
+                The system prompt allows the user to provide additional instructions to shape all responses by providing additional context, behavioral guidelines, style, and constraints.
             max_new_tokens: The maximum number of new tokens to return.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
@@ -487,7 +504,7 @@ class LLM(torch.nn.Module):
                 "The model is not initialized yet; use the .distribute() "
                 "or .trainer_setup() method to initialize the model."
             )
-        input_ids = self._text_to_token_ids(prompt)
+        input_ids = self._text_to_token_ids(prompt, sys_prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
@@ -550,9 +567,9 @@ class LLM(torch.nn.Module):
         else:
             return self.preprocessor.decode(outputs)
 
-    def _text_to_token_ids(self, prompt):
+    def _text_to_token_ids(self, prompt: str, sys_prompt: Optional[str] = None) -> torch.Tensor:
         """Utility method to convert a prompt text to token IDs"""
-        prompt = self.prompt_style.apply(prompt)
+        prompt = self.prompt_style.apply(prompt, sys_prompt=sys_prompt)
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
@@ -567,7 +584,6 @@ class LLM(torch.nn.Module):
         benchmark_dict = {}
 
         for i in range(num_iterations):
-
             time_to_first_token = None
             t0 = time.perf_counter()
             outputs = self.generate(**kwargs)
@@ -581,7 +597,9 @@ class LLM(torch.nn.Module):
                     gen_outputs.append(e)
                 outputs = "".join(gen_outputs)
             else:
-                outputs = self.generate(**kwargs,)
+                outputs = self.generate(
+                    **kwargs,
+                )
             benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
 
             benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
@@ -626,8 +644,12 @@ def benchmark_dict_to_markdown_table(data):
     """
     Converts .benchmark() outputs to a markdown table
     """
-    markdown_table = "| Metric                              | Mean                        | Std Dev                     |\n"
-    markdown_table += "|-------------------------------------|-----------------------------|-----------------------------|\n"
+    markdown_table = (
+        "| Metric                              | Mean                        | Std Dev                     |\n"
+    )
+    markdown_table += (
+        "|-------------------------------------|-----------------------------|-----------------------------|\n"
+    )
 
     for key, values in data.items():
         mean_value = np.mean(values)
@@ -642,7 +664,6 @@ def benchmark_dict_to_markdown_table(data):
 
 
 def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
-
     def print_table(header, data):
         print(f"\n### {header}\n")
         markdown_table = (
@@ -653,7 +674,7 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
         )
 
         for key, value in data.items():
-            first_iteration = f"{value[0]:.2f}" if value[0] is not None else 'N/A'
+            first_iteration = f"{value[0]:.2f}" if value[0] is not None else "N/A"
             clean_values = [v for v in value[1:] if v is not None]
 
             if clean_values:
@@ -665,16 +686,15 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
                 mean_str = "N/A"
                 std_dev_str = "N/A"
 
-            markdown_table += (
-                f"| {key:<36} | {first_iteration:<15} | "
-                f"{mean_str:<17} | {std_dev_str:<23} |\n"
-            )
+            markdown_table += f"| {key:<36} | {first_iteration:<15} | {mean_str:<17} | {std_dev_str:<23} |\n"
         print(markdown_table)
 
     import subprocess
+
     try:
-        g_hash = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
-                                capture_output=True, text=True, check=True).stdout.strip()
+        g_hash = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True
+        ).stdout.strip()
         print(f"Git Commit Hash: {g_hash}")
     except subprocess.CalledProcessError:
         print("Git Commit Hash: N/A")
@@ -707,10 +727,7 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
     del llm
 
     # 4th table
-    llm = LLM.load(
-        model=model_name,
-        distribute=None
-    )
+    llm = LLM.load(model=model_name, distribute=None)
     llm.distribute(fixed_kv_cache_size=500)
 
     text, bench_d = llm.benchmark(num_iterations=num_iterations, prompt="What do llamas eat?", top_k=1, stream=True)

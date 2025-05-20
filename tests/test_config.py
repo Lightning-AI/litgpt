@@ -5,6 +5,7 @@ import yaml
 
 import litgpt.config as config_module
 from litgpt import Config
+from litgpt.config import find_multiple
 
 
 def test_config():
@@ -58,7 +59,9 @@ def test_from_hf_name_with_org_string():
     assert config0 == config1
 
     # Test case 2: invalid input - org not found
-    with pytest.raises(ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"):
+    with pytest.raises(
+        ValueError, match="'UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T' is not a supported config name"
+    ):
         Config.from_name("UnknownOrg/TinyLlama-1.1B-intermediate-step-1431k-3T")
 
     # Test case 3: invalid input - name not found
@@ -101,3 +104,13 @@ def test_head_size(head_size):
     config = Config(head_size)
 
     assert config.head_size == head_size or config.n_embd // config.n_head
+
+
+def test_find_multiple():
+    assert find_multiple(17, 5) == 20
+    assert find_multiple(30, 7) == 35
+    assert find_multiple(10, 2) == 10
+    assert find_multiple(5, 10) == 10
+    assert find_multiple(50254, 128) == 50304
+    assert find_multiple(50254, 256) == 50432
+    assert find_multiple(50254, 512) == 50688

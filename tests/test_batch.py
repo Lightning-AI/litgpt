@@ -1,25 +1,25 @@
-import torch
-import pytest
 import warnings
 from pathlib import Path
+
 import lightning as L
+import pytest
+import torch
+
 import litgpt
+from litgpt.api import GPT, LLM
 from litgpt.generate.base import (
-    next_token,
-    batched_next_token,
     batched_generate_fn,
+    batched_next_token,
     generate_fn,
+    next_token,
 )
-from litgpt.api import LLM, GPT
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
-
 
 warnings.filterwarnings("ignore")
 
 
 def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
-
     L.seed_everything(42)
 
     model_name = "microsoft/phi-2"
@@ -31,16 +31,13 @@ def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(
-        batch_size=batch_size, max_seq_length=max_seq_length, device=device
-    )
+    model.set_kv_cache(batch_size=batch_size, max_seq_length=max_seq_length, device=device)
 
     return llm, model
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Test requires a GPU.")
 def test_batched_equivalence(tmp_path):
-
     model_name = "microsoft/phi-2"
     download_from_hub(repo_id=model_name, tokenizer_only=True, checkpoint_dir=tmp_path)
 
@@ -56,9 +53,7 @@ def test_batched_equivalence(tmp_path):
     model: GPT = llm.model
     model.set_kv_cache(batch_size=1, max_seq_length=50, device=device)
 
-    input_pos_1 = torch.tensor(
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device
-    )
+    input_pos_1 = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device)
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device=device)
 
     x = torch.tensor(
@@ -82,9 +77,7 @@ def test_batched_equivalence(tmp_path):
     model.clear_kv_cache()
     model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device="cuda:0")
 
-    toks_1: torch.Tensor = batched_next_token(
-        model, input_pos_1, batch_x1, sample_kwargs
-    )
+    toks_1: torch.Tensor = batched_next_token(model, input_pos_1, batch_x1, sample_kwargs)
     toks_2: torch.Tensor = batched_next_token(model, input_pos_2, toks_1, sample_kwargs)
 
     assert toks_1.ndim == 2
@@ -101,9 +94,7 @@ def test_batched_equivalence(tmp_path):
 def test_simple_batch():
     old_allow_tf32 = torch.backends.cuda.matmul.allow_tf32
     torch.backends.cuda.matmul.allow_tf32 = False
-    config = litgpt.Config.from_name(
-        "microsoft/phi-2", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256
-    )
+    config = litgpt.Config.from_name("microsoft/phi-2", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256)
     with torch.device("cuda"):
         m = litgpt.GPT(config).requires_grad_(False).eval()
         x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 7]])
@@ -140,7 +131,6 @@ def test_simple_batch():
 
 @_RunIf(min_cuda_gpus=1)
 def test_batch_generate(tmp_path):
-
     torch.use_deterministic_algorithms(True)
 
     device = "cuda:0"
@@ -265,7 +255,6 @@ def test_batch_generate(tmp_path):
 
 @_RunIf(min_cuda_gpus=1)
 def test_batch_generate_equivalence(tmp_path):
-
     torch.use_deterministic_algorithms(True)
 
     device = "cuda:0"

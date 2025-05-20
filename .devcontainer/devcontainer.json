@@ -1,0 +1,105 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.194.0/containers/python-3
+{
+  "name": "Python 3 (litgpt)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "VARIANT": "3.11-bookworm"
+    }
+  },
+  "runArgs": [
+    // Enable GPU passthrough, requires WSL2 on Windows
+    //"--gpus=all",
+    // One of the following options is required for torch multiprocessing
+    //"--ipc=host",
+    //"--shm-size=4gb",
+  ],
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {},
+    //"ghcr.io/devcontainers/features/nvidia-cuda:1": {},
+    "ghcr.io/devcontainers-extra/features/actionlint:1": {},
+    "ghcr.io/devcontainers-extra/features/pre-commit:2": {},
+    "ghcr.io/dhoeric/features/act:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true
+    }
+  },
+  // Set *default* container specific settings.json values on container create.
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.tabSize": 4,
+        "editor.renderWhitespace": "all",
+        "editor.formatOnSave": true,
+        "editor.rulers": [120],
+        "files.exclude": {
+          "**/__pycache__": true
+        },
+        "python.pythonPath": "/usr/local/bin/python",
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.languageServer": "Pylance",
+        "python.analysis.autoImportCompletions": true,
+        "python.analysis.completeFunctionParens": true,
+        "python.analysis.autoSearchPaths": true,
+        "python.testing.pytestArgs": ["tests"],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "code-eol.highlightNonDefault": true,
+        "code-eol.highlightExtraWhitespace": true,
+        "autoDocstring.docstringFormat": "google-notypes",
+        "autoDocstring.guessTypes": true,
+        "autoDocstring.generateDocstringOnEnter": true,
+        "autoDocstring.startOnNewLine": true,
+        "telemetry.telemetryLevel": "off",
+        "[python]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "always",
+            "source.fixAll": "always"
+          }
+        }
+      },
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "github.vscode-github-actions",
+        "SanjulaGanepola.github-local-actions",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "ms-vscode.test-adapter-converter",
+        "njqdev.vscode-python-typehint",
+        "KevinRose.vsc-python-indent",
+        "medo64.render-crlf",
+        "shardulm94.trailing-spaces",
+        "nhoizey.gremlins",
+        "wayou.vscode-todo-highlight",
+        "Gruntfuggly.todo-tree",
+        "njpwerner.autodocstring",
+        "rodolphebarbanneau.python-docstring-highlighter",
+        "mechatroner.rainbow-csv",
+        "uctakeoff.vscode-counter",
+        "bierner.github-markdown-preview",
+        "yahyabatulu.vscode-markdown-alert",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml"
+      ]
+    }
+  },
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  "postCreateCommand": "pre-commit install && pip install '.[extra,compiler,test]' -U",
+  // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+  "remoteUser": "vscode"
+}

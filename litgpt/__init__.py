@@ -4,8 +4,8 @@ import logging
 import re
 
 from litgpt.api import LLM
-from litgpt.model import GPT  # needs to be imported before config
 from litgpt.config import Config
+from litgpt.model import GPT  # needs to be imported before config
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 

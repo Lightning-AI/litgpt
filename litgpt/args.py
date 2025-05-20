@@ -1,8 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import math
+import warnings
 from dataclasses import dataclass
 from typing import Optional, Union
-import warnings
 
 
 @dataclass
@@ -48,7 +48,9 @@ class TrainArgs:
         if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
             warnings.warn(
                 "`--train.lr_warmup_steps` should be less than `--train.max_steps`."
-                f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.", UserWarning)
+                f" Got {self.lr_warmup_steps} lr_warmup_steps and {self.max_steps} max_steps.",
+                UserWarning,
+            )
 
     def gradient_accumulation_iters(self, devices: int, num_nodes: int = 1) -> int:
         """Number of iterations between gradient synchronizations"""

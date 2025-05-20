@@ -1,9 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+from typing import Optional
+
 import pytest
 import torch
 
-from litgpt.data import SFTDataset, get_sft_collate_fn
+from litgpt.data.base import SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 
 
@@ -12,7 +14,7 @@ from litgpt.prompts import PromptStyle
 @pytest.mark.parametrize("max_seq_length", [1000, 5, -1])
 def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
     class Style(PromptStyle):
-        def apply(self, prompt, **kwargs):
+        def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs) -> str:
             return f"In: {prompt} Out:"
 
     i = ignore_index
@@ -47,13 +49,21 @@ def test_sft_dataset(max_seq_length, ignore_index, mask_prompt, mock_tokenizer):
 def test_sft_collate_fn_padding(pad_id, ignore_index):
     collate = get_sft_collate_fn(pad_id=pad_id, ignore_index=ignore_index)
     samples = [
-        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30]), "token_counts": {"raw": 3, "raw_plus_prompt_template": 25}},
-        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80]), "token_counts": {"raw": 5, "raw_plus_prompt_template": 27}},
+        {
+            "input_ids": torch.tensor([1, 2, 3]),
+            "labels": torch.tensor([10, 20, 30]),
+            "token_counts": {"raw": 3, "raw_plus_prompt_template": 25},
+        },
+        {
+            "input_ids": torch.tensor([4, 5, 6, 7, 8]),
+            "labels": torch.tensor([40, 50, 60, 70, 80]),
+            "token_counts": {"raw": 5, "raw_plus_prompt_template": 27},
+        },
     ]
     expected = {
         "input_ids": torch.tensor([[1, 2, 3, pad_id, pad_id], [4, 5, 6, 7, 8]]),
         "labels": torch.tensor([[10, 20, 30, ignore_index, ignore_index], [40, 50, 60, 70, 80]]),
-        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])}
+        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])},
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))
@@ -64,13 +74,21 @@ def test_sft_collate_fn_padding(pad_id, ignore_index):
 def test_sft_collate_fn_truncation():
     collate = get_sft_collate_fn(max_seq_length=2)
     samples = [
-        {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([10, 20, 30]), "token_counts": {"raw": 3, "raw_plus_prompt_template": 25}},
-        {"input_ids": torch.tensor([4, 5, 6, 7, 8]), "labels": torch.tensor([40, 50, 60, 70, 80]), "token_counts": {"raw": 5, "raw_plus_prompt_template": 27}},
+        {
+            "input_ids": torch.tensor([1, 2, 3]),
+            "labels": torch.tensor([10, 20, 30]),
+            "token_counts": {"raw": 3, "raw_plus_prompt_template": 25},
+        },
+        {
+            "input_ids": torch.tensor([4, 5, 6, 7, 8]),
+            "labels": torch.tensor([40, 50, 60, 70, 80]),
+            "token_counts": {"raw": 5, "raw_plus_prompt_template": 27},
+        },
     ]
     expected = {
         "input_ids": torch.tensor([[1, 2], [4, 5]]),
         "labels": torch.tensor([[10, 20], [40, 50]]),
-        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])}
+        "token_counts": {"raw": torch.tensor([[3], [5]]), "raw_plus_prompt_template": torch.tensor([[25], [27]])},
     }
     batch = collate(samples)
     assert all(torch.equal(batch[k], expected[k]) for k in ("input_ids", "labels"))

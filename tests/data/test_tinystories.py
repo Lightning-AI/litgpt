@@ -13,7 +13,14 @@ def tokenize(data):
 
 
 def fake_chunk(path, data):
-    optimize(fn=tokenize, inputs=[data] * len(data), output_dir=str(path), num_workers=1, chunk_bytes="200MB")
+    optimize(
+        fn=tokenize,
+        inputs=[data] * len(data),
+        output_dir=str(path),
+        num_workers=1,
+        chunk_bytes="200MB",
+        item_loader=TokensLoader(),
+    )
 
 
 @pytest.mark.parametrize(
@@ -76,21 +83,23 @@ def test_tinystories_datamodule(tmp_path):
     datamodule.setup()
 
     tr_dataloader = datamodule.train_dataloader()
-    torch.manual_seed(0)
+    tr_dataloader.shuffle = False
+
     actual = tree_map(torch.Tensor.tolist, list(tr_dataloader))
+
     # there is 1 sample per index in the data (13)
     assert actual == [
-        [[1999, 0, 13]],
-        [[0, 13, 12]],
-        [[1, 1999, 0]],
-        [[63, 0, 73]],
-        [[5, 0, 1]],
-        [[0, 73, 5]],
-        [[0, 23, 15]],
-        [[0, 1, 1999]],
-        [[15, 63, 0]],
         [[73, 5, 0]],
         [[12, 0, 23]],
+        [[5, 0, 1]],
+        [[0, 73, 5]],
+        [[1999, 0, 13]],
+        [[0, 1, 1999]],
+        [[1, 1999, 0]],
+        [[0, 23, 15]],
+        [[13, 12, 0]],
+        [[63, 0, 73]],
         [[23, 15, 63]],
-        [[13, 12, 0]]
+        [[15, 63, 0]],
+        [[0, 13, 12]],
     ]

@@ -2,10 +2,10 @@
 
 import sys
 import time
+import warnings
 from pathlib import Path
 from pprint import pprint
 from typing import Literal, Optional
-import warnings
 
 import lightning as L
 import torch
@@ -21,7 +21,7 @@ from litgpt.utils import (
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
-    lazy_load
+    lazy_load,
 )
 
 
@@ -29,6 +29,7 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     input: str = "",
+    sys_prompt: Optional[str] = None,
     adapter_path: Path = Path("out/finetune/adapter/final/lit_model.pth.adapter"),
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
     max_new_tokens: int = 100,
@@ -46,6 +47,7 @@ def main(
         checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
+        sys_prompt: Optional system prompt.
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             ``litgpt.finetune.adapter``.
         quantize: Whether to quantize the model and using which method:
@@ -83,13 +85,11 @@ def main(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. "
-                "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
         precision = None
-
 
     fabric = L.Fabric(devices=1, precision=precision, plugins=plugins)
     fabric.launch()
@@ -105,7 +105,7 @@ def main(
         load_prompt_style(checkpoint_dir) if has_prompt_style(checkpoint_dir) else PromptStyle.from_config(config)
     )
 
-    prompt = prompt_style.apply(prompt, input=input)
+    prompt = prompt_style.apply(prompt, sys_prompt=sys_prompt, input=input)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens
@@ -133,7 +133,9 @@ def main(
 
     L.seed_everything(1234)
     t0 = time.perf_counter()
-    y = generate(model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id)
+    y = generate(
+        model, encoded, max_returned_tokens, temperature=temperature, top_k=top_k, top_p=top_p, eos_id=tokenizer.eos_id
+    )
     t = time.perf_counter() - t0
 
     output = tokenizer.decode(y)

@@ -3,10 +3,10 @@ import dataclasses
 import math
 import os
 import time
+import warnings
 from pathlib import Path
 from pprint import pprint
 from typing import Dict, List, Literal, Optional, Tuple, Union
-import warnings
 
 import lightning as L
 import torch
@@ -14,7 +14,7 @@ from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 from lightning_utilities.core.imports import RequirementCache
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
@@ -24,8 +24,8 @@ from litgpt.generate.base import generate
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    auto_download_checkpoint,
     CycleIterator,
+    auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
@@ -34,9 +34,10 @@ from litgpt.utils import (
     create_finetuning_performance_report,
     get_default_supported_precision,
     init_out_dir,
-    instantiate_torch_optimizer,
     instantiate_bnb_optimizer,
+    instantiate_torch_optimizer,
     load_checkpoint,
+    load_checkpoint_update,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -51,6 +52,7 @@ def setup(
     quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
     devices: Union[int, str] = 1,
     num_nodes: int = 1,
+    resume: Optional[bool] = False,
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -64,7 +66,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     log: LogArgs = LogArgs(),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "csv",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:
@@ -104,8 +106,7 @@ def setup(
             raise ValueError("Quantization and mixed precision is not supported.")
         if RequirementCache("bitsandbytes != 0.42.0"):
             warnings.warn(
-                "LitGPT only supports bitsandbytes v0.42.0. "
-                "This may result in errors when using quantization."
+                "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
         dtype = {"16-true": torch.float16, "bf16-true": torch.bfloat16, "32-true": torch.float32}[precision]
         plugins = BitsandbytesPrecision(quantize[4:], dtype)
@@ -139,7 +140,7 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
+    fabric.launch(main, devices, seed, config, data, resume, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -148,6 +149,7 @@ def main(
     seed: int,
     config: Config,
     data: DataModule,
+    resume: bool,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -180,19 +182,35 @@ def main(
         optimizer = instantiate_bnb_optimizer(optimizer, model.parameters())
 
         from bitsandbytes.nn import StableEmbedding
+
         old_embedding = model.transformer.wte
         model.transformer.wte = StableEmbedding(old_embedding.num_embeddings, old_embedding.embedding_dim)
         with torch.no_grad():
             model.transformer.wte.weight.copy_(old_embedding.weight)
-        model.transformer.wte = model.transformer.wte.to(device=old_embedding.weight.device, dtype=old_embedding.weight.dtype)
+        model.transformer.wte = model.transformer.wte.to(
+            device=old_embedding.weight.device, dtype=old_embedding.weight.dtype
+        )
     else:
         optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
+    if resume:
+        # Finding last trace of adapter training
+        try:
+            resume = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=(lambda p: int(p.parent.name.split("-")[1])))
+            fabric.print(f"Resuming training from {resume}")
+            load_checkpoint_update(fabric, resume, model, checkpoint_path, strict=False)
+            resume = True
+        except ValueError:
+            fabric.print("No previous adapter found. Finetune from start.")
+            resume = False
+            load_checkpoint(fabric, model, checkpoint_path, strict=False)
+    else:
+        # strict=False because missing keys due to Adapter weights not contained in state dict
+        load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
-    # strict=False because missing keys due to Adapter weights not contained in state dict
-    load_checkpoint(fabric, model, checkpoint_path, strict=False)
+    mark_only_adapter_v2_as_trainable(model)
 
     train_time = time.perf_counter()
     token_counts = fit(
@@ -203,6 +221,7 @@ def main(
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
         devices=devices,
+        resume=resume,
         num_nodes=num_nodes,
         checkpoint_dir=checkpoint_dir,
         out_dir=out_dir,
@@ -240,6 +259,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     devices: int,
+    resume: bool,
     checkpoint_dir: Path,
     out_dir: Path,
     train: TrainArgs,
@@ -248,7 +268,9 @@ def fit(
     num_nodes: int = 1,
 ) -> None:
     tokenizer = Tokenizer(checkpoint_dir)
-    longest_seq_length, longest_seq_ix = get_longest_seq_length(ConcatDataset([train_dataloader.dataset, val_dataloader.dataset]))
+    longest_seq_length, longest_seq_ix = get_longest_seq_length(
+        ConcatDataset([train_dataloader.dataset, val_dataloader.dataset])
+    )
     model.max_seq_length = min(longest_seq_length, train.max_seq_length or float("inf"))
     fabric.print(
         f"The longest sequence length in the train data is {longest_seq_length}, the model's maximum sequence length is"
@@ -280,7 +302,15 @@ def fit(
         "raw_tokens_plus_prompt_template_and_padding": torch.tensor(0, device=fabric.device, dtype=torch.long),
     }
 
-    while step_count < max_steps:
+    if not resume:
+        try:
+            iter_match = max(out_dir.rglob("step-*/*.pth.adapter_v2"), key=lambda p: int(p.parent.name.split("-")[1]))
+            step_count = int(iter_match.parent.name.split("-")[1]) if iter_match else 0
+        except ValueError:
+            step_count = 0
+
+    fabric.print(f"Starting at step count {step_count}")
+    while step_count < max_steps and train_iterator.epoch < train.epochs:
         iter_num += 1
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
@@ -306,7 +336,9 @@ def fit(
             step_count += 1
 
         token_counts["raw_tokens"] += batch["token_counts"]["raw"].sum().item()
-        token_counts["raw_tokens_plus_prompt_template"] += batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        token_counts["raw_tokens_plus_prompt_template"] += (
+            batch["token_counts"]["raw_plus_prompt_template"].sum().item()
+        )
         token_counts["raw_tokens_plus_prompt_template_and_padding"] += input_ids.numel()
 
         total_lengths += input_ids.numel()
@@ -343,8 +375,17 @@ def fit(
             val_loss = validate(fabric, model, val_dataloader, eval)
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
-            fabric.print(f"iter {iter_num}: val loss {val_loss.item():.4f}, val time: {t1 * 1000:.2f} ms")
-            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+
+            val_loss_tensor = val_loss.detach().clone().to(fabric.device)
+            val_time_tensor = torch.tensor(t1, device=fabric.device, dtype=torch.float32)
+
+            fabric.all_reduce(val_loss_tensor, reduce_op="mean")
+            fabric.all_reduce(val_time_tensor, reduce_op="mean")
+
+            fabric.print(
+                f"iter {iter_num}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
+            )
+            metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
             fabric.log_dict(metrics, step=iter_num)
             fabric.barrier()
 
@@ -367,7 +408,9 @@ def fit(
 
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
-def validate(fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True) -> torch.Tensor:
+def validate(
+    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()

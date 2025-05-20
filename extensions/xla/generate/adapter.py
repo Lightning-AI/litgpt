@@ -18,14 +18,15 @@ from litgpt.utils import check_valid_checkpoint_dir, lazy_load
 wd = Path(__file__).parents[3].resolve()
 sys.path.append(str(wd))
 
-from xla.generate.base import generate
-from xla.utils import rank_print
+from xla.generate.base import generate  # noqa: E402
+from xla.utils import rank_print  # noqa: E402
 
 
 def setup(
     prompt: str = "What food do llamas eat?",
     *,
     input: str = "",
+    sys_prompt: Optional[str] = None,
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
@@ -40,6 +41,7 @@ def setup(
     Args:
         prompt: The prompt/instruction (Alpaca style).
         input: Optional input (Alpaca style).
+        sys_prompt: Optional system prompt.
         adapter_path: Path to the checkpoint with trained adapter weights, which are the output of
             `xla/finetune/adapter.py`.
         checkpoint_dir: The path to the checkpoint folder with pretrained model weights.
@@ -52,13 +54,14 @@ def setup(
     devices = XLAAccelerator.auto_device_count()
     strategy = XLAFSDPStrategy(auto_wrap_policy={Block}) if devices > 1 else "auto"
     fabric = L.Fabric(devices=devices, precision=precision, strategy=strategy)
-    fabric.launch(main, prompt, input, adapter_path, checkpoint_dir, max_new_tokens, top_k, temperature)
+    fabric.launch(main, prompt, input, sys_prompt, adapter_path, checkpoint_dir, max_new_tokens, top_k, temperature)
 
 
 def main(
     fabric: L.Fabric,
     prompt: str,
     input: str,
+    sys_prompt: Optional[str],
     adapter_path: Path,
     checkpoint_dir: Path,
     max_new_tokens: int,
@@ -90,7 +93,7 @@ def main(
     tokenizer = Tokenizer(checkpoint_dir)
     # TODO: Load prompt style from checkpoint and apply it here
     prompt_style = Alpaca()
-    prompt = prompt_style.apply(prompt, input=input)
+    prompt = prompt_style.apply(prompt, sys_prompt=sys_prompt, input=input)
     encoded = tokenizer.encode(prompt, device=fabric.device)
     prompt_length = encoded.size(0)
     max_returned_tokens = prompt_length + max_new_tokens

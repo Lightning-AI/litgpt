@@ -8,8 +8,8 @@ from lightning import LightningDataModule
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from litgpt.tokenizer import Tokenizer
 from litgpt.prompts import PromptStyle
+from litgpt.tokenizer import Tokenizer
 
 
 class DataModule(LightningDataModule):
@@ -90,7 +90,9 @@ class SFTDataset(Dataset):
         if self.mask_prompt:
             labels[: len(encoded_prompt)] = self.ignore_index
 
-        raw_token_count = len(self.tokenizer.encode(example["instruction"], max_length=self.max_seq_length)) + len(encoded_response)
+        raw_token_count = len(self.tokenizer.encode(example["instruction"], max_length=self.max_seq_length)) + len(
+            encoded_response
+        )
 
         return {
             "input_ids": encoded_prompt_and_response,
@@ -98,7 +100,7 @@ class SFTDataset(Dataset):
             "token_counts": {
                 "raw": raw_token_count,
                 "raw_plus_prompt_template": len(encoded_prompt_and_response),
-            }
+            },
         }
 
 
@@ -115,7 +117,6 @@ def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: 
 def _sft_collate_fn(
     samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
 ) -> Dict[str, Tensor]:
-
     batched = {}
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index
@@ -133,8 +134,10 @@ def _sft_collate_fn(
     batched["token_counts"]["raw"] = torch.tensor(  # Token count without padding and without prompt template
         [sample["token_counts"]["raw"] for sample in samples], dtype=torch.int64
     ).unsqueeze(1)
-    batched["token_counts"]["raw_plus_prompt_template"] = torch.tensor(  # Token count without padding but with prompt template
-        [sample["token_counts"]["raw_plus_prompt_template"] for sample in samples], dtype=torch.int64
-    ).unsqueeze(1)
+    batched["token_counts"]["raw_plus_prompt_template"] = (
+        torch.tensor(  # Token count without padding but with prompt template
+            [sample["token_counts"]["raw_plus_prompt_template"] for sample in samples], dtype=torch.int64
+        ).unsqueeze(1)
+    )
 
     return batched

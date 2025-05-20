@@ -1,10 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-import sys
 import shutil
+import sys
 from pathlib import Path
 from typing import List, Optional
+
+import pytest
+import torch
 
 # support running without installing as a package, adding extensions to the Python path
 wd = Path(__file__).parent.parent.resolve()
@@ -12,10 +15,8 @@ if wd.is_dir():
     sys.path.append(str(wd))
 else:
     import warnings
-    warnings.warn(f"Could not find extensions directory at {wd}")
 
-import pytest
-import torch
+    warnings.warn(f"Could not find extensions directory at {wd}")
 
 
 @pytest.fixture()
@@ -156,3 +157,14 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
             bold=True,
             purple=True,  # oh yeah, branded pytest messages
         )
+
+    for test in items:
+        if "test_hf_for_nemo" in test.nodeid and "Qwen/Qwen2.5-7B-Instruct" in test.nodeid:
+            test.add_marker(
+                # Don't use `raises=TypeError` because the actual exception is
+                # wrapped inside `torch._dynamo.exc.BackendCompilerFailed`,
+                # which prevents pytest from recognizing it as a TypeError.
+                pytest.mark.xfail(
+                    reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
+                )
+            )
