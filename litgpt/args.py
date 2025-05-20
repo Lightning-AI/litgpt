@@ -96,9 +96,9 @@ class EvalArgs:
 class LogArgs:
     """Logging-related arguments"""
 
-    wandb_project: Optional[str] = None
-    """Wandb project name"""
-    wandb_run: Optional[str] = None
-    """Wandb run name"""
-    wandb_group: Optional[str] = None
-    """Wandb group name"""
+    project: Optional[str] = None
+    """Project name"""
+    run: Optional[str] = None
+    """Run name"""
+    group: Optional[str] = None
+    """Group name"""
