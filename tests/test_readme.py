@@ -34,8 +34,9 @@ def run_command(command):
         raise RuntimeError(error_message) from None
 
 
-def _wait_and_check_response():
-    for _ in range(30):
+def _wait_and_check_response(waiting: int = 30):
+    response_status_code = -1
+    for _ in range(waiting):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=1)
             response_status_code = response.status_code

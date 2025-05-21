@@ -19,9 +19,9 @@ from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf, kill_process_tree
 
 
-def _wait_and_check_response():
+def _wait_and_check_response(waiting: int = 30):
     response_status_code = -1
-    for _ in range(30):
+    for _ in range(waiting):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=10)
             response_status_code = response.status_code
@@ -62,7 +62,7 @@ def test_simple(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    _wait_and_check_response()
+    _wait_and_check_response(waiting=60)
 
     if process:
         kill_process_tree(process.pid)
