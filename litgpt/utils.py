@@ -557,6 +557,7 @@ def choose_logger(
         return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
     if logger_name == "mlflow":
         return MLFlowLogger(experiment_name=name, **kwargs)
+    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
 
 
 def get_argument_names(cls):
