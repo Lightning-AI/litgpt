@@ -54,7 +54,7 @@ optional-dependencies.extra = [
   "huggingface-hub[hf-transfer]>=0.21",
   "litdata==0.2.45",
   # litgpt.deploy:
-  "litserve<=0.2.7",
+  "litserve>=0.2.7",
   "lm-eval>=0.4.2",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
