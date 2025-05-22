@@ -313,7 +313,7 @@ class LLM(torch.nn.Module):
                 total_devices = CUDAAccelerator.auto_device_count()
             else:
                 total_devices = 1
-        elif isinstance(devices, int):
+        elif isinstance(devices, int) and accelerator == "cuda":
             use_devices = calculate_number_of_devices(devices)
             total_devices = CUDAAccelerator.auto_device_count()
             if use_devices > total_devices:
@@ -327,6 +327,8 @@ class LLM(torch.nn.Module):
                 raise NotImplementedError(
                     "Support for multiple devices is currently only implemented for generate_strategy='sequential'|'tensor_parallel'."
                 )
+        elif accelerator == "cpu" or accelerator == "mps":
+            total_devices = 1
 
         else:
             raise ValueError(f"devices argument must be an integer or 'auto', got {devices}")
@@ -335,6 +337,8 @@ class LLM(torch.nn.Module):
 
         if precision is None:
             precision = get_default_supported_precision(training=False)
+
+        print("Precision set", file=sys.stderr)
 
         plugins = None
         if quantize is not None and quantize.startswith("bnb."):
@@ -360,6 +364,8 @@ class LLM(torch.nn.Module):
             if torch.cuda.is_available() and fabric.accelerator.auto_device_count() > 1:
                 check_nvlink_connectivity(fabric)
                 fabric.launch()
+
+        print("Fabric launched", file=sys.stderr)
 
         self.kv_cache_initialized = False
         if generate_strategy is None:
@@ -455,6 +461,7 @@ class LLM(torch.nn.Module):
     def generate(
         self,
         prompt: str,
+        sys_prompt: Optional[str] = None,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
         top_k: Optional[int] = None,
@@ -468,6 +475,8 @@ class LLM(torch.nn.Module):
         Arguments:
             model: The model to use.
             prompt: The prompt string to use for generating the samples.
+            sys_prompt: The system prompt string to use for generating the samples.
+                The system prompt allows the user to provide additional instructions to shape all responses by providing additional context, behavioral guidelines, style, and constraints.
             max_new_tokens: The maximum number of new tokens to return.
             temperature: Scales the predicted logits by 1 / temperature.
             top_k: If specified, only sample among the tokens with the k highest probabilities.
@@ -495,7 +504,7 @@ class LLM(torch.nn.Module):
                 "The model is not initialized yet; use the .distribute() "
                 "or .trainer_setup() method to initialize the model."
             )
-        input_ids = self._text_to_token_ids(prompt)
+        input_ids = self._text_to_token_ids(prompt, sys_prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
@@ -558,9 +567,9 @@ class LLM(torch.nn.Module):
         else:
             return self.preprocessor.decode(outputs)
 
-    def _text_to_token_ids(self, prompt):
+    def _text_to_token_ids(self, prompt: str, sys_prompt: Optional[str] = None) -> torch.Tensor:
         """Utility method to convert a prompt text to token IDs"""
-        prompt = self.prompt_style.apply(prompt)
+        prompt = self.prompt_style.apply(prompt, sys_prompt=sys_prompt)
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
@@ -677,7 +686,7 @@ def pull_request_benchmark_util(model_name="microsoft/phi-2", num_iterations=6):
                 mean_str = "N/A"
                 std_dev_str = "N/A"
 
-            markdown_table += f"| {key:<36} | {first_iteration:<15} | " f"{mean_str:<17} | {std_dev_str:<23} |\n"
+            markdown_table += f"| {key:<36} | {first_iteration:<15} | {mean_str:<17} | {std_dev_str:<23} |\n"
         print(markdown_table)
 
     import subprocess

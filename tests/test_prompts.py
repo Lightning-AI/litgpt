@@ -1,5 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+from typing import Optional
+
+import pytest
 import yaml
 
 import litgpt.config
@@ -8,6 +11,7 @@ from litgpt.prompts import (
     Alpaca,
     Default,
     Llama3,
+    Phi3,
     PromptStyle,
     has_prompt_style,
     load_prompt_style,
@@ -20,6 +24,26 @@ def test_default_prompt_style(mock_tokenizer):
     prompt_style = Default()
     prompt = "This is a test prompt."
     assert prompt_style.apply(prompt) == prompt
+    assert prompt_style.stop_tokens(mock_tokenizer) == ([mock_tokenizer.eos_id],)
+
+
+@pytest.mark.parametrize("sys_prompt", [None, "You are a helpful coding assistant."])
+def test_sys_prompt(mock_tokenizer, sys_prompt: Optional[str]):
+    prompt_style = Phi3()
+    prompt = "This is a test prompt."
+    default_sys_prompt = "You are a helpful assistant."
+    response = f"<|system|>\n{sys_prompt or default_sys_prompt}<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
+    assert prompt_style.apply(prompt, sys_prompt=sys_prompt) == response
+    assert prompt_style.stop_tokens(mock_tokenizer) == ([mock_tokenizer.eos_id],)
+
+
+@pytest.mark.parametrize("sys_prompt", [None, "You are a helpful coding assistant."])
+def test_sys_prompt_with_kwargs(mock_tokenizer, sys_prompt: Optional[str]):
+    prompt_style = Phi3()
+    prompt = "This is a test prompt."
+    default_sys_prompt = "You are a helpful assistant."
+    response = f"<|system|>\n{sys_prompt or default_sys_prompt}<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
+    assert prompt_style.apply(prompt, sys_prompt=sys_prompt, test=1) == response
     assert prompt_style.stop_tokens(mock_tokenizer) == ([mock_tokenizer.eos_id],)
 
 
@@ -78,7 +102,7 @@ def test_apply_prompts():
 
 
 class CustomPromptStyle(PromptStyle):
-    def apply(self, prompt, **kwargs):
+    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs) -> str:
         return prompt
 
 
@@ -89,7 +113,7 @@ def test_save_load_prompt_style(tmp_path):
     assert not has_prompt_style(checkpoint_dir)
     save_prompt_style("alpaca", checkpoint_dir)
     assert has_prompt_style(checkpoint_dir)
-    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
     assert contents == {"class_path": "litgpt.prompts.Alpaca"}
     loaded = load_prompt_style(checkpoint_dir)
@@ -99,7 +123,7 @@ def test_save_load_prompt_style(tmp_path):
     checkpoint_dir = tmp_path / "custom"
     checkpoint_dir.mkdir()
     save_prompt_style(CustomPromptStyle(), checkpoint_dir)
-    with open(checkpoint_dir / "prompt_style.yaml", "r", encoding="utf-8") as file:
+    with open(checkpoint_dir / "prompt_style.yaml", encoding="utf-8") as file:
         contents = yaml.safe_load(file)
     assert contents == {"class_path": "test_prompts.CustomPromptStyle"}
     loaded = load_prompt_style(checkpoint_dir)

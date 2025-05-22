@@ -66,7 +66,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -143,7 +143,7 @@ def setup(
     fabric.launch()
 
     fabric.print(pprint.pformat(hparams))
-    if logger_name in ("tensorboard", "wandb"):
+    if logger_name in ("tensorboard", "wandb", "mlflow"):
         fabric.logger.log_hyperparams(hparams)
 
     main(
@@ -228,6 +228,19 @@ def main(
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
+
+    # work around PyTorch issue https://github.com/pytorch/pytorch/issues/152162
+    # which does not like the lazy initialization to be called in dynamo.
+    # Happens with PyTorch 2.7.
+    if (
+        torch.__version__.startswith("2.7.")
+        and (model._forward_module.__class__.__name__ == "OptimizedModule")
+        and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
+    ):
+        from torch.distributed.fsdp._runtime_utils import _root_pre_forward
+
+        _root_pre_forward(model._forward_module._orig_mod, model._forward_module._orig_mod, [], {})
+
     fit(
         fabric=fabric,
         devices=devices,
@@ -251,7 +264,7 @@ def main(
     fabric.print(separator)
     fabric.print("| Performance")
     fabric.print(f"| - Total tokens  : {total_tokens:,}")
-    fabric.print(f"| - Training Time : {(time.perf_counter()-train_time):.2f} s")
+    fabric.print(f"| - Training Time : {(time.perf_counter() - train_time):.2f} s")
     fabric.print(f"| - Tok/sec       : {total_tokens / train_time:.2f} tok/s")
     fabric.print("| " + "-" * 40)
 
@@ -366,7 +379,7 @@ def fit(
             if isinstance(val_loss, float):
                 val_loss = f"{val_loss:.3f}"
             fabric.print(
-                f"Epoch {metrics['epoch']+1} | iter {metrics['iter']} step {metrics['step']} |"
+                f"Epoch {metrics['epoch'] + 1} | iter {metrics['iter']} step {metrics['step']} |"
                 f" loss train: {metrics['loss']:.3f},"
                 f" val: {val_loss} |"
                 f" iter time: {metrics['iter_time'] * 1000:.2f} ms"

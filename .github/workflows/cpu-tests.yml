@@ -6,11 +6,12 @@ on:
   pull_request_target:
     branches: [main]
     types: [opened, reopened, ready_for_review, labeled, synchronize]
+  pull_request: {} # todo
   workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
 
 defaults:
   run:
@@ -28,13 +29,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-22.04", "macOS-14", "windows-2022"]
+        os: ["ubuntu-22.04", "ubuntu-24.04", "macOS-14", "windows-2022"]
         python-version: ["3.10"]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout generic
+        uses: actions/checkout@v4
         if: github.event_name != 'pull_request_target'
-      - uses: actions/checkout@v4
+      - name: Checkout for `pull_request_target`
+        uses: actions/checkout@v4
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -59,20 +62,29 @@ jobs:
           python -c "$modules"
 
   pytester:
+    # skip PR trigger if secrets are not shared as for all forked PRs
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
+      )
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: ["ubuntu-22.04"]
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
           - { os: "macOS-14", python-version: "3.9" }
           - { os: "windows-2022", python-version: "3.9" }
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout generic
+        uses: actions/checkout@v4
         if: github.event_name != 'pull_request_target'
-      - uses: actions/checkout@v4
+      - name: Checkout for `pull_request_target`
+        uses: actions/checkout@v4
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -88,11 +100,11 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache-${{ runner.os }}-${{ matrix.python-version }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
           restore-keys: |
-            hf-cache-${{ runner.os }}-${{ matrix.python-version }}
-            hf-cache-${{ runner.os }}-
-            hf-cache-
+            hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+            hf-cache_${{ runner.os }}-
+            hf-cache_
 
       - name: Install dependencies
         run: |
@@ -112,7 +124,12 @@ jobs:
   testing-guardian:
     runs-on: ubuntu-latest
     needs: [pytester, testing-imports]
-    if: always()
+    if: |
+      github.event_name == 'pull_request_target' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
+      )
     steps:
       - run: echo "${{ needs.pytester.result }}"
       - name: failing...

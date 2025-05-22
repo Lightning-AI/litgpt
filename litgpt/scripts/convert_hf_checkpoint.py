@@ -4,6 +4,7 @@ import gc
 import json
 import os
 import re
+import warnings
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
@@ -255,6 +256,87 @@ def copy_weights_gemma_2(
             qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
             weight_name, weight_type = from_name.split(".")[-2:]
             qkv[weight_type][weight_name] = param
+        if to_name is None:
+            continue
+        to_name = to_name.format(*ids)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                # qkv is split across different .bin files
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
+            qkv = torch.cat((q, k, v))
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
+            del qkv_weights[i][weight_type]
+
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+
+
+def copy_weights_gemma_3(
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False,
+    config: Optional[Config] = None,
+) -> None:
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+        "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+        "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.post_attention_norm.weight",
+        "model.layers.{}.pre_feedforward_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.layers.{}.post_feedforward_layernorm.weight": "transformer.h.{}.post_mlp_norm.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+        "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.norm_q.weight",
+        "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
+    }
+
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+    # gemma3 4b+ are multimodel models, but we are only loading the text weights
+    is_multimodal = any(k.startswith("language_model") for k in hf_weights)
+    if is_multimodal:
+        warnings.warn("For Gemma3 models only the text component is supported.")
+        weight_map = {f"language_model.{k}": v for k, v in weight_map.items()}
+    for from_name, param in hf_weights.items():
+        if from_name.startswith("vision_tower") or from_name.startswith("multi_modal_projector"):
+            continue
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        to_name = weight_map[name_template]
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+        # in multimodal models, the text weights are the first part of the weights
+        if is_multimodal and to_name == "transformer.wte.weight" and config is not None:
+            param = param[: config.vocab_size]
+        if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
+            weight_name, weight_type = from_name.split(".")[-2:]
+            qkv[weight_type][weight_name] = param
+
         if to_name is None:
             continue
         to_name = to_name.format(*ids)
@@ -610,6 +692,9 @@ def convert_hf_checkpoint(
     elif model_name.lower().startswith("gemma-2"):
         qkv_weights = {}
         copy_fn = partial(copy_weights_gemma_2, qkv_weights)
+    elif model_name.lower().startswith("gemma-3"):
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_gemma_3, qkv_weights, config=config)
     elif model_name.lower().startswith("phi"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
