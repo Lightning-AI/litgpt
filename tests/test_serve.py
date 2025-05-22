@@ -20,17 +20,18 @@ from litgpt.utils import _RunIf, kill_process_tree
 
 
 def _wait_and_check_response(waiting: int = 30):
-    response_status_code, ex = -1, None
+    response_status_code, err = -1, None
     for _ in range(waiting):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=10)
             response_status_code = response.status_code
         except (MaxRetryError, requests.exceptions.ConnectionError) as ex:
             response_status_code = -1
+            err = str(ex)
         if response_status_code == 200:
             break
         time.sleep(1)
-    assert response_status_code == 200, f"Server did not respond as expected. Error: {ex}"
+    assert response_status_code == 200, f"Server did not respond as expected. Error: {err}"
 
 
 # todo: try to resolve this issue
