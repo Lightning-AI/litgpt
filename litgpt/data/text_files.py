@@ -51,6 +51,7 @@ class TextFiles(DataModule):
 
     def prepare_data(self) -> None:
         from litdata import optimize
+        from litdata.streaming import TokensLoader
 
         train_files = sorted(glob.glob(str(self.train_data_path / "*.txt")))
         assert len(train_files) > 0, f"No .txt files found in train data {train_files}"
@@ -76,6 +77,7 @@ class TextFiles(DataModule):
                 output_dir=str(self.out_path_train),
                 num_workers=use_workers,
                 chunk_bytes="50MB",
+                item_loader=TokensLoader(block_size=self.max_seq_length),
             )
         else:
             print(
@@ -93,6 +95,7 @@ class TextFiles(DataModule):
                 output_dir=str(self.out_path_val),
                 num_workers=use_workers,
                 chunk_bytes="50MB",
+                item_loader=TokensLoader(block_size=self.max_seq_length),
             )
         else:
             print(
