@@ -160,27 +160,18 @@ def test_serve_with_openai_spec_missing_chat_template(tmp_path):
     def run_server():
         nonlocal process
         try:
-            process = subprocess.Popen(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
         except subprocess.TimeoutExpired:
             print("Server start-up timeout expired")
-        return None, None
 
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    time.sleep(30)  # Give the server some time to start and raise the error
+    _wait_and_check_response()
 
-    try:
-        stdout = process.stdout.read().strip() if process.stdout else ""
-        stderr = process.stderr.read().strip() if process.stderr else ""
-        output = (stdout or "") + (stderr or "")
-        assert "ValueError: chat_template not found in tokenizer config file." in output, (
-            "Expected ValueError for missing chat_template not found."
-        )
-    finally:
-        if process:
-            kill_process_tree(process.pid)
-        server_thread.join()
+    if process:
+        kill_process_tree(process.pid)
+    server_thread.join()
 
 
 @_RunIf(min_cuda_gpus=1)
