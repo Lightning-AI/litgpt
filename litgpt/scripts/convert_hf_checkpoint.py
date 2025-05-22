@@ -703,7 +703,7 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)
-    elif model_name.lower().startswith(("olmo-2-")):
+    elif model_name.lower().startswith("olmo-2-"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_olmo2, config, qkv_weights)
