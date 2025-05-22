@@ -35,17 +35,18 @@ def run_command(command):
 
 
 def _wait_and_check_response(waiting: int = 30):
-    response_status_code = -1
+    response_status_code, err = -1, None
     for _ in range(waiting):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=1)
             response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
+        except (MaxRetryError, requests.exceptions.ConnectionError) as ex:
             response_status_code = -1
+            err = str(ex)
         if response_status_code == 200:
             break
         time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    assert response_status_code == 200, "Server did not respond as expected. Error: {err}"
 
 
 @pytest.mark.dependency()
