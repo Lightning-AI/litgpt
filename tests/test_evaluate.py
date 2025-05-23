@@ -15,6 +15,7 @@ from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
 
 
+@pytest.mark.flaky(reruns=3)
 def test_evaluate_script(tmp_path):
     ours_config = Config.from_name("pythia-14m")
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)

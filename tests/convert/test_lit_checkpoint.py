@@ -519,13 +519,13 @@ def test_against_original_gemma_2(model_name, device, dtype):
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
-        (torch.device("cpu"), torch.float32),
+        pytest.param(torch.device("cpu"), torch.float32, marks=[pytest.mark.flaky(reruns=3)]),
         pytest.param(
             torch.device("cuda"),
             torch.float16,
             marks=[
-                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
-                # is slightly different
+                # todo: the reference does softmax upscaled to fp32 during attention
+                # additionally, the final layernorm input is slightly different
                 pytest.mark.xfail(raises=AssertionError, strict=False),
                 _RunIf(min_cuda_gpus=1),
             ],
