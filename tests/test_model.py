@@ -1056,8 +1056,6 @@ def test_against_original_qwen_3(model_name, device, dtype):
 
     theirs_model = Qwen3ForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
-    # Gemma weights are shipped without `lm_head.weight`
-    theirs_state_dict.pop("lm_head.weight")
     state_dict = {}
     copy_weights_qwen_3(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config).to(device)
