@@ -8,7 +8,7 @@
 <pre>
 ✅ From scratch implementations      ✅ No abstractions         ✅ Beginner friendly
    ✅ Flash attention                   ✅ FSDP                    ✅ LoRA, QLoRA, Adapter
-✅ Reduce GPU memory (fp4/8/16/32)   ✅ 1-1000+ GPUs/TPUs       ✅ 20+ LLMs
+✅ Reduce GPU memory (fp4/8/16/32)   ✅ 1-1000+ GPUs/TPUs       ✅ 20+ LLMs         
 </pre>
 
 
