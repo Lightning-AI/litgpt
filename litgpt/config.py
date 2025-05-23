@@ -2466,7 +2466,7 @@ qwen_3 = [
         name="Qwen3-8B",
         hf_config=dict(org="Qwen", name="Qwen3-8B"),
         block_size=40960,
-        vocab_size=151936,
+        vocab_size=151643,
         padded_vocab_size=151936,
         n_layer=36,
         n_head=32,
