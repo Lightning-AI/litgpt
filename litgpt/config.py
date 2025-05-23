@@ -9,7 +9,18 @@ import torch
 import yaml
 from typing_extensions import Self
 
-from litgpt.utils import find_multiple
+
+def find_multiple(n: int, k: int) -> int:
+    """Utility function for finding the nearest value to n which is a multiple of k.
+
+    NOTE: We define this function in this module rather than `litgpt.utils` so that users can import
+    this file to do configuration manipulations in Python environments which do not include all the dependencies
+    demanded by `litgpt.utils`.
+    """
+    assert k > 0
+    if n % k == 0:
+        return n
+    return n + k - (n % k)
 
 
 @dataclass
@@ -1075,7 +1086,7 @@ gemma3 = [
         sliding_window_size=512,
         # 5 local layers for every global layer
         sliding_window_indices=[0 if (i + 1) % 6 == 0 else 1 for i in range(26)],
-        intermediate_size=21504,
+        intermediate_size=6912,
         n_embd=1152,
         n_layer=26,
         n_head=4,
