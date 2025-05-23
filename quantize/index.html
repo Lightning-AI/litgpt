@@ -1,0 +1,1150 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../python-api/">
+      
+      
+        <link rel="next" href="../resource-tables/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>Quantize the model - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#quantize-the-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Quantize the model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Baseline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbnf4" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.nf4
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbnf4-dq" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.nf4-dq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbfp4" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.fp4
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbfp4-dq" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.fp4-dq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbint8" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.int8
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Baseline
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbnf4" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.nf4
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbnf4-dq" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.nf4-dq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbfp4" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.fp4
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbfp4-dq" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.fp4-dq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bnbint8" class="md-nav__link">
+    <span class="md-ellipsis">
+      bnb.int8
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="quantize-the-model">Quantize the model</h1>
+<p>This document provides different strategies for quantizing the various models available in LitGPT to reduce GPU memory usage, which is useful for running larger models on certain GPU hardware.</p>
+<p><strong>All the examples below were run on an A100 40GB GPU with CUDA 12.1.</strong></p>
+<blockquote>
+<p>[!NOTE]
+Quantization also supports finetuning via <a href="../finetune_lora/">QLoRA</a></p>
+</blockquote>
+<h2 id="baseline">Baseline</h2>
+<p>It's useful to start with a baseline to have a reference point for memory savings via the various quantization methods.</p>
+<pre><code class="language-bash">litgpt generate tiiuae/falcon-7b \
+  --precision 32-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 6.93 sec total, 36.96 tokens/sec.
+Memory used: 28.95 GB
+</code></pre>
+<p>First, using a lower precision compared to 32-bit float can result in two times reduced memory consumption. You can either try setting <code>--precision 16-true</code> for regular 16-bit precision or  <code>--precision bf16-true</code> if your GPU supports brain-float 16-bit precision. (<a href="https://lightning.ai/courses/deep-learning-fundamentals/9.0-overview-techniques-for-speeding-up-model-training/unit-9.1-accelerated-model-training-via-mixed-precision-training/">This brief video</a> explains the difference between regular 16-bit and bf16-bit precision.)</p>
+<p>In short, when <code>--precision bf16-true</code> or <code>--precision 16-true</code> is used, the model weights will automatically be converted and consume less memory.
+However, this might not be enough for large models or when using GPUs with limited memory.</p>
+<pre><code class="language-bash">litgpt generate tiiuae/falcon-7b \
+  --precision bf16-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 5.37 sec total, 47.66 tokens/sec.
+Memory used: 14.50 GB
+</code></pre>
+<p>To reduce the memory requirements further, LitGPT supports several quantization techniques, which are shown below.</p>
+<blockquote>
+<p>[!TIP]
+Most quantization examples below also use the <code>--precision bf16-true</code> setting explained above. If your GPU does not support <code>bfloat16</code>, you can change it to <code>--precision 16-true</code>.</p>
+</blockquote>
+<h2 id="bnbnf4"><code>bnb.nf4</code></h2>
+<p>Enabled with <a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>. Check out the <a href="https://arxiv.org/abs/2305.14314v1">paper</a> to learn more about how it works.</p>
+<blockquote>
+<p>[!IMPORTANT]
+<code>bitsandbytes</code> only supports <code>CUDA</code> devices and the <code>Linux</code> operating system.
+Windows users should use <a href="https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl">WSL2</a>.</p>
+</blockquote>
+<p>Uses the normalized float 4 (nf4) data type. This is recommended over "fp4" based on the paper's experimental results and theoretical analysis.</p>
+<pre><code class="language-bash">pip install bitsandbytes
+
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.nf4 \
+  --precision bf16-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 6.80 sec total, 37.62 tokens/sec
+Memory used: 5.72 GB
+</code></pre>
+<h2 id="bnbnf4-dq"><code>bnb.nf4-dq</code></h2>
+<p>Enabled with <a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>. Check out the <a href="https://arxiv.org/abs/2305.14314v1">paper</a> to learn more about how it works.</p>
+<p>"dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
+In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).</p>
+<pre><code class="language-bash">pip install bitsandbytes
+
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.nf4-dq \
+  --precision bf16-true \
+  --max_new_tokens 256
+
+...
+Time for inference 1: 8.09 sec total, 30.87 tokens/sec
+Memory used: 5.38 GB
+</code></pre>
+<h2 id="bnbfp4"><code>bnb.fp4</code></h2>
+<p>Enabled with <a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>. Check out the <a href="https://arxiv.org/abs/2305.14314v1">paper</a> to learn more about how it works.</p>
+<p>Uses pure FP4 quantization.</p>
+<pre><code class="language-bash">pip install bitsandbytes
+
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.fp4 \
+  --precision bf16-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 6.92 sec total, 36.98 tokens/sec
+Memory used: 5.72 GB
+</code></pre>
+<h2 id="bnbfp4-dq"><code>bnb.fp4-dq</code></h2>
+<p>Enabled with <a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>. Check out the <a href="https://arxiv.org/abs/2305.14314v1">paper</a> to learn more about how it works.</p>
+<p>"dq" stands for "Double Quantization" which reduces the average memory footprint by quantizing the quantization constants.
+In average, this amounts to about 0.37 bits per parameter (approximately 3 GB for a 65B model).</p>
+<pre><code class="language-bash">pip install bitsandbytes
+
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.fp4-dq \
+  --precision bf16-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 10.02 sec total, 25.54 tokens/sec
+Memory used: 5.38 GB
+</code></pre>
+<h2 id="bnbint8"><code>bnb.int8</code></h2>
+<p>Enabled with <a href="https://github.com/TimDettmers/bitsandbytes">bitsandbytes</a>. Check out the <a href="https://arxiv.org/abs/2110.02861">paper</a> to learn more about how it works.</p>
+<pre><code class="language-bash">pip install bitsandbytes
+
+litgpt generate tiiuae/falcon-7b \
+  --quantize bnb.int8 \
+  --precision 16-true \
+  --max_new_tokens 256
+...
+Time for inference 1: 20.22 sec total, 12.66 tokens/sec
+Memory used: 8.70 GB
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,1171 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../download_model_weights/">
+      
+      
+        <link rel="next" href="../finetune/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>LLM Evaluation - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#llm-evaluation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LLM Evaluation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-lm-evaluation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using lm-evaluation-harness
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using lm-evaluation-harness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-litgpt-base-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating LitGPT base models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-lora-finetuned-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating LoRA-finetuned LLMs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-on-a-custom-test-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating on a custom test set
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#using-lm-evaluation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using lm-evaluation-harness
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Using lm-evaluation-harness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-litgpt-base-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating LitGPT base models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-lora-finetuned-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating LoRA-finetuned LLMs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evaluating-on-a-custom-test-set" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating on a custom test set
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="llm-evaluation">LLM Evaluation</h1>
+<p>&nbsp;</p>
+<h2 id="using-lm-evaluation-harness">Using lm-evaluation-harness</h2>
+<p>You can evaluate LitGPT using <a href="https://github.com/EleutherAI/lm-evaluation-harness">EleutherAI's lm-eval</a> framework with a large number of different evaluation tasks.</p>
+<p>You need to install the <code>lm-eval</code> framework first:</p>
+<pre><code class="language-bash">pip install lm_eval
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="evaluating-litgpt-base-models">Evaluating LitGPT base models</h3>
+<p>Suppose you downloaded a base model that we want to evaluate. Here, we use the <code>microsoft/phi-2</code> model:</p>
+<pre><code class="language-bash">litgpt download microsoft/phi-2
+</code></pre>
+<p>The download command above will save the model to the <code>checkpoints/microsoft/phi-2</code> directory, which we can
+specify in the following evaluation command:</p>
+<pre><code>litgpt evaluate microsoft/phi-2/ \
+  --batch_size 4 \
+  --tasks &quot;hellaswag,truthfulqa_mc2,mmlu&quot; \
+  --out_dir evaluate_model/
+</code></pre>
+<p>The resulting output is as follows:</p>
+<pre><code>...
+|---------------------------------------|-------|------|-----:|--------|-----:|---|-----:|
+...
+|truthfulqa_mc2                         |      2|none  |     0|acc     |0.4656|±  |0.0164|
+|hellaswag                              |      1|none  |     0|acc     |0.2569|±  |0.0044|
+|                                       |       |none  |     0|acc_norm|0.2632|±  |0.0044|
+
+|      Groups      |Version|Filter|n-shot|Metric|Value |   |Stderr|
+|------------------|-------|------|-----:|------|-----:|---|-----:|
+|mmlu              |N/A    |none  |     0|acc   |0.2434|±  |0.0036|
+| - humanities     |N/A    |none  |     0|acc   |0.2578|±  |0.0064|
+| - other          |N/A    |none  |     0|acc   |0.2401|±  |0.0077|
+| - social_sciences|N/A    |none  |     0|acc   |0.2301|±  |0.0076|
+| - stem           |N/A    |none  |     0|acc   |0.2382|±  |0.0076|
+</code></pre>
+<p>Please note that the <code>litgpt evaluate</code> command run an internal model conversion.
+This is only necessary the first time you want to evaluate a model, and it will skip the
+conversion steps if you run the <code>litgpt evaluate</code> on the same checkpoint directory again.</p>
+<p>In some cases, for example, if you modified the model in the <code>checkpoint_dir</code> since the first <code>litgpt evaluate</code>
+call, you need to use the <code>--force_conversion</code> flag to to update the files used by litgpt evaluate accordingly:</p>
+<pre><code>litgpt evaluate microsoft/phi-2/ \
+  --batch_size 4 \
+  --out_dir evaluate_model/ \
+  --tasks &quot;hellaswag,truthfulqa_mc2,mmlu&quot; \
+  --force_conversion true
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Run <code>litgpt evaluate list</code> to print a list
+of the supported tasks. To filter for a specific subset of tasks, e.g., MMLU, use <code>litgpt evaluate list | grep mmlu</code>.</p>
+<p>[!TIP]
+The evaluation may take a long time, and for testing purpoes, you may want to reduce the number of tasks
+or set a limit for the number of examples per task, for example, <code>--limit 10</code>.</p>
+</blockquote>
+<p>&nbsp;</p>
+<h3 id="evaluating-lora-finetuned-llms">Evaluating LoRA-finetuned LLMs</h3>
+<p>No further conversion is necessary when evaluating LoRA-finetuned models as the <code>finetune_lora</code> command already prepares the necessary merged model files:</p>
+<pre><code class="language-bash">litgpt finetune_lora microsoft/phi-2 \
+  --out_dir lora_model
+</code></pre>
+<p>&nbsp;</p>
+<pre><code class="language-bash">litgpt evaluate lora_model/final \
+  --batch_size 4 \
+  --tasks &quot;hellaswag,truthfulqa_mc2,mmlu&quot; \
+  --out_dir evaluate_model/ \
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="evaluating-on-a-custom-test-set">Evaluating on a custom test set</h3>
+<p>There is currently no built-in function to evaluate models on custom test sets. However, this section describes a general approach that users can take to evaluate the responses of a model using another LLM.</p>
+<p>Suppose you have a test dataset with the following structure:</p>
+<pre><code class="language-python">test_data = [
+    {
+        &quot;instruction&quot;: &quot;Name the author of 'Pride and Prejudice'.&quot;,
+        &quot;input&quot;: &quot;&quot;,
+        &quot;output&quot;: &quot;Jane Austen.&quot;
+    },
+    {
+        &quot;instruction&quot;: &quot;Pick out the adjective from the following list.&quot;,
+        &quot;input&quot;: &quot;run, tall, quickly&quot;,
+        &quot;output&quot;: &quot;The correct adjective from the list is 'tall.'&quot;
+    },
+]
+</code></pre>
+<p>For simplicity, the dictionary above only contains two entries. In practice, it is recommended to use test datasets that contain at least 100 entries (ideally 1000 or more).</p>
+<p>If your dataset is stored in JSON format, use the following code to load it:</p>
+<pre><code class="language-python">with open(&quot;test_data.json&quot;, &quot;r&quot;) as file:
+    test_data = json.load(file)
+</code></pre>
+<p>Next, it is recommended to format the dataset according to a prompt style. For example, to use the <code>Alpaca</code> prompt style, use the following code:</p>
+<pre><code class="language-python">from litgpt.prompts import Alpaca
+
+prompt_style = Alpaca()
+prompt_style.apply(prompt=test_data[0][&quot;instruction&quot;], **test_data[0])
+</code></pre>
+<p>which returns</p>
+<pre><code>&quot;Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nName the author of 'Pride and Prejudice'.\n\n### Response:\n
+</code></pre>
+<p>Next, load the LLM you want to evaluate. For this example, we use <code>phi-2</code>:</p>
+<pre><code class="language-python">from litgpt import LLM
+
+llm = LLM.load(&quot;microsoft/phi-2&quot;)
+</code></pre>
+<p>Then, using the loaded model, we add the test set responses to the dataset:</p>
+<pre><code class="language-python">from tqdm import trange
+
+
+for i in trange(len(test_data)):
+    response = llm.generate(prompt_style.apply(prompt=test_data[i][&quot;instruction&quot;], **test_data[i]))
+    test_data[i][&quot;response&quot;] = response
+</code></pre>
+<p>Next, we use a second LLM to calculate the response quality on a scale from 0 to 100. It is recommended to use the 70B Llama 3 instruction-fintuned model for this task, or the smaller 8B Llama 3 model, which is more resource-efficient:</p>
+<pre><code class="language-python">del llm # delete previous `llm` to free up GPU memory
+scorer = LLM.load(&quot;meta-llama/Meta-Llama-3-8B-Instruct&quot;, access_token=&quot;...&quot;)
+</code></pre>
+<p>Then, based on this LLM, we calculate the response quality with the following function:</p>
+<pre><code class="language-python">from tqdm import tqdm
+
+
+def generate_model_scores(data_dict, model, response_field=&quot;response&quot;, target_field=&quot;output&quot;):
+    scores = []
+    for entry in tqdm(data_dict, desc=&quot;Scoring entries&quot;):
+        prompt = (
+            f&quot;Given the input `{format_input(entry)}` &quot;
+            f&quot;and correct output `{entry[target_field]}`, &quot;
+            f&quot;score the model response `{entry[response_field]}`&quot;
+            f&quot; on a scale from 0 to 100, where 100 is the best score. &quot;
+            f&quot;Respond with the integer number only.&quot;
+        )
+        score = model.generate(prompt, max_new_tokens=50)
+        try:
+            scores.append(int(score))
+        except ValueError:
+            continue
+
+    return scores
+</code></pre>
+<pre><code class="language-python">scores = generate_model_scores(test_data, model=scorer)
+print(f&quot;\n{llm}&quot;)
+print(f&quot;Number of scores: {len(scores)} of {len(test_data)}&quot;)
+print(f&quot;Average score: {sum(scores)/len(scores):.2f}\n&quot;)
+</code></pre>
+<p>This will print out the average score on all test set entries:</p>
+<pre><code>Scoring entries: 100%|██████████| 2/2 [00:00&lt;00:00,  4.37it/s]
+
+Number of scores: 2 of 2
+Average score: 47.50
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>
