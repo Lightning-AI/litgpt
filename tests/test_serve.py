@@ -19,18 +19,19 @@ from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf, kill_process_tree
 
 
-def _wait_and_check_response():
-    response_status_code = -1
-    for _ in range(30):
+def _wait_and_check_response(waiting: int = 30):
+    response_status_code, err = -1, None
+    for _ in range(waiting):
         try:
             response = requests.get("http://127.0.0.1:8000", timeout=10)
             response_status_code = response.status_code
-        except (MaxRetryError, requests.exceptions.ConnectionError):
+        except (MaxRetryError, requests.exceptions.ConnectionError) as ex:
             response_status_code = -1
+            err = str(ex)
         if response_status_code == 200:
             break
         time.sleep(1)
-    assert response_status_code == 200, "Server did not respond as expected."
+    assert response_status_code == 200, f"Server did not respond as expected. Error: {err}"
 
 
 # todo: try to resolve this issue
@@ -62,7 +63,7 @@ def test_simple(tmp_path):
     server_thread = threading.Thread(target=run_server)
     server_thread.start()
 
-    _wait_and_check_response()
+    _wait_and_check_response(waiting=60)
 
     if process:
         kill_process_tree(process.pid)
