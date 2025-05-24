@@ -2568,10 +2568,18 @@ qwen_3 = [
         rope_base=1000000,
         norm_qk=True,
     ),
+]
+for c in qwen_3:
+    for kind in ("", "-Base"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+qwen_3_32b = [
     # https://huggingface.co/Qwen/Qwen3-32B/blob/main/config.json
     dict(
-        name="Qwen3-32B{}",
-        hf_config=dict(org="Qwen", name="Qwen3-32B{}"),
+        name="Qwen3-32B",
+        hf_config=dict(org="Qwen", name="Qwen3-32B"),
         block_size=40960,
         vocab_size=151643,
         padded_vocab_size=151936,
@@ -2591,12 +2599,7 @@ qwen_3 = [
         norm_qk=True,
     ),
 ]
-for c in qwen_3:
-    for kind in ("", "-Base"):
-        copy = deepcopy(c)
-        copy["name"] = c["name"].format(kind)
-        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
-        configs.append(copy)
+configs.extend(qwen_3_32b)
 
 
 #############
