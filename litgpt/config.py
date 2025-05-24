@@ -2461,10 +2461,75 @@ qwq = [
 configs.extend(qwq)
 
 qwen_3 = [
+    # https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json
+    dict(
+        name="Qwen3-0.6B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-0.6B{}"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=16,
+        n_embd=1024,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=3072,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        head_size=128,
+        norm_qk=True,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-1.7B/blob/main/config.json
+    dict(
+        name="Qwen3-1.7B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-1.7B{}"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=28,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=6144,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-4B/blob/main/config.json
+    dict(
+        name="Qwen3-4B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-4B{}"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=32,
+        n_embd=2560,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=9728,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        head_size=128,
+        norm_qk=True,
+    ),
     # https://huggingface.co/Qwen/Qwen3-8B/blob/main/config.json
     dict(
-        name="Qwen3-8B",
-        hf_config=dict(org="Qwen", name="Qwen3-8B"),
+        name="Qwen3-8B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-8B{}"),
         block_size=40960,
         vocab_size=151643,
         padded_vocab_size=151936,
@@ -2482,9 +2547,57 @@ qwen_3 = [
         rope_base=1000000,
         norm_qk=True,
     ),
+    # https://huggingface.co/Qwen/Qwen3-14B/blob/main/config.json
+    dict(
+        name="Qwen3-14B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-14B{}"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=17408,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-32B/blob/main/config.json
+    dict(
+        name="Qwen3-32B{}",
+        hf_config=dict(org="Qwen", name="Qwen3-32B{}"),
+        block_size=40960,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=64,
+        n_head=64,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=25600,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        head_size=128,
+        norm_qk=True,
+    ),
 ]
+for c in qwen_3:
+    for kind in ("", "-Base"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
-configs.extend(qwen_3)
 
 #############
 # Salamandra
