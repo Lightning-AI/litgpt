@@ -17,7 +17,7 @@ from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
@@ -71,6 +71,7 @@ def setup(
         epochs=5,
         max_seq_length=None,
     ),
+    log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
@@ -125,7 +126,13 @@ def setup(
     )
 
     precision = precision or get_default_supported_precision(training=True)
-    logger = choose_logger(logger_name, out_dir, name=f"finetune-{config.name}", log_interval=train.log_interval)
+    logger = choose_logger(
+        logger_name,
+        out_dir,
+        name=f"finetune-{config.name}",
+        log_interval=train.log_interval,
+        log_args=dataclasses.asdict(log),
+    )
 
     plugins = None
     if quantize is not None and quantize.startswith("bnb."):
