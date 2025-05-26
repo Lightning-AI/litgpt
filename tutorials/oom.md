@@ -36,7 +36,7 @@ However, your hardware may not support such large context lengths. Here's what y
   sample lengths are highly unbalanced, as the presence of a single very long sample would incur a larger memory usage for all other
   shorter samples. For example, the median length of the samples in Alpaca is 110 tokens. Truncating the Alpaca dataset to 256 max tokens reduces the memory requirements of a Falcon 7B model from 23.52 GB to 15.73 GB. For more information about the dataset truncation, please see the *Truncating datasets* section in the [prepare_dataset.md](prepare_dataset.md) tutorial.
 
-Keep in mind that reducing the context length will affect the modelling performance on text sequences longer than the limit.
+Keep in mind that reducing the context length will affect the modeling performance on text sequences longer than the limit.
 
 ### Use lower precision
 
