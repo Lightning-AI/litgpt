@@ -24,6 +24,15 @@ def find_multiple(n: int, k: int) -> int:
 
 
 @dataclass
+class MLAConfig:
+    q_proj_dim: Optional[int] = None
+    kv_proj_dim: Optional[int] = None
+    qk_rope_dim: Optional[int] = None
+    qk_nope_dim: Optional[int] = None
+    v_dim: Optional[int] = None
+
+
+@dataclass
 class Config:
     name: str = ""
     hf_config: dict = field(default_factory=dict)
@@ -45,6 +54,8 @@ class Config:
     # Transformer block (self-attention)
     n_head: int = 32
     head_size: Optional[int] = None
+    latent_attention: Optional[bool] = False
+    mla: MLAConfig = field(default_factory=MLAConfig)
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -82,7 +93,7 @@ class Config:
     # Transformer block (MLP)
     intermediate_size: Optional[int] = None
     bias: bool = True
-    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
+    mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE", "DeepseekV3MoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     n_expert: int = 0
     n_expert_per_token: int = 0

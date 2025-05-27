@@ -11,6 +11,7 @@ from functools import partial
 from typing import Any, List, Optional, Tuple, Union
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from typing_extensions import Self
@@ -272,12 +273,27 @@ class Block(nn.Module):
             )
 
         self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = (
+            CausalSelfAttention(config, block_idx)
+            if not config.latent_attention
+            else MultiHeadLatentAttention(config, block_idx)
+        )
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
         self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.mlp = config.mlp_class(config)
+        if config.mlp_class == "DeepseekV3MoE":
+            self.mlp = (
+                DeepseekV3MoE(config)
+                if (
+                    config.n_expert is not None
+                    and block_idx >= config.first_k_dense_replace
+                    and block_idx % config.moe_layer_freq == 0
+                )
+                else LLaMAMoE(config)
+            )
+        else:
+            self.mlp = config.mlp_class(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -515,6 +531,269 @@ class CausalSelfAttention(nn.Module):
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
 
+class MultiHeadLatentAttention(nn.Module):
+    """
+    Multi-Head Latent Attention (MLA) block from DeepSeekV2 https://arxiv.org/abs/2405.04434
+    """
+
+    def __init__(self, config: Config, block_idx: int) -> None:
+        super().__init__()
+
+        # key-value (2/3) and query (1/2) projection dimensions
+        self.q_proj_dim = config.mla.q_proj_dim or config.n_embd // 2
+        self.kv_proj_dim = config.mla.kv_proj_dim or 2 * config.n_embd // 3
+
+        # qk channel division for RoPE (50%-50%)
+        self.qk_rope_dim = config.mla.qk_rope_dim or config.head_size // 2
+        self.qk_nope_dim = config.mla.qk_nope_dim or config.head_size // 2  # no positional embedding
+
+        self.v_dim = config.v_dim or config.head_size
+
+        # q projections (bottleneck)
+        self.dq = nn.Linear(config.n_embd, self.q_proj_dim, bias=False)  # down-projection
+        self.uq = nn.Linear(
+            self.q_proj_dim, config.n_head * (self.qk_rope_dim + self.qk_nope_dim), bias=False
+        )  # up-projection
+
+        # kv projections
+        self.dkv = nn.Linear(
+            config.n_embd, self.kv_proj_dim + self.qk_rope_dim, bias=False
+        )  # latent dimension for kv + shared key for RoPE
+        self.ukv = nn.Linear(
+            self.kv_proj_dim, config.n_head * (self.v_dim + self.qk_nope_dim), bias=False
+        )  # up-projection only for LoRA part
+
+        # output projection
+        self.proj = nn.Linear(config.n_head * self.v_dim, config.n_embd, bias=False)  # unchanged
+
+        # cache is disabled by default
+        self.kv_cache: Optional[KVCache] = None
+
+        # layer norm for projections
+        if config.norm_qk:
+            self.norm_kv = config.norm_class(self.kv_proj_dim, eps=config.norm_eps)
+            self.norm_q = config.norm_class(self.q_proj_dim, eps=config.norm_eps)
+        else:
+            self.norm_q = self.norm_kv = None
+
+        # configuration
+        self.config = config
+
+    def apply_rope_mla(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        """
+        Applies RoPE transform to `x`. Note that `cos`, `sin` need to have a batch
+        dimension.
+
+        Args:
+            x: Input tensor, `(B, ..., T, head_size)`
+            cos: Cached cosines, `(B, T, head_size)` or `(1, T, head_size)`
+            sin: Cached sines, `(B, T, head_size)` or `(1, T, head_size)`
+
+        Returns:
+            Encoded tensor, `(B, ..., T, head_size)`
+        """
+        if cos.dim() != 3:
+            raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
+        if cos.shape != sin.shape:
+            raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+        print("x shape:", x.shape)
+        print("cos shape:", cos.shape)
+        print("sin shape:", sin.shape)
+        head_size_half = x.size(-1) // 2
+        x1 = x[..., :head_size_half]  # (B, ..., T, head_size/2)
+        x2 = x[..., head_size_half:]  # (B, ..., T, head_size/2)
+        rotated = torch.cat((-x2, x1), dim=-1)  # (B, ..., T, head_size)
+        dims_diff = x.dim() - cos.dim()
+        if dims_diff > 0:
+            # Ensure that shapes of `x`, `cos`, `sin` align
+            new_shape = cos.shape[0:2] + (1,) * dims_diff + cos.shape[2:]
+            print("new_shape:", new_shape)
+            cos = cos.view(*new_shape)
+            sin = sin.view(*new_shape)
+
+        roped = (x * cos) + (rotated * sin)
+        return roped.to(dtype=x.dtype)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        # notation:
+        # - B          | batch size
+        # - T          | time-step (sequence length)
+        # - C          | model's embeddings size (n_embd)
+        # - C*         | attentions's embeddings size
+        # - nh_(q,k,v) | number of heads for query, key and value
+        # - hs         | head size
+
+        B, T, _ = x.size()  # batch size, sequence length
+        print("B:", B)
+        print("T:", T)
+
+        # q projections
+        latent_q = self.dq(x)
+        print("latent_q shape:", latent_q.shape)
+        if self.norm_q:
+            latent_q = self.norm_q(latent_q)
+        q = self.uq(latent_q)
+        q = q.view(B, T, self.config.n_head, self.qk_rope_dim + self.qk_nope_dim)  # (B, T, nh_q, hs)
+        q, q_for_rope = torch.split(q, [self.qk_nope_dim, self.qk_rope_dim], dim=-1)  # split channels for RoPE
+
+        print("q shape:", q.shape)
+        print("cos shape:", cos.shape)
+        print("sin shape:", sin.shape)
+
+        # q decoupled for RoPE
+        q_for_rope = self.apply_rope_mla(q_for_rope[..., : self.config.rope_n_elem], cos, sin)
+
+        # kv projections
+        # if self.kv_cache:  # kv cache
+        #     new_kv = self.dkv(x)
+        #     latent_kv = self.kv_cache(input_pos, new_kv)
+
+        #     if input_pos_maxp1 is not None:
+        #         old_kv = latent_kv[..., :input_pos_maxp1, :]
+        #     else:
+        #         old_kv = latent_kv
+        #     old_kv, old_k_for_rope = torch.split(old_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1)
+        #     new_kv, new_k_for_rope = torch.split(new_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1)
+
+        #     if self.norm_kv:  # normalized separately as in the original implementation
+        #         new_kv = self.norm_kv(new_kv)
+        #         old_kv = self.norm_kv(old_kv)
+
+        #     kv_for_lora = torch.cat([old_kv, new_kv], dim=1)
+        #     k_for_rope = torch.cat([old_k_for_rope, new_k_for_rope], dim=1)
+
+        # else:  # no cache
+        #     latent_kv = self.dkv(x)
+
+        #     kv_for_lora, k_for_rope = torch.split(
+        #         latent_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1
+        #     )  # split LoRA and RoPE additional shared head
+
+        #     if self.norm_kv:
+        #         kv_for_lora = self.norm_kv(kv_for_lora)
+
+        latent_kv = self.dkv(x)
+
+        kv_for_lora, k_for_rope = torch.split(
+            latent_kv, [self.kv_proj_dim, self.qk_rope_dim], dim=-1
+        )  # split LoRA and RoPE additional shared head
+
+        if self.norm_kv:
+            kv_for_lora = self.norm_kv(kv_for_lora)
+
+        # kv projection back
+        kv = self.ukv(kv_for_lora)
+
+        # Split qkv into query, key and value matrices.
+        # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
+        # embedding size (C) into num_heads (nh) and head_size (hs).
+        kv = kv.view(B, -1, self.config.n_head, self.v_dim + self.qk_nope_dim).transpose(1, 2)
+        k, v = torch.split(kv, [self.qk_nope_dim, self.v_dim], dim=-1)
+
+        # k Rope
+        k_for_rope = k_for_rope.view(B, -1, 1, self.qk_rope_dim)  # reshape to make it a 1-head tensor
+        k_for_rope = self.apply_rope_mla(k_for_rope[..., : self.config.rope_n_elem], cos, sin).transpose(1, 2)
+
+        # apply position encoding to each head
+        k_for_rope = k_for_rope.repeat(1, self.config.n_head, 1, 1)
+
+        # split into multiple heads
+        q = torch.cat([q, q_for_rope], dim=-1).transpose(1, 2)  # (B, nh_q, T, hs)
+        k = torch.cat([k, k_for_rope], dim=-1)
+        v = v  # already reshaped before the split
+
+        if input_pos is not None:  # Indicates inference and KV cache usage
+            if not isinstance(self.kv_cache, KVCache):  # Check for the correct cache type
+                raise TypeError("You need to call `gpt.set_kv_cache()` with the appropriate KVCache for MLA.")
+
+            k_full_cached, v_full_cached = self.kv_cache(input_pos, k, v)
+
+            if input_pos_maxp1 is not None:
+                # Subselect along sequence dimension if needed
+                k = k_full_cached[..., :input_pos_maxp1, :]
+                v = v_full_cached[..., :input_pos_maxp1, :]
+            else:
+                k = k_full_cached
+                v = v_full_cached
+
+        # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
+        # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
+        # of size `hs`.
+
+        # Efficient attention using Flash Attention CUDA kernels.
+        # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
+        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
+        y = self.scaled_dot_product_attention(q, k, v, mask)
+
+        # Re-assemble all head outputs side by side.
+        y = y.reshape(B, T, self.v_dim * self.config.n_head)
+
+        # Output projection
+        return self.proj(y)  # (B, T, C)
+
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or (self.qk_rope_dim + self.qk_nope_dim))
+
+        # with softcapping we cannot use SDPA
+        if self.config.attention_logit_softcapping is not None:
+            scores = q @ k.mT * scale
+            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
+            if mask is None:
+                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            scores = scores + mask
+            scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+        else:
+            y = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+            )
+        return y.transpose(1, 2)
+
+    def build_kv_cache(
+        self,
+        batch_size: int,
+        max_seq_length: int,
+        rope_cache_length: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> "KVCache":
+        # Head dimension for K is the sum of its nope and rope parts
+        k_head_dim = self.qk_nope_dim + self.qk_rope_dim
+        # Head dimension for V
+        v_head_dim = self.v_dim
+
+        # To match DeepSeekV3's caching of K/V for all query heads
+        num_cached_kv_heads = self.config.n_head
+
+        k_shape = (batch_size, num_cached_kv_heads, max_seq_length, k_head_dim)
+        v_shape = (batch_size, num_cached_kv_heads, max_seq_length, v_head_dim)
+
+        # Ensure KVCache is the class that stores k and v buffers separately
+        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with legacy checkpoints."""
+
+        for attr in ("weight", "bias"):
+            legacy_key = f"{prefix}attn.{attr}"
+            current_key = f"{prefix}qkv.{attr}"
+            if legacy_key in state_dict:
+                state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
+
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
 class GptNeoxMLP(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
@@ -529,11 +808,14 @@ class GptNeoxMLP(nn.Module):
 
 
 class LLaMAMLP(nn.Module):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, n_embd: Optional[int] = None, intermediate_size: Optional[int] = None) -> None:
         super().__init__()
-        self.fc_1 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = nn.Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.proj = nn.Linear(config.intermediate_size, config.n_embd, bias=config.bias)
+        self.config = config
+        self.n_embd = config.n_embed if n_embd is None else n_embd
+        self.intermediate_size = config.intermediate_size if intermediate_size is None else intermediate_size
+        self.fc_1 = nn.Linear(self.n_embd, self.intermediate_size, bias=config.bias)
+        self.fc_2 = nn.Linear(self.n_embd, self.intermediate_size, bias=config.bias)
+        self.proj = nn.Linear(self.intermediate_size, self.n_embd, bias=config.bias)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -575,6 +857,188 @@ class LLaMAMoE(nn.Module):
             token_idx, expert_idx = torch.where(mask)
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
         return y.view(B, T, C)
+
+
+class DeepseekV3MoEGate(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.top_k = config.num_experts_per_tok
+        self.n_expert = config.n_expert
+        self.routed_scaling_factor = config.routed_scaling_factor
+        self.scoring_func = config.scoring_func
+        self.topk_method = config.topk_method
+        self.n_group = config.n_group
+        self.topk_group = config.topk_group
+
+        # topk selection algorithm
+        self.norm_topk_prob = config.norm_topk_prob
+        self.gating_dim = config.hidden_size
+        self.weight = nn.Parameter(torch.empty((self.n_expert, self.gating_dim)))
+        if self.topk_method == "noaux_tc":
+            self.e_score_correction_bias = nn.Parameter(torch.empty(self.n_expert))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        import torch.nn.init as init
+
+        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+
+    def forward(self, x: torch.Tensor):
+        bsz, seq_len, h = x.shape
+        ### compute gating score
+        x = x.view(-1, h)
+        logits = nn.Linear(x.type(torch.float32), self.weight.type(torch.float32), None)
+
+        if self.scoring_func == "sigmoid":
+            scores = logits.sigmoid()
+        else:
+            raise NotImplementedError(f"insupportable scoring function for MoE gating: {self.scoring_func}")
+
+        ### select top-k experts
+        if self.topk_method == "noaux_tc":
+            assert not self.training
+            scores_for_choice = scores.view(bsz * seq_len, -1) + self.e_score_correction_bias.unsqueeze(0)
+            group_scores = (
+                scores_for_choice.view(bsz * seq_len, self.n_group, -1).topk(2, dim=-1)[0].sum(dim=-1)
+            )  # [n, n_group]
+            group_idx = torch.topk(group_scores, k=self.topk_group, dim=-1, sorted=False)[1]  # [n, top_k_group]
+            group_mask = torch.zeros_like(group_scores)  # [n, n_group]
+            group_mask.scatter_(1, group_idx, 1)  # [n, n_group]
+            score_mask = (
+                group_mask.unsqueeze(-1)
+                .expand(bsz * seq_len, self.n_group, self.n_expert // self.n_group)
+                .reshape(bsz * seq_len, -1)
+            )  # [n, e]
+            tmp_scores = scores_for_choice.masked_fill(~score_mask.bool(), float("-inf"))  # [n, e]
+            _, topk_idx = torch.topk(tmp_scores, k=self.top_k, dim=-1, sorted=False)
+            topk_weight = scores.gather(1, topk_idx)
+        else:
+            raise NotImplementedError(f"insupportable TopK function for MoE gating: {self.topk_method}")
+
+        ### norm gate to sum 1
+        if self.top_k > 1 and self.norm_topk_prob:
+            denominator = topk_weight.sum(dim=-1, keepdim=True) + 1e-20
+            topk_weight = topk_weight / denominator
+        topk_weight = topk_weight * self.routed_scaling_factor  # must multiply the scaling factor
+
+        return topk_idx, topk_weight
+
+
+class DeepseekV3MoE(nn.Module):
+    """
+    A mixed expert module containing shared experts.
+    """
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.num_experts_per_tok = config.n_expert_per_token
+
+        if hasattr(config, "ep_size") and config.ep_size > 1:
+            assert config.ep_size == dist.get_world_size()
+            self.ep_size = config.ep_size
+            self.experts_per_rank = config.n_expert // config.ep_size
+            self.ep_rank = dist.get_rank()
+            self.experts = nn.ModuleList(
+                [
+                    (
+                        LLaMAMLP(config, intermediate_size=config.moe_intermediate_size)
+                        if i >= self.ep_rank * self.experts_per_rank and i < (self.ep_rank + 1) * self.experts_per_rank
+                        else None
+                    )
+                    for i in range(config.n_expert)
+                ]
+            )
+        else:
+            self.ep_size = 1
+            self.experts_per_rank = config.n_expert
+            self.ep_rank = 0
+            self.experts = nn.ModuleList(
+                [LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for i in range(config.n_expert)]
+            )
+        self.gate = DeepseekV3MoEGate(config)
+        if config.n_shared_experts is not None:
+            intermediate_size = config.moe_intermediate_size * config.n_shared_experts
+            self.shared_experts = LLaMAMLP(config=config, intermediate_size=intermediate_size)
+
+    def forward(self, x: torch.Tensor):
+        identity = x
+        orig_shape = x.shape
+        topk_idx, topk_weight = self.gate(x)
+        x = x.view(-1, x.shape[-1])
+        flat_topk_idx = topk_idx.view(-1)
+        if not self.training:
+            y = self.moe_infer(x, topk_idx, topk_weight).view(*orig_shape)
+        if self.config.n_shared_experts is not None:
+            y = y + self.shared_experts(identity)
+        return y
+
+    @torch.no_grad()
+    def moe_infer(self, x, topk_ids, topk_weight):
+        cnts = topk_ids.new_zeros((topk_ids.shape[0], len(self.experts)))
+        cnts.scatter_(1, topk_ids, 1)
+        tokens_per_expert = cnts.sum(dim=0)
+        idxs = topk_ids.view(-1).argsort()
+        sorted_tokens = x[idxs // topk_ids.shape[1]]
+        sorted_tokens_shape = sorted_tokens.shape
+        if self.ep_size > 1:
+            tokens_per_ep_rank = tokens_per_expert.view(self.ep_size, -1).sum(dim=1)
+            tokens_per_expert_group = tokens_per_expert.new_empty(tokens_per_expert.shape[0])
+            dist.all_to_all_single(tokens_per_expert_group, tokens_per_expert)
+            output_splits = tokens_per_expert_group.view(self.ep_size, -1).sum(1).cpu().numpy().tolist()
+            gathered_tokens = sorted_tokens.new_empty(
+                tokens_per_expert_group.sum(dim=0).cpu().item(), sorted_tokens.shape[1]
+            )
+            input_split_sizes = tokens_per_ep_rank.cpu().numpy().tolist()
+            dist.all_to_all(
+                list(gathered_tokens.split(output_splits)),
+                list(sorted_tokens.split(input_split_sizes)),
+            )
+            tokens_per_expert_post_gather = tokens_per_expert_group.view(self.ep_size, self.experts_per_rank).sum(dim=0)
+            gatherd_idxs = np.zeros(shape=(gathered_tokens.shape[0],), dtype=np.int32)
+            s = 0
+            for i, k in enumerate(tokens_per_expert_group.cpu().numpy()):
+                gatherd_idxs[s : s + k] = i % self.experts_per_rank
+                s += k
+            gatherd_idxs = gatherd_idxs.argsort()
+            sorted_tokens = gathered_tokens[gatherd_idxs]
+            tokens_per_expert = tokens_per_expert_post_gather
+        tokens_per_expert = tokens_per_expert.cpu().numpy()
+
+        outputs = []
+        start_idx = 0
+        for i, num_tokens in enumerate(tokens_per_expert):
+            end_idx = start_idx + num_tokens
+            if num_tokens == 0:
+                continue
+            expert = self.experts[i + self.ep_rank * self.experts_per_rank]
+            tokens_for_this_expert = sorted_tokens[start_idx:end_idx]
+            expert_out = expert(tokens_for_this_expert)
+            outputs.append(expert_out)
+            start_idx = end_idx
+
+        outs = torch.cat(outputs, dim=0) if len(outputs) else sorted_tokens.new_empty(0)
+        if self.ep_size > 1:
+            new_x = torch.empty_like(outs)
+            new_x[gatherd_idxs] = outs
+            gathered_tokens = new_x.new_empty(*sorted_tokens_shape)
+            dist.all_to_all(
+                list(gathered_tokens.split(input_split_sizes)),
+                list(new_x.split(output_splits)),
+            )
+            outs = gathered_tokens
+
+        new_x = torch.empty_like(outs)
+        new_x[idxs] = outs
+        final_out = (
+            new_x.view(*topk_ids.shape, -1)
+            .type(topk_weight.dtype)
+            .mul_(topk_weight.unsqueeze(dim=-1))
+            .sum(dim=1)
+            .type(new_x.dtype)
+        )
+        return final_out
 
 
 def build_rope_cache(
