@@ -345,7 +345,7 @@ class OLMo(PromptStyle):
 
 
 class ChatML(PromptStyle):
-    def __init__(self, system_message: str):
+    def __init__(self, system_message: Optional[str] = None):
         self.system_message = system_message
 
     def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
@@ -370,6 +370,11 @@ class QwQ(ChatML):
         super().__init__(
             "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
         )
+
+
+class Qwen3(ChatML):
+    def __init__(self):
+        super().__init__()
 
 
 class SmolLM2(ChatML):
@@ -411,6 +416,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "qwen2.5": Qwen2_5,
     "qwen2.5-math": Qwen2_5_Math,
     "qwq": QwQ,
+    "qwen3": Qwen3,
     "smollm2": SmolLM2,
     "salamandra": Salamandra,
 }
@@ -463,6 +469,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Qwen2_5()
     if re.search(r"QwQ-.*", model_name):
         return QwQ()
+    if re.search(r"Qwen3-.*", model_name):
+        return Qwen3()
     if re.search(r"SmolLM2.*-Instruct", model_name):
         return SmolLM2()
     if re.search(r"salamandra-.*-instruct", model_name):
