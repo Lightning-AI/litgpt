@@ -1,0 +1,1427 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../pretrain_tinyllama/">
+      
+      
+        <link rel="next" href="../quantize/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>LitGPT Python API - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#litgpt-python-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LitGPT Python API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generatechat" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate/Chat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#random-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Random weights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-gpu-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-GPU strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-GPU strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sequential-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sequential strategy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tensor-parallel-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tensor parallel strategy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speed-and-resource-estimates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Speed and resource estimates
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#model-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Model loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generatechat" class="md-nav__link">
+    <span class="md-ellipsis">
+      Generate/Chat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#random-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Random weights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multi-gpu-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-GPU strategies
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Multi-GPU strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sequential-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sequential strategy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tensor-parallel-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tensor parallel strategy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#speed-and-resource-estimates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Speed and resource estimates
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="litgpt-python-api">LitGPT Python API</h1>
+<p>This is a work-in-progress draft describing the current LitGPT Python API (experimental and subject to change).</p>
+<h2 id="model-loading">Model loading</h2>
+<p>Use the <code>LLM.load</code> method to load a model from a LitGPT model checkpoint folder. For example, consider loading a Phi-2 model. If a given checkpoint directory <code>"microsoft/phi-2"</code> does not exist as a local checkpoint directory, the model will be downloaded automatically from the HF Hub (assuming that <code>"microsoft/phi-2"</code> is a valid repository name):</p>
+<pre><code class="language-python">from litgpt import LLM
+
+llm_1 = LLM.load(&quot;microsoft/phi-2&quot;)
+</code></pre>
+<pre><code>config.json: 100%|████████████████████████████████████████████████| 735/735 [00:00&lt;00:00, 7.75MB/s]
+generation_config.json: 100%|█████████████████████████████████████| 124/124 [00:00&lt;00:00, 2.06MB/s]
+model-00001-of-00002.safetensors: 100%|███████████████████████████| 5.00G/5.00G [00:12&lt;00:00, 397MB/s]
+model-00002-of-00002.safetensors: 100%|███████████████████████████| 564M/564M [00:01&lt;00:00, 421MB/s]
+model.safetensors.index.json: 100%|███████████████████████████████| 35.7k/35.7k [00:00&lt;00:00, 115MB/s]
+tokenizer.json: 100%|█████████████████████████████████████████████| 2.11M/2.11M [00:00&lt;00:00, 21.5MB/s]
+tokenizer_config.json: 100%|██████████████████████████████████████| 7.34k/7.34k [00:00&lt;00:00, 80.6MB/s]
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+To get a list of all supported models, execute <code>litgpt download list</code> in the command line terminal.
+&nbsp;
+<br></p>
+</blockquote>
+<p>If you attempt to load the model again, LitGPT will load this model from a local directory since it's already been downloaded:</p>
+<pre><code class="language-python">llm_2 = LLM.load(&quot;microsoft/phi-2&quot;)
+</code></pre>
+<p>If you created a pretrained of finetuned model checkpoint via LitGPT, you can load it in a similar fashion:</p>
+<pre><code class="language-python">my_llm = LLM.load(&quot;path/to/my/local/checkpoint&quot;)
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="generatechat">Generate/Chat</h2>
+<p>Generate output using the <code>.generate</code> method:</p>
+<pre><code class="language-python">from litgpt import LLM
+
+llm = LLM.load(&quot;microsoft/phi-2&quot;)
+
+text = llm.generate(&quot;What do Llamas eat?&quot;, top_k=1, max_new_tokens=30)
+print(text)
+</code></pre>
+<pre><code>Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized digestive system that allows them to efficiently extract
+</code></pre>
+<p>Alternative, stream the response one token at a time:</p>
+<pre><code class="language-python">result = llm.generate(&quot;hi&quot;, stream=True)
+for e in result:
+    print(e, end=&quot;&quot;, flush=True)
+</code></pre>
+<pre><code>Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized digestive system that allows them to efficiently extract
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="random-weights">Random weights</h2>
+<p>To start with random weights, for example, if you plan a pretraining script, initialize the model with <code>init="random""</code>. Note that this requires passing a <code>tokenizer_dir</code> that contains a valid tokenizer file.</p>
+<pre><code class="language-python">from litgpt.api import LLM
+llm = LLM.load(&quot;pythia-160m&quot;, init=&quot;random&quot;, tokenizer_dir=&quot;EleutherAI/pythia-160m&quot;)
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="multi-gpu-strategies">Multi-GPU strategies</h2>
+<p>By default, the model is loaded onto a single GPU. Optionally, you can use the <code>.distribute()</code> method with the "sequential" or "tensor_parallel" <code>generate_strategy</code> settings.</p>
+<h3 id="sequential-strategy">Sequential strategy</h3>
+<p>the <code>generate_strategy="sequential"</code> setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)</p>
+<pre><code class="language-python">from litgpt.api import LLM
+
+llm = LLM.load(
+    &quot;microsoft/phi-2&quot;,
+    distribute=None
+)
+
+llm.distribute(
+    generate_strategy=&quot;sequential&quot;,
+    devices=4,  # Optional setting, otherwise uses all available GPUs
+    fixed_kv_cache_size=256  # Optionally use a small kv-cache to further reduce memory usage
+)
+</code></pre>
+<pre><code>Using 4 devices
+Moving '_forward_module.transformer.h.31' to cuda:3: 100%|██████████| 32/32 [00:00&lt;00:00, 32.71it/s]
+</code></pre>
+<p>After initializing the model, the model can be used via the <code>generate</code> method similar to the default <code>generate_strategy</code> setting:</p>
+<pre><code class="language-python">text = llm.generate(&quot;What do llamas eat?&quot;, max_new_tokens=100)
+print(text)
+</code></pre>
+<pre><code> Llamas are herbivores and their diet consists mainly of grasses, plants, and leaves.
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="tensor-parallel-strategy">Tensor parallel strategy</h3>
+<p>The sequential strategy explained in the previous subsection distributes the model sequentially across GPUs, which allows users to load models that would not fit onto a single GPU. However, due to this method's sequential nature, processing is naturally slower than parallel processing.</p>
+<p>To take advantage of parallel processing via tensor parallelism, you can use the `generate_strategy="tensor_parallel" setting. However, this method has downsides: the initial setup may be slower for large models, and it cannot run in interactive processes such as Jupyter notebooks.</p>
+<pre><code class="language-python">from litgpt.api import LLM
+
+
+if __name__ == &quot;__main__&quot;:
+
+    llm = LLM.load(
+        model=&quot;meta-llama/Meta-Llama-3.1-8B-Instruct&quot;,
+        distribute=None
+    )
+
+    llm.distribute(generate_strategy=&quot;tensor_parallel&quot;, devices=4)
+
+    print(llm.generate(prompt=&quot;What do llamas eat?&quot;))
+    print(llm.generate(prompt=&quot;What is 1+2?&quot;, top_k=1))
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="speed-and-resource-estimates">Speed and resource estimates</h2>
+<p>Use the <code>.benchmark()</code> method to compare the computational performance of different settings. The <code>.benchmark()</code> method takes the same arguments as the <code>.generate()</code> method. For example, we can estimate the speed and GPU memory consumption as follows (the resulting numbers were obtained on an A10G GPU):</p>
+<pre><code class="language-python">from litgpt.api import LLM
+from pprint import pprint
+
+llm = LLM.load(
+    model=&quot;microsoft/phi-2&quot;,
+    distribute=None
+)
+
+llm.distribute(fixed_kv_cache_size=500)
+
+text, bench_d = llm.benchmark(prompt=&quot;What do llamas eat?&quot;, top_k=1, stream=True)
+print(text)
+pprint(bench_d)
+
+
+# Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized
+# digestive system that allows them to efficiently extract nutrients from plant material.
+
+# Using 1 device(s)
+#  Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a unique digestive system that allows them to efficiently extract nutrients from tough plant material.
+
+# {'Inference speed in tokens/sec': [17.617540650112936],
+#  'Seconds to first token': [0.6533610639999097],
+#  'Seconds total': [1.4758019020000575],
+#  'Tokens generated': [26],
+#  'Total GPU memory allocated in GB': [5.923729408]}
+</code></pre>
+<p>To get more reliably estimates, it's recommended to repeat the benchmark for multiple iterations via <code>num_iterations=10</code>:</p>
+<pre><code class="language-python">text, bench_d = llm.benchmark(num_iterations=10, prompt=&quot;What do llamas eat?&quot;, top_k=1, stream=True)
+print(text)
+pprint(bench_d)
+
+# Using 1 device(s)
+#  Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a unique digestive system that allows them to efficiently extract nutrients from tough plant material.
+
+# {'Inference speed in tokens/sec': [17.08638672485105,
+#                                    31.79908547222976,
+#                                    32.83646959864293,
+#                                    32.95994240022436,
+#                                    33.01563039816964,
+#                                    32.85263413816648,
+#                                    32.82712094713627,
+#                                    32.69216141907453,
+#                                    31.52431714347663,
+#                                    32.56752130561681],
+#  'Seconds to first token': [0.7278506560005553,
+#                             0.022963577999689733,
+#                             0.02399449199947412,
+#                             0.022921959999621322,
+# ...
+</code></pre>
+<p>As one can see, the first iteration may take longer due to warmup times. So, it's recommended to discard the first iteration:</p>
+<pre><code class="language-python">for key in bench_d:
+    bench_d[key] = bench_d[key][1:]
+</code></pre>
+<p>For better visualization, you can use the <code>benchmark_dict_to_markdown_table</code> function</p>
+<pre><code class="language-python">from litgpt.api import benchmark_dict_to_markdown_table
+
+print(benchmark_dict_to_markdown_table(bench_d_list))
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Mean</th>
+<th>Std Dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seconds total</td>
+<td>0.80</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>Seconds to first token</td>
+<td>0.02</td>
+<td>0.00</td>
+</tr>
+<tr>
+<td>Tokens generated</td>
+<td>26.00</td>
+<td>0.00</td>
+</tr>
+<tr>
+<td>Inference speed in tokens/sec</td>
+<td>32.56</td>
+<td>0.50</td>
+</tr>
+<tr>
+<td>Total GPU memory allocated in GB</td>
+<td>5.92</td>
+<td>0.00</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h1 id="pytorch-lightning-trainer-support">PyTorch Lightning Trainer support</h1>
+<p>You can use the LitGPT <code>LLM</code> class with the <a href="https://lightning.ai/docs/pytorch/stable/common/trainer.html">PyTorch Lightning Trainer</a> to pretrain and finetune models.</p>
+<p>The examples below show the usage via a simple 160 million parameter model for demonstration purposes to be able to quickly try it out. However, you can replace the <code>EleutherAI/pythia-160m</code> model with any model supported by LitGPT (you can find a list of supported models by executing <code>litgpt download list</code> or visiting the <a href="../download_model_weights/">model weight docs</a>).</p>
+<p>&nbsp;</p>
+<h2 id="step-1-define-a-lightningmodule">Step 1: Define a <code>LightningModule</code></h2>
+<p>First, we define a <code>LightningModule</code> similar to what we would do when working with other types of neural networks in PyTorch Lightning:</p>
+<pre><code class="language-python">import torch
+import litgpt
+from litgpt import LLM
+from litgpt.data import Alpaca2k
+import lightning as L
+
+
+class LitLLM(L.LightningModule):
+    def __init__(self, checkpoint_dir, tokenizer_dir=None, trainer_ckpt_path=None):
+        super().__init__()
+
+        self.llm = LLM.load(checkpoint_dir, tokenizer_dir=tokenizer_dir, distribute=None)
+        self.trainer_ckpt_path = trainer_ckpt_path
+
+    def setup(self, stage):
+        self.llm.trainer_setup(trainer_ckpt=self.trainer_ckpt_path)
+
+    def training_step(self, batch):
+        logits, loss = self.llm(input_ids=batch[&quot;input_ids&quot;], target_ids=batch[&quot;labels&quot;])
+        self.log(&quot;train_loss&quot;, loss, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch):
+        logits, loss = self.llm(input_ids=batch[&quot;input_ids&quot;], target_ids=batch[&quot;labels&quot;])
+        self.log(&quot;validation_loss&quot;, loss, prog_bar=True)
+        return loss
+
+    def configure_optimizers(self):
+        warmup_steps = 10
+        optimizer = torch.optim.AdamW(self.llm.model.parameters(), lr=0.0002, weight_decay=0.0, betas=(0.9, 0.95))
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
+        return [optimizer], [scheduler]
+</code></pre>
+<p>In the code example above, note how we set <code>distribute=None</code> in <code>llm.load()</code> in the <code>__init__</code> method. This step is necessary because we want to let the PyTorch Lightning Trainer handle the GPU devices. We then call <code>self.llm.trainer_setup</code> in the <code>setup()</code> method, which adjusts the LitGPT settings to be compatible with the Trainer. Other than that, everything else looks like a standard <code>LightningModule</code>.</p>
+<p>Next, we have a selection of different use cases, but first, let's set some general settings to specify the batch size and gradient accumulation steps:</p>
+<pre><code class="language-python">batch_size = 8
+accumulate_grad_batches = 1
+</code></pre>
+<p>For larger models, you may want to decrease the batch size and increase the number of accumulation steps. (Setting <code>accumulate_grad_batches = 1</code> effectively disables gradient accumulation, and it is only shown here for reference in case you wish to change this setting.)</p>
+<h2 id="step-2-using-the-trainer">Step 2: Using the Trainer</h2>
+<p>&nbsp;</p>
+<h3 id="use-case-1-pretraining-from-random-weights">Use case 1: Pretraining from random weights</h3>
+<p>In case you plan to train a model from scratch (not recommended over finetuning because training a model from scratch in general requires substantial time and resources), you can do it as follows:</p>
+<pre><code class="language-python"># Create model with random as opposed to pretrained weights
+llm = LLM.load(&quot;EleutherAI/pythia-160m&quot;, tokenizer_dir=&quot;EleutherAI/pythia-160m&quot;, init=&quot;random&quot;)
+llm.save(&quot;pythia-160m-random-weights&quot;)
+del llm
+
+lit_model = LitLLM(checkpoint_dir=&quot;pythia-160m-random-weights&quot;, tokenizer_dir=&quot;EleutherAI/pythia-160m&quot;)
+data = Alpaca2k()
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator=&quot;cuda&quot;,
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision=&quot;bf16-true&quot;,
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate(&quot;hello world&quot;)
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="use-case-2-continued-pretraining-or-finetuning-a-downloaded-model">Use case 2: Continued pretraining or finetuning a downloaded model</h3>
+<p>The continued pretraining or finetuning from a downloaded model checkpoint is similar to the example above, except that we can skip the initial steps of instantiating a model with random weights.</p>
+<pre><code class="language-python">
+lit_model = LitLLM(checkpoint_dir=&quot;EleutherAI/pythia-160m&quot;)
+data = Alpaca2k()
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator=&quot;cuda&quot;,
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision=&quot;bf16-true&quot;,
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate(&quot;hello world&quot;)
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="use-case-3-resume-training-from-trainer-checkpoint">Use case 3: Resume training from Trainer checkpoint</h3>
+<p>Suppose you trained a model and decide to follow up with a few additional training rounds. This can be achieved as follows by loading an existing Trainer checkpoint:</p>
+<pre><code class="language-python">
+import os
+
+def find_latest_checkpoint(directory):
+    latest_checkpoint = None
+    latest_time = 0
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.ckpt'):
+                file_path = os.path.join(root, file)
+                file_time = os.path.getmtime(file_path)
+                if file_time &gt; latest_time:
+                    latest_time = file_time
+                    latest_checkpoint = file_path
+
+    return latest_checkpoint
+
+lit_model = LitLLM(checkpoint_dir=&quot;EleutherAI/pythia-160m&quot;, trainer_ckpt_path=find_latest_checkpoint(&quot;lightning_logs&quot;))
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator=&quot;cuda&quot;,
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision=&quot;bf16-true&quot;,
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate(&quot;hello world&quot;)
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="use-case-4-resume-training-after-saving-a-checkpoint-manually">Use case 4: Resume training after saving a checkpoint manually</h3>
+<p>This example illustrates how we can save a LitGPT checkpoint from a previous training run that we can load and use later. Note that compared to using the Trainer checkpoint in the previous section, the model saved via this approach also contains the tokenizer and other relevant files. Hence, this approach does not require the original <code>"EleutherAI/pythia-160m"</code> model checkpoint directory.</p>
+<pre><code class="language-python">lit_model.llm.save(&quot;finetuned_checkpoint&quot;)
+del lit_model
+lit_model = LitLLM(checkpoint_dir=&quot;finetuned_checkpoint&quot;)
+
+data.connect(lit_model.llm.tokenizer, batch_size=batch_size, max_seq_length=512)
+
+trainer = L.Trainer(
+    devices=1,
+    accelerator=&quot;cuda&quot;,
+    max_epochs=1,
+    accumulate_grad_batches=accumulate_grad_batches,
+    precision=&quot;bf16-true&quot;,
+)
+trainer.fit(lit_model, data)
+
+lit_model.llm.model.to(lit_model.llm.preprocessor.device)
+lit_model.llm.generate(&quot;hello world&quot;)
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>
