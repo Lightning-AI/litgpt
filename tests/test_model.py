@@ -31,6 +31,7 @@ from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 from transformers.models.qwen3 import Qwen3Config, Qwen3ForCausalLM
+from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
 
 import litgpt.config as config_module
 from litgpt import GPT, Config
@@ -1063,6 +1064,69 @@ def test_against_original_qwen_3(model_name, device, dtype):
     )
 
     theirs_model = Qwen3ForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+    state_dict = {}
+    copy_weights_qwen_3(ours_config, {}, state_dict, theirs_state_dict)
+    ours_model = GPT(ours_config).to(device)
+    ours_model.load_state_dict(state_dict)
+
+    # test end to end
+    x = torch.randint(low=0, high=ours_config.padded_vocab_size, size=(T,), device=device).unsqueeze(0)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("model_name", ["Qwen3-30B-A3B"])
+@pytest.mark.parametrize(
+    ("device", "dtype"),
+    [
+        (torch.device("cpu"), torch.float32),
+        pytest.param(
+            torch.device("cuda"),
+            torch.float16,
+            marks=[
+                # the reference does softmax upscaled to fp32 during attention. additionally, the final layernorm input
+                # is slightly different
+                pytest.mark.xfail(raises=AssertionError, strict=False),
+                _RunIf(min_cuda_gpus=1),
+            ],
+        ),
+    ],
+)
+def test_against_original_qwen_3_moe(model_name, device, dtype):
+    torch.set_default_dtype(dtype)
+
+    T = 20
+    ours_config = Config.from_name(
+        model_name,
+        block_size=T,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+        n_expert=4,
+        n_expert_per_token=2,
+    )
+    theirs_config = Qwen3MoeConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        head_dim=ours_config.head_size,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        intermediate_size=ours_config.intermediate_size,
+        max_position_embeddings=ours_config.block_size,
+        rms_norm_eps=ours_config.norm_eps,
+        num_key_value_heads=ours_config.n_query_groups,
+        rope_theta=ours_config.rope_base,
+        tie_word_embeddings=False,
+        num_experts=ours_config.n_expert,
+        num_experts_per_tok=ours_config.n_expert_per_token,
+    )
+
+    theirs_model = Qwen3MoeForCausalLM(theirs_config).to(device)
     theirs_state_dict = theirs_model.state_dict()
     state_dict = {}
     copy_weights_qwen_3(ours_config, {}, state_dict, theirs_state_dict)
