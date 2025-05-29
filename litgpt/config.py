@@ -2665,7 +2665,7 @@ qwen_3_32b = [
 ]
 configs.extend(qwen_3_32b)
 
-qwen3_moe = [
+qwen_3_moe = [
     # https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/config.json
     dict(
         name="Qwen3-30B-A3B",
@@ -2691,7 +2691,7 @@ qwen3_moe = [
         n_expert_per_token=8,
     ),
 ]
-configs.extend(qwen3_moe)
+configs.extend(qwen_3_moe)
 
 
 #############

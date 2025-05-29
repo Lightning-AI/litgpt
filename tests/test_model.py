@@ -1117,6 +1117,7 @@ def test_against_original_qwen_3_moe(model_name, device, dtype):
         num_attention_heads=ours_config.n_head,
         num_hidden_layers=ours_config.n_layer,
         intermediate_size=ours_config.intermediate_size,
+        moe_intermediate_size=ours_config.moe_intermediate_size,
         max_position_embeddings=ours_config.block_size,
         rms_norm_eps=ours_config.norm_eps,
         num_key_value_heads=ours_config.n_query_groups,
