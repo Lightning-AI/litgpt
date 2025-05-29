@@ -554,12 +554,28 @@ def copy_weights_qwen_3(
         "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
         "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
-        "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
-        "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
-        "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
         "model.norm.weight": "transformer.ln_f.weight",
         "lm_head.weight": "lm_head.weight",
     }
+    if config.mlp_class_name == "LLaMAMoE":
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.experts.{}.gate_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_1.weight",
+                "model.layers.{}.mlp.experts.{}.up_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_2.weight",
+                "model.layers.{}.mlp.experts.{}.down_proj.weight": "transformer.h.{}.mlp.experts.{}.proj.weight",
+                "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+            }
+        )
+    elif config.mlp_class_name == "LLaMAMLP":
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+                "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+            }
+        )
+    else:
+        raise NotImplementedError
 
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
