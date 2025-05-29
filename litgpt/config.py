@@ -2669,7 +2669,7 @@ qwen3_moe = [
     # https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/config.json
     dict(
         name="Qwen3-30B-A3B",
-        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B{}"),
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B"),
         block_size=40960,
         vocab_size=151643,
         padded_vocab_size=151936,
