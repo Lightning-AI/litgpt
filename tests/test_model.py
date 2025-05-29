@@ -1107,6 +1107,7 @@ def test_against_original_qwen_3_moe(model_name, device, dtype):
         n_head=16,
         n_embd=32,
         intermediate_size=86,
+        moe_intermediate_size=20,
         n_expert=4,
         n_expert_per_token=2,
     )
@@ -1125,6 +1126,7 @@ def test_against_original_qwen_3_moe(model_name, device, dtype):
         tie_word_embeddings=False,
         num_experts=ours_config.n_expert,
         num_experts_per_tok=ours_config.n_expert_per_token,
+        norm_topk_prob=True,
     )
 
     theirs_model = Qwen3MoeForCausalLM(theirs_config).to(device)

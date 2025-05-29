@@ -2671,6 +2671,7 @@ qwen_3_moe = [
         name="Qwen3-30B-A3B",
         hf_config=dict(org="Qwen", name="Qwen3-30B-A3B"),
         block_size=40960,
+        head_size=128,
         vocab_size=151643,
         padded_vocab_size=151936,
         n_layer=48,
