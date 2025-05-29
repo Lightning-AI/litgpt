@@ -158,10 +158,11 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 
 
 class LLaMAMLP(litgpt.model.LLaMAMLP):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
         nn.Module.__init__(self)
-        self.fc_1 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
-        self.fc_2 = AdapterV2Linear(config.n_embd, config.intermediate_size, bias=config.bias)
+        self.intermediate_size = intermediate_size or config.intermediate_size
+        self.fc_1 = AdapterV2Linear(config.n_embd, self.intermediate_size, bias=config.bias)
+        self.fc_2 = AdapterV2Linear(config.n_embd, self.intermediate_size, bias=config.bias)
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
@@ -191,7 +192,7 @@ class LLaMAMoE(litgpt.model.LLaMAMoE):
     def __init__(self, config: Config) -> None:
         nn.Module.__init__(self)
         self.gate = AdapterV2Linear(config.n_embd, config.n_expert, bias=False)
-        self.experts = nn.ModuleList(LLaMAMLP(config) for _ in range(config.n_expert))
+        self.experts = nn.ModuleList(LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert))
         self.config = config
 
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
