@@ -272,7 +272,6 @@ def batched_generate_fn(
     sample_args: Union[list[dict], dict],
     stop_tokens: Tuple[List[int], ...] = (),
     include_prompt: bool,
-    include_eos: bool,
 ) -> Iterator[list[Union[torch.Tensor, None]]]:
     """
     Generates tokens for a batch of prompts.
@@ -292,7 +291,6 @@ def batched_generate_fn(
         stop_tokens: A tuple of stop sequences. If any of the sequences are
             generated, the generation stops early before max_returned_tokens.
         include_prompt: Whether to output the prompt tokens.
-        include_eos: Whether to output the stop tokens if generation stops early.
 
     Yields:
         A list of tokens for each prompt in the batch, or None if a stop sequence has already been encountered for that index in the batch.
@@ -303,7 +301,6 @@ def batched_generate_fn(
     assert prompts.ndim == 2, "Prompts must be a 2D tensor."
 
     batch_size, max_prompt_size = prompts.shape
-    device = prompts.device
 
     if isinstance(sample_args, dict):
         sample_args = [sample_args] * batch_size

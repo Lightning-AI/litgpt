@@ -262,12 +262,7 @@ def main(
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-        if compile:
-            print(
-                "IMPORTANT: with enabled compilation the KV-cache size is determined by model's maximum context size, which leads to "
-                "a higher memory consumption. In case of an OOM error, try to set `--compile=False`."
-            )
-            model.set_kv_cache(batch_size=1)
+        model.set_kv_cache(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 

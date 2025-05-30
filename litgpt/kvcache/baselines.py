@@ -165,6 +165,21 @@ class DenseKVCache(DefaultKVCache):
         self.next_position = init_length
         self._eff_batch_size = eff_batch_size
 
+    def resize(self, new_length: int):
+        """
+        Shortens the cache content to length `current_length`, removing the
+        most recently inserted content. Note that this method is currently
+        supported only for specific KV caches; the cost for supporting it
+        generally would be high.
+
+        Args:
+            new_length: New length, must be <= current length
+
+        """
+        if not (0 <= new_length <= self.next_position):
+            raise ValueError(f"current_length = {new_length}, must be in [0, {self.next_position}]")
+        self.next_position = new_length
+
     def token_positions(self) -> torch.Tensor:
         return (
             torch.arange(self.next_position, device=self.device)

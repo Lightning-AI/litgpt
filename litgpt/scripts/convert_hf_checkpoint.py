@@ -286,6 +286,13 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
+GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model"
+
+GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower"
+
+GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector"
+
+
 def copy_weights_gemma_3(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -319,15 +326,22 @@ def copy_weights_gemma_3(
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
     # gemma3 4b+ are multimodel models, but we are only loading the text weights
-    is_multimodal = any(k.startswith("language_model") for k in hf_weights)
+    is_multimodal = any(k.startswith(GEMMA3_VISION_MODEL_PREFIX) for k in hf_weights)
     if is_multimodal:
         warnings.warn("For Gemma3 models only the text component is supported.")
-        weight_map = {f"language_model.{k}": v for k, v in weight_map.items()}
+        new_weight_map = dict()
+        prefix = "model"
+        len_prefix = len(prefix)
+        for k, v in weight_map.items():
+            if k.startswith(prefix):
+                k = GEMMA3_LANGUAGE_MODEL_PREFIX + k[len_prefix:]
+            new_weight_map[k] = v
+        weight_map = new_weight_map
     for from_name, param in hf_weights.items():
-        if from_name.startswith("vision_tower") or from_name.startswith("multi_modal_projector"):
+        if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX) or from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
             continue
         name_template, *ids = layer_template(from_name, num_matches=2)
-        to_name = weight_map[name_template]
+        to_name = weight_map.get(name_template)
         param = load_param(param, from_name, dtype, verbose=debug_mode)
         # in multimodal models, the text weights are the first part of the weights
         if is_multimodal and to_name == "transformer.wte.weight" and config is not None:
@@ -338,6 +352,7 @@ def copy_weights_gemma_3(
             qkv[weight_type][weight_name] = param
 
         if to_name is None:
+            print(f"{name_template} not in weight_map: Skipping")
             continue
         to_name = to_name.format(*ids)
         if saver is not None:
