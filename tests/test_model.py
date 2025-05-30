@@ -38,9 +38,9 @@ import litgpt.attention
 import litgpt.config as config_module
 from litgpt import GPT, Config
 from litgpt.attention import (
+    DefaultKeysAndValues,
     build_mask_cache,
     build_mask_slice,
-    DefaultKeysAndValues,
     scaled_dot_product_attention,
 )
 from litgpt.model import CausalSelfAttention
@@ -1609,7 +1609,8 @@ def test_build_mask_slice(
         for bs in range(batch_size):
             for nq in range(n_query_groups):
                 token_positions[bs, nq, :] = torch.randperm(
-                    seq_len, device=device,
+                    seq_len,
+                    device=device,
                 )[:cache_length]
         mask = build_mask_slice(
             input_pos=input_pos,
@@ -1620,7 +1621,7 @@ def test_build_mask_slice(
             sliding_window_size=sliding_window_size,
         )
         mask_cmp = batched_index_select(
-            full_mask[input_pos: (input_pos + num), :],
+            full_mask[input_pos : (input_pos + num), :],
             dim=1,
             idx=token_positions,
         )

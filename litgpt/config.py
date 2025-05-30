@@ -22,6 +22,7 @@ def find_multiple(n: int, k: int) -> int:
         return n
     return n + k - (n % k)
 
+
 # See `Config.start_of_layer_hook`. A start of layer hook is called just before
 # a layer is computed. The call is `hook(x, block_idx, input_pos)`, where
 # `x` is the layer input, `block_idx` the number of the layer, and `input_pos`
