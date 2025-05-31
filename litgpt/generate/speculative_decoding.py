@@ -20,6 +20,7 @@ from litgpt.generate.base import (
     multinomial_num_samples_1,
     sample_top_p,
 )
+from litgpt.kvcache import DenseKVCache
 from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
@@ -30,7 +31,6 @@ from litgpt.utils import (
     get_default_supported_precision,
     load_checkpoint,
 )
-from litgpt.kvcache import DenseKVCache
 
 
 def sample(
@@ -149,7 +149,8 @@ def speculative_decoding(
     draft_token = token
     for idx in range(speculative_k):
         logits = draft_model(
-            idx=draft_token.unsqueeze(0), input_pos=draft_input_pos,
+            idx=draft_token.unsqueeze(0),
+            input_pos=draft_input_pos,
         )
         draft_token, draft_prob = sample(logits, **sample_kwargs)
         draft_input_pos += 1
@@ -161,7 +162,8 @@ def speculative_decoding(
     # Feed both original token and draft tokens to get target probabilities
     candidate_tokens = torch.cat((token, draft_tokens))
     target_logits = target_model(
-        idx=candidate_tokens.unsqueeze(0), input_pos=input_pos,
+        idx=candidate_tokens.unsqueeze(0),
+        input_pos=input_pos,
     )
 
     # Step 3: Convert target logits to probabilities using same sampling params
@@ -211,7 +213,7 @@ def speculative_decoding(
         draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos)
         new_token, _ = sample(target_logits, **sample_kwargs)
     else:
-        input_pos += (len(accepted_tokens) + 1)
+        input_pos += len(accepted_tokens) + 1
         _resize_kv_caches(draft_model, input_pos)
         _resize_kv_caches(target_model, input_pos)
     return torch.cat((*accepted_tokens, new_token))
@@ -316,7 +318,10 @@ def generate(
     )
     _process_prompt(draft_model, prompt, prompt_chunksize, **sample_kwargs)
     token = _process_prompt(
-        target_model, prompt, prompt_chunksize, **sample_kwargs,
+        target_model,
+        prompt,
+        prompt_chunksize,
+        **sample_kwargs,
     )
     input_pos = prompt_size
 
