@@ -1591,7 +1591,7 @@ def test_build_mask_slice(
     seed = 31415927
     random.seed(seed)
     torch.random.manual_seed(seed)
-    num_repeats = 10
+    num_repeats = 30
     dtype = torch.bfloat16
     device = torch.device("cpu")
 
@@ -1625,3 +1625,41 @@ def test_build_mask_slice(
             idx=token_positions,
         )
         torch.testing.assert_close(mask, mask_cmp)
+
+
+def old_build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
+    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
+
+
+def test_mask_sliding_window():
+    """
+    Compares `mask` used in MHA in training mode in old code (using
+    `mask_cache`) and new code, using a setup from
+    :func:`test_against_original_gemma_2` above.
+
+    """
+    dtype = torch.float32
+    T = 20
+    model_name = "gemma-2-27b"
+    config = Config.from_name(
+        model_name,
+        block_size=T,
+        sliding_window_size=T // 2,
+        n_layer=2,
+        n_head=16,
+        n_embd=32,
+        intermediate_size=86,
+        rotary_percentage=1.0,  # Gemma2 does not have this
+    )
+    # Determine mask used in forward call for length `T` input (old code)
+    mask = None
+    if mask is None:
+        mask = torch.ones(T, T, dtype=dtype).triu(diagonal=1)
+        mask.masked_fill_(mask.bool(), float("-inf"))
+        mask = mask.view(1, 1, *mask.shape)
+    sliding_window_bias = torch.ones_like(mask).tril(diagonal=-config.sliding_window_size)
+    sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
+    mask += sliding_window_bias
+    # Determine mask as in new code
+    # HIER!
