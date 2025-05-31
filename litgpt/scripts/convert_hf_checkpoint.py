@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+from lightning_utilities.core.imports import RequirementCache
 from safetensors.torch import load_file as load_safetensors
 from tqdm import tqdm
 
@@ -286,11 +287,13 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
-GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model"
+_TRANSFORMERS_GREATER_EQUAL_4_52 = RequirementCache("transformers>=4.52.0")
 
-GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower"
+GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "language_model.model"
 
-GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector"
+GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "vision_tower"
+
+GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
 
 
 def copy_weights_gemma_3(
@@ -326,7 +329,7 @@ def copy_weights_gemma_3(
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
     # gemma3 4b+ are multimodel models, but we are only loading the text weights
-    is_multimodal = any(k.startswith(GEMMA3_VISION_MODEL_PREFIX) for k in hf_weights)
+    is_multimodal = any(k.startswith(GEMMA3_LANGUAGE_MODEL_PREFIX) for k in hf_weights)
     if is_multimodal:
         warnings.warn("For Gemma3 models only the text component is supported.")
         new_weight_map = dict()
@@ -341,6 +344,7 @@ def copy_weights_gemma_3(
         if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX) or from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
             continue
         name_template, *ids = layer_template(from_name, num_matches=2)
+        not_found = name_template not in weight_map
         to_name = weight_map.get(name_template)
         param = load_param(param, from_name, dtype, verbose=debug_mode)
         # in multimodal models, the text weights are the first part of the weights
@@ -352,7 +356,8 @@ def copy_weights_gemma_3(
             qkv[weight_type][weight_name] = param
 
         if to_name is None:
-            print(f"{name_template} not in weight_map: Skipping")
+            if not_found:
+                print(f"{name_template} not in weight_map: Skipping")
             continue
         to_name = to_name.format(*ids)
         if saver is not None:

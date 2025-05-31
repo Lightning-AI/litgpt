@@ -305,6 +305,10 @@ def _attention_compute_weighted_values(
         return result.view(*r_shape)
 
 
+def _minus_infinity(dtype: torch.dtype) -> float:
+    return torch.finfo(dtype).min
+
+
 def build_mask_cache(
     max_seq_length: int,
     sliding_window_size: Optional[int],
@@ -327,7 +331,7 @@ def build_mask_cache(
     ).triu(diagonal=1)
     if sliding_window_size is not None:
         mask += torch.ones_like(mask).tril(diagonal=-sliding_window_size)
-    mask.masked_fill_(mask.bool(), torch.finfo(dtype).min)
+    mask.masked_fill_(mask.bool(), _minus_infinity(dtype))
     return mask
 
 
@@ -374,7 +378,7 @@ def build_mask_slice(
         ).view(1, 1, -1, 1) >= token_positions
         bool_mask += extra_mask
     mask = torch.zeros(bool_mask.shape, dtype=dtype, device=device)
-    mask.masked_fill_(bool_mask, torch.finfo(dtype).min)
+    mask.masked_fill_(bool_mask, _minus_infinity(dtype))
     return mask
 
 

@@ -1627,19 +1627,17 @@ def test_build_mask_slice(
         torch.testing.assert_close(mask, mask_cmp)
 
 
-def old_build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
-    ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
-    return torch.tril(ones).unsqueeze(0).unsqueeze(0)
-
-
-def test_mask_sliding_window():
+@pytest.mark.parametrize(
+    "dtype", [torch.float32, torch.float16, torch.bfloat16],
+)
+def test_mask_sliding_window(dtype):
     """
     Compares `mask` used in MHA in training mode in old code (using
     `mask_cache`) and new code, using a setup from
     :func:`test_against_original_gemma_2` above.
 
     """
-    dtype = torch.float32
+    device = torch.device("cpu")
     T = 20
     model_name = "gemma-2-27b"
     config = Config.from_name(
@@ -1650,16 +1648,22 @@ def test_mask_sliding_window():
         n_head=16,
         n_embd=32,
         intermediate_size=86,
-        rotary_percentage=1.0,  # Gemma2 does not have this
+        rotary_percentage=1.0,
     )
     # Determine mask used in forward call for length `T` input (old code)
-    mask = None
-    if mask is None:
-        mask = torch.ones(T, T, dtype=dtype).triu(diagonal=1)
-        mask.masked_fill_(mask.bool(), float("-inf"))
-        mask = mask.view(1, 1, *mask.shape)
-    sliding_window_bias = torch.ones_like(mask).tril(diagonal=-config.sliding_window_size)
-    sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
-    mask += sliding_window_bias
+    # neg_infty = float("-inf")
+    neg_infty = torch.finfo(dtype).min
+    old_mask = torch.ones(T, T, dtype=dtype, device=device).triu(diagonal=1)
+    old_mask.masked_fill_(old_mask.bool(), neg_infty)
+    old_mask = old_mask.view(1, 1, *old_mask.shape)
+    sliding_window_bias = torch.ones_like(old_mask).tril(diagonal=-config.sliding_window_size)
+    sliding_window_bias.masked_fill_(sliding_window_bias.bool(), neg_infty)
+    old_mask += sliding_window_bias
     # Determine mask as in new code
-    # HIER!
+    new_mask = build_mask_cache(
+        max_seq_length=T,
+        sliding_window_size=config.sliding_window_size,
+        dtype=dtype,
+        device=device,
+    ).view(1, 1, T, T)
+    torch.testing.assert_close(old_mask, new_mask)
