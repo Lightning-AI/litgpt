@@ -352,7 +352,9 @@ class CausalSelfAttention(nn.Module):
 
         if config.norm_qk:
             norm_q_size = config.n_head * config.head_size if config.norm_qk_type == "olmo2" else config.head_size
-            norm_k_size = config.n_query_groups * config.head_size if config.norm_qk_type == "olmo2" else config.head_size
+            norm_k_size = (
+                config.n_query_groups * config.head_size if config.norm_qk_type == "olmo2" else config.head_size
+            )
             self.norm_q = config.norm_class(norm_q_size, eps=config.norm_eps)
             self.norm_k = config.norm_class(norm_k_size, eps=config.norm_eps)
         else:
