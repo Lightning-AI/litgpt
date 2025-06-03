@@ -38,6 +38,7 @@ class Config:
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
     norm_qk: bool = False
+    norm_qk_type: Literal["default", "olmo2"] = "default"
     post_attention_norm: bool = False
     post_mlp_norm: bool = False
     parallel_residual: bool = True
@@ -956,6 +957,7 @@ olmo2 = [
         post_mlp_norm=True,
         norm_1=False,
         norm_2=False,
+        norm_qk_type="olmo2",
         post_attention_norm=True,
     ),
     # https://huggingface.co/allenai/OLMo-2-1124-13B/blob/main/config.json
@@ -981,6 +983,7 @@ olmo2 = [
         post_mlp_norm=True,
         norm_1=False,
         norm_2=False,
+        norm_qk_type="olmo2",
         post_attention_norm=True,
     ),
 ]
