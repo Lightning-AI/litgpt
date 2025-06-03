@@ -498,7 +498,7 @@ def copy_weights_qwen_3(
         for to_name, param in zip(to_names, params):
             if saver is not None:
                 param = saver.store_early(param)
-            state_dict[to_name] = param            
+            state_dict[to_name] = param
 
 
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
