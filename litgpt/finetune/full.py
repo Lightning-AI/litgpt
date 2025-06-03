@@ -13,7 +13,7 @@ from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
-from litgpt.args import EvalArgs, TrainArgs
+from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
@@ -58,6 +58,7 @@ def setup(
         max_seq_length=None,
     ),
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
+    log: LogArgs = LogArgs(),
     optimizer: Union[str, Dict] = "AdamW",
     logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
     seed: int = 1337,
@@ -94,7 +95,12 @@ def setup(
 
     precision = precision or get_default_supported_precision(training=True)
     logger = choose_logger(
-        logger_name, out_dir, name=f"finetune-{config.name}", resume=bool(resume), log_interval=train.log_interval
+        logger_name,
+        out_dir,
+        name=f"finetune-{config.name}",
+        resume=bool(resume),
+        log_interval=train.log_interval,
+        log_args=dataclasses.asdict(log),
     )
 
     if devices * num_nodes > 1:

@@ -542,6 +542,7 @@ def choose_logger(
     out_dir: Path,
     name: str,
     log_interval: int = 1,
+    log_args: Optional[Dict] = None,
     resume: Optional[bool] = None,
     **kwargs: Any,
 ):
@@ -550,7 +551,10 @@ def choose_logger(
     if logger_name == "tensorboard":
         return TensorBoardLogger(root_dir=(out_dir / "logs"), name="tensorboard", **kwargs)
     if logger_name == "wandb":
-        return WandbLogger(project=name, resume=resume, **kwargs)
+        project = log_args.pop("project", name)
+        run = log_args.pop("run", os.environ.get("WANDB_RUN_NAME"))
+        group = log_args.pop("group", os.environ.get("WANDB_RUN_GROUP"))
+        return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
     if logger_name == "mlflow":
         return MLFlowLogger(experiment_name=name, **kwargs)
     raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
