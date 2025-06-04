@@ -465,12 +465,28 @@ def copy_weights_qwen_3(
         "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
         "transformer.h.{}.attn.norm_q.weight": "model.layers.{}.self_attn.q_norm.weight",
         "transformer.h.{}.attn.norm_k.weight": "model.layers.{}.self_attn.k_norm.weight",
-        "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
-        "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
-        "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
         "transformer.ln_f.weight": "model.norm.weight",
         "lm_head.weight": "lm_head.weight",
     }
+    if config.mlp_class_name == "LLaMAMoE":
+        weight_map.update(
+            {
+                "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.mlp.experts.{}.gate_proj.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.mlp.experts.{}.up_proj.weight",
+                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{}.mlp.experts.{}.down_proj.weight",
+            }
+        )
+    elif config.mlp_class_name == "LLaMAMLP":
+        weight_map.update(
+            {
+                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+            }
+        )
+    else:
+        raise NotImplementedError
 
     for from_name, param in lit_weights.items():
         if from_name == "lm_head.weight" and untie_weights:
