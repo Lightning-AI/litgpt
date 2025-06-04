@@ -90,3 +90,15 @@ class EvalArgs:
     evaluate_example: Union[str, int] = "first"
     """How to pick an example instruction to evaluate periodically during training.
        Can be "first", "random", or an integer index to pick a specific example."""
+
+
+@dataclass
+class LogArgs:
+    """Logging-related arguments"""
+
+    project: Optional[str] = None
+    """Project name"""
+    run: Optional[str] = None
+    """Run name"""
+    group: Optional[str] = None
+    """Group name"""
