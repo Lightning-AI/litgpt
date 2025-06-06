@@ -603,7 +603,6 @@ class CausalSelfAttention(nn.Module):
         self.config = config
         self.block_idx = block_idx
 
-
     def forward(
         self,
         x: torch.Tensor,

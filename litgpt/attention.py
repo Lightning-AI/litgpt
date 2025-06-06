@@ -1,14 +1,14 @@
 import math
-from typing import Optional, Tuple, List, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
-from torch.nn import functional as F
-from torch.nn.attention import SDPBackend, sdpa_kernel, SDPAParams
 from torch.backends.cuda import (
+    can_use_cudnn_attention,
     can_use_efficient_attention,
     can_use_flash_attention,
-    can_use_cudnn_attention,
 )
+from torch.nn import functional as F
+from torch.nn.attention import SDPAParams, SDPBackend, sdpa_kernel
 
 from litgpt.config import Config
 
@@ -92,6 +92,7 @@ class MultiHeadSelfAttention:
     `torch.nn.functional.scaled_dot_product_attention` is never used.
 
     """
+
     def __init__(
         self,
         config: Config,
@@ -215,9 +216,7 @@ class MultiHeadSelfAttention:
                 kernels = self._sdpa_kernels
             else:
                 kernels = [self._sdpa_kernels]
-            params = SDPAParams(
-                query, key, value, attn_mask, dropout_p, is_causal, enable_gqa
-            )
+            params = SDPAParams(query, key, value, attn_mask, dropout_p, is_causal, enable_gqa)
             warning_lst = []
             new_kernels = []
             for kernel in kernels:
@@ -259,7 +258,12 @@ class MultiHeadSelfAttention:
         # - Logit softcapping is required; or
         # - We cannot access keys and values from `k_and_v` in parallel (this
         #   never happens if `is_causal == True`)
-        if return_scores or self.use_eager_sdpa_always or self.config.attention_logit_softcapping is not None or not k_and_v.both_in_parallel():
+        if (
+            return_scores
+            or self.use_eager_sdpa_always
+            or self.config.attention_logit_softcapping is not None
+            or not k_and_v.both_in_parallel()
+        ):
             y, scores = scaled_dot_product_attention(
                 query=query,
                 k_and_v=k_and_v,
@@ -401,7 +405,10 @@ def build_mask_cache(
     """
     # Usual causal mask:
     mask = torch.ones(
-        max_seq_length, max_seq_length, device=device, dtype=dtype,
+        max_seq_length,
+        max_seq_length,
+        device=device,
+        dtype=dtype,
     ).triu(diagonal=1)
     if sliding_window_size is not None:
         mask += torch.ones_like(mask).tril(diagonal=-sliding_window_size)
@@ -441,15 +448,23 @@ def build_mask_slice(
     tp_dtype = token_positions.dtype
     token_positions = token_positions.unsqueeze(2).to(device=device)
     kwargs = dict(device=device, dtype=tp_dtype)
-    bool_mask = torch.arange(
-        input_pos, input_pos + num, **kwargs,
-    ).view(1, 1, -1, 1) < token_positions
-    if sliding_window_size is not None:
-        extra_mask = torch.arange(
-            input_pos - sliding_window_size,
-            input_pos + num - sliding_window_size,
+    bool_mask = (
+        torch.arange(
+            input_pos,
+            input_pos + num,
             **kwargs,
-        ).view(1, 1, -1, 1) >= token_positions
+        ).view(1, 1, -1, 1)
+        < token_positions
+    )
+    if sliding_window_size is not None:
+        extra_mask = (
+            torch.arange(
+                input_pos - sliding_window_size,
+                input_pos + num - sliding_window_size,
+                **kwargs,
+            ).view(1, 1, -1, 1)
+            >= token_positions
+        )
         bool_mask += extra_mask
     mask = torch.zeros(bool_mask.shape, dtype=dtype, device=device)
     mask.masked_fill_(bool_mask, _minus_infinity(dtype))

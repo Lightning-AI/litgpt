@@ -293,7 +293,9 @@ GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_E
 
 GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "vision_tower"
 
-GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
+GEMMA3_MM_PROJECTOR_PREFIX = (
+    "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
+)
 
 
 def copy_weights_gemma_3(

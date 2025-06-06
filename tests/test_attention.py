@@ -2,28 +2,27 @@ import math
 import random
 from typing import Optional, Tuple
 
+import pytest
 import torch
 from torch.nn import functional as F
-import pytest
-
-from litgpt.config import Config
-from litgpt.model import (
-    apply_rope,
-    CausalSelfAttention,
-    GPT,
-    build_rope_cache,
-)
-from litgpt.kvcache import KVCache
-from litgpt.utils import batched_index_select
 
 from litgpt.attention import (
+    DefaultKeysAndValues,
+    MultiHeadSelfAttention,
     build_mask_cache,
     build_mask_slice,
-    DefaultKeysAndValues,
     do_softcapping,
-    MultiHeadSelfAttention,
     scaled_dot_product_attention,
 )
+from litgpt.config import Config
+from litgpt.kvcache import KVCache
+from litgpt.model import (
+    GPT,
+    CausalSelfAttention,
+    apply_rope,
+    build_rope_cache,
+)
+from litgpt.utils import batched_index_select
 
 
 @pytest.mark.parametrize(
@@ -126,7 +125,8 @@ def test_build_mask_slice(
         for bs in range(batch_size):
             for nq in range(n_query_groups):
                 token_positions[bs, nq, :] = torch.randperm(
-                    seq_len, device=device,
+                    seq_len,
+                    device=device,
                 )[:cache_length]
         mask = build_mask_slice(
             input_pos=input_pos,
@@ -137,7 +137,7 @@ def test_build_mask_slice(
             sliding_window_size=sliding_window_size,
         )
         mask_cmp = batched_index_select(
-            full_mask[input_pos: (input_pos + num), :],
+            full_mask[input_pos : (input_pos + num), :],
             dim=1,
             idx=token_positions,
         )
@@ -145,7 +145,8 @@ def test_build_mask_slice(
 
 
 @pytest.mark.parametrize(
-    "dtype", [torch.float32, torch.float16, torch.bfloat16],
+    "dtype",
+    [torch.float32, torch.float16, torch.bfloat16],
 )
 def test_mask_sliding_window(dtype):
     """
@@ -329,9 +330,9 @@ class CausalSelfAttention_OLD(torch.nn.Module):
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
             scores = q @ k.mT * scale
-            #self.debug_intermediates["scores1"] = scores
+            # self.debug_intermediates["scores1"] = scores
             scores = do_softcapping(scores, self.config.attention_logit_softcapping)
-            #self.debug_intermediates["scores2"] = scores
+            # self.debug_intermediates["scores2"] = scores
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
@@ -347,7 +348,8 @@ class CausalSelfAttention_OLD(torch.nn.Module):
 
 
 def rope_cache_OLD(
-    config: Config, device: Optional[torch.device] = None,
+    config: Config,
+    device: Optional[torch.device] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     if config.rope_adjustments is None:
         extra_config = None
@@ -368,9 +370,7 @@ def rope_cache_OLD(
             extra_config = {name: config.rope_adjustments[name] for name in adjusted_params_required}
         else:
             # Some but not all parameters are specified; raise an error
-            missing_params = [
-                param for param, present in zip(adjusted_params_required, params_present) if not present
-            ]
+            missing_params = [param for param, present in zip(adjusted_params_required, params_present) if not present]
             raise ValueError(
                 f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
                 "All adjusted RoPE parameters must be specified together."
@@ -387,12 +387,13 @@ def rope_cache_OLD(
     )
 
 
-
 @pytest.mark.parametrize(
-    "model_name", ["gemma-2-27b", "gemma-3-27b-it"],
+    "model_name",
+    ["gemma-2-27b", "gemma-3-27b-it"],
 )
 @pytest.mark.parametrize(
-    "dtype", [torch.float32, torch.float16, torch.bfloat16],
+    "dtype",
+    [torch.float32, torch.float16, torch.bfloat16],
 )
 def test_multi_head_attention_for_gemma(model_name, dtype):
     """
@@ -414,7 +415,7 @@ def test_multi_head_attention_for_gemma(model_name, dtype):
         n_embd=32,
         intermediate_size=86,
         rotary_percentage=1.0,
-        rope_indices = [0, 1] if is_gemma_3 else None,
+        rope_indices=[0, 1] if is_gemma_3 else None,
     )
 
     # Obtain RoPE parameters and compare
@@ -433,10 +434,12 @@ def test_multi_head_attention_for_gemma(model_name, dtype):
     for rep in range(num_repeats):
         block_idx = rep % 2
         attn_new = CausalSelfAttention(
-            config, block_idx=block_idx,
+            config,
+            block_idx=block_idx,
         ).to(dtype=dtype)
         attn_old = CausalSelfAttention_OLD(
-            config, block_idx=block_idx,
+            config,
+            block_idx=block_idx,
         ).to(dtype=dtype)
         # Ensure they have the same weights
         attn_old.load_state_dict(attn_new.state_dict())
