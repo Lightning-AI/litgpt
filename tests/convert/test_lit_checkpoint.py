@@ -612,7 +612,7 @@ def test_check_conversion_supported_lora():
         "Qwen2.5-Math-1.5B",
         "QwQ-32B-Preview",
         "QwQ-32B",
-        "Qwen2.5-14B-Instruct-1M",
+        "Qwen2.5-7B-Instruct-1M",
     ),
 )
 @pytest.mark.parametrize(
