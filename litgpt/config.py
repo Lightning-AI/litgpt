@@ -2330,28 +2330,7 @@ qwen_2_5 = [
     ),
 ]
 
-qwen_2_5_long_context = [
-    # https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M/blob/main/config.json
-    dict(
-        name="Qwen2.5-14B-Instruct-1M",
-        hf_config=dict(org="Qwen", name="Qwen2.5-14B-Instruct-1M"),
-        block_size=1010000,
-        vocab_size=151643,
-        padded_vocab_size=152064,
-        n_layer=48,
-        n_head=40,
-        n_embd=5120,
-        n_query_groups=8,
-        rotary_percentage=1.0,
-        parallel_residual=False,
-        bias=False,
-        attn_bias=True,
-        norm_class_name="RMSNorm",
-        mlp_class_name="LLaMAMLP",
-        intermediate_size=13824,
-        norm_eps=1e-5,
-        rope_base=10000000,
-    ),
+qwen_2_5_1m = [
     # https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-1M/blob/main/config.json
     dict(
         name="Qwen2.5-7B-Instruct-1M",
@@ -2373,9 +2352,30 @@ qwen_2_5_long_context = [
         norm_eps=1e-5,
         rope_base=10000000,
     ),
+    # https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M/blob/main/config.json
+    dict(
+        name="Qwen2.5-14B-Instruct-1M",
+        hf_config=dict(org="Qwen", name="Qwen2.5-14B-Instruct-1M"),
+        block_size=1010000,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=48,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=13824,
+        norm_eps=1e-5,
+        rope_base=10000000,
+    ),
 ]
 
-qwen_2_5.extend(qwen_2_5_long_context)
+qwen_2_5.extend(qwen_2_5_1m)
 
 qwen_2_5_coder = [
     # https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B/blob/main/config.json
