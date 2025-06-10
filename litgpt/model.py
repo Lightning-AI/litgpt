@@ -271,12 +271,16 @@ class Block(nn.Module):
                 " (non-parallel residual and shared attention norm)."
             )
 
-        self.norm_1 = config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.norm_1 = nn.Identity() if not config.norm_1 else config.norm_class(config.n_embd, eps=config.norm_eps)
         self.attn = CausalSelfAttention(config, block_idx)
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
-        self.norm_2 = None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps)
+        self.norm_2 = (
+            nn.Identity()
+            if not config.norm_2
+            else (None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
+        )
         self.mlp = config.mlp_class(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
@@ -325,6 +329,7 @@ class Block(nn.Module):
         else:
             x = attention_output + x
             x_normed = self.norm_2(x)
+
         return self.post_mlp_norm(self.mlp(x_normed)) + x
 
 
@@ -346,8 +351,12 @@ class CausalSelfAttention(nn.Module):
             self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
 
         if config.norm_qk:
-            self.norm_q = config.norm_class(config.head_size, eps=config.norm_eps)
-            self.norm_k = config.norm_class(config.head_size, eps=config.norm_eps)
+            norm_q_size = config.n_head * config.head_size if config.norm_qk_type == "olmo2" else config.head_size
+            norm_k_size = (
+                config.n_query_groups * config.head_size if config.norm_qk_type == "olmo2" else config.head_size
+            )
+            self.norm_q = config.norm_class(norm_q_size, eps=config.norm_eps)
+            self.norm_k = config.norm_class(norm_k_size, eps=config.norm_eps)
         else:
             self.norm_q = self.norm_k = None
 
@@ -387,6 +396,10 @@ class CausalSelfAttention(nn.Module):
         # Split qkv into query, key and value matrices.
         q, k, v = qkv.split((query_size, key_size, value_size), dim=-1)  # 3x(B, T, C*)
 
+        if self.config.norm_qk and self.config.norm_qk_type == "olmo2":
+            q = self.norm_q(q)
+            k = self.norm_k(k)
+
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
         q = q.view(B, T, n_head, head_size)  # (B, T, nh_q, hs)
@@ -400,7 +413,7 @@ class CausalSelfAttention(nn.Module):
         k = k.transpose(1, 2)  # (B, nh_k, T, hs)
         v = v.transpose(1, 2)  # (B, nh_v, T, hs)
 
-        if self.config.norm_qk:
+        if self.config.norm_qk and self.config.norm_qk_type == "default":
             q = self.norm_q(q)
             k = self.norm_k(k)
 
