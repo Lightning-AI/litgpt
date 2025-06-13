@@ -7,18 +7,23 @@ import re
 def __getattr__(name):
     if name == "LLM":
         from litgpt.api import LLM
+
         return LLM
     elif name == "Config":
         from litgpt.config import Config
+
         return Config
     elif name == "GPT":
         from litgpt.model import GPT
+
         return GPT
     elif name == "PromptStyle":
         from litgpt.prompts import PromptStyle
+
         return PromptStyle
     elif name == "Tokenizer":
         from litgpt.tokenizer import Tokenizer
+
         return Tokenizer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

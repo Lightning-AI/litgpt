@@ -183,6 +183,7 @@ class Config:
         # `self.norm_class_name` cannot be the type to keep the config serializable
 
         from functools import partial
+
         import torch
 
         if self.norm_class_name == "RMSNorm":
