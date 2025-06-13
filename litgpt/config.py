@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Type, Union
 
-import torch
 import yaml
 from typing_extensions import Self
 
@@ -184,6 +183,7 @@ class Config:
         # `self.norm_class_name` cannot be the type to keep the config serializable
 
         from functools import partial
+        import torch
 
         if self.norm_class_name == "RMSNorm":
             from litgpt.model import RMSNorm
