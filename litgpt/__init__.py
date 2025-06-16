@@ -2,6 +2,15 @@
 
 import logging
 import re
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from litgpt.api import LLM
+    from litgpt.config import Config
+    from litgpt.model import GPT
+    from litgpt.prompts import PromptStyle
+    from litgpt.tokenizer import Tokenizer
 
 
 def __getattr__(name):
@@ -25,6 +34,30 @@ def __getattr__(name):
         from litgpt.tokenizer import Tokenizer
 
         return Tokenizer
+
+    # Handle the modules that used to be available immediately after the top-level import
+    elif name == "api":
+        import litgpt.api as api
+
+        return api
+    elif name == "config":
+        import litgpt.config as config
+
+        return config
+    elif name == "model":
+        import litgpt.model as model
+
+        return model
+    elif name == "prompts":
+        import litgpt.prompts as prompts
+
+        return prompts
+    elif name == "tokenizer":
+        import litgpt.tokenizer as tokenizer
+
+        return tokenizer
+    
+    # If the attribute is not found, raise an AttributeError
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
