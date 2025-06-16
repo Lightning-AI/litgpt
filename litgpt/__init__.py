@@ -4,7 +4,6 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-
 if TYPE_CHECKING:
     from litgpt.api import LLM
     from litgpt.config import Config
@@ -56,7 +55,7 @@ def __getattr__(name):
         import litgpt.tokenizer as tokenizer
 
         return tokenizer
-    
+
     # If the attribute is not found, raise an AttributeError
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
