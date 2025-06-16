@@ -2583,6 +2583,9 @@ for c in qwen_2_5:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
 
+##########
+# QwQ
+##########
 qwq = [
     # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
     dict(
@@ -2630,6 +2633,9 @@ qwq = [
 
 configs.extend(qwq)
 
+##########
+# Qwen3
+##########
 qwen_3 = [
     # https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json
     dict(
@@ -2770,6 +2776,85 @@ qwen_3_32b = [
     ),
 ]
 configs.extend(qwen_3_32b)
+
+qwen_3_moe = [
+    # https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/config.json
+    dict(
+        name="Qwen3-30B-A3B",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=48,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=6144,
+        moe_intermediate_size=768,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-30B-A3B-Base/blob/main/config.json
+    dict(
+        name="Qwen3-30B-A3B-Base",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B-Base"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=48,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=6144,
+        moe_intermediate_size=768,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-235B-A22B/blob/main/config.json
+    dict(
+        name="Qwen3-235B-A22B",
+        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=94,
+        n_head=64,
+        n_embd=4096,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=12288,
+        moe_intermediate_size=1536,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+]
+configs.extend(qwen_3_moe)
 
 
 #############
