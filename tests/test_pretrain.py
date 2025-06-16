@@ -40,8 +40,6 @@ def test_optimizer_args(_, tmp_path):
 
 
 @_RunIf(min_cuda_gpus=2, standalone=True)
-# Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
-@mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 # If we were to use `save_hyperparameters()`, we would have to patch `sys.argv` or otherwise
 # the CLI would capture pytest args, but unfortunately patching would mess with subprocess
 # launching, so we need to mock `save_hyperparameters()`
@@ -87,8 +85,6 @@ def test_pretrain(_, tmp_path):
 
 
 @_RunIf(min_cuda_gpus=2, standalone=True)
-# Set CUDA_VISIBLE_DEVICES for FSDP hybrid-shard, if fewer GPUs are used than are available
-@mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 @mock.patch("litgpt.pretrain.L.Fabric.load_raw")
 # See comment in `test_pretrain` why we need to mock `save_hyperparameters()`
 @mock.patch("litgpt.pretrain.save_hyperparameters")
