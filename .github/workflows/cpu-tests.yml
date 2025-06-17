@@ -9,6 +9,20 @@ on:
   pull_request: {} # todo
   workflow_dispatch: {}
 
+# lock down all permissions by default
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  id-token: read
+  security-events: read
+  actions: read
+  checks: write
+  deployments: read
+  discussions: read
+  packages: read
+  statuses: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}

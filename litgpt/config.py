@@ -2331,6 +2331,53 @@ qwen_2_5 = [
     ),
 ]
 
+qwen_2_5_1m = [
+    # https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-1M/blob/main/config.json
+    dict(
+        name="Qwen2.5-7B-Instruct-1M",
+        hf_config=dict(org="Qwen", name="Qwen2.5-7B-Instruct-1M"),
+        block_size=1010000,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=28,
+        n_head=28,
+        n_embd=3584,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=18944,
+        norm_eps=1e-5,
+        rope_base=10000000,
+    ),
+    # https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M/blob/main/config.json
+    dict(
+        name="Qwen2.5-14B-Instruct-1M",
+        hf_config=dict(org="Qwen", name="Qwen2.5-14B-Instruct-1M"),
+        block_size=1010000,
+        vocab_size=151643,
+        padded_vocab_size=152064,
+        n_layer=48,
+        n_head=40,
+        n_embd=5120,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        attn_bias=True,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=13824,
+        norm_eps=1e-5,
+        rope_base=10000000,
+    ),
+]
+
+qwen_2_5.extend(qwen_2_5_1m)
+
 qwen_2_5_coder = [
     # https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B/blob/main/config.json
     dict(
@@ -2537,6 +2584,9 @@ for c in qwen_2_5:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
 
+##########
+# QwQ
+##########
 qwq = [
     # https://huggingface.co/Qwen/QwQ-32B/blob/main/config.json
     dict(
@@ -2584,6 +2634,9 @@ qwq = [
 
 configs.extend(qwq)
 
+##########
+# Qwen3
+##########
 qwen_3 = [
     # https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/config.json
     dict(
@@ -2724,6 +2777,85 @@ qwen_3_32b = [
     ),
 ]
 configs.extend(qwen_3_32b)
+
+qwen_3_moe = [
+    # https://huggingface.co/Qwen/Qwen3-30B-A3B/blob/main/config.json
+    dict(
+        name="Qwen3-30B-A3B",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=48,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=6144,
+        moe_intermediate_size=768,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-30B-A3B-Base/blob/main/config.json
+    dict(
+        name="Qwen3-30B-A3B-Base",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B-Base"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=48,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=6144,
+        moe_intermediate_size=768,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-235B-A22B/blob/main/config.json
+    dict(
+        name="Qwen3-235B-A22B",
+        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B"),
+        block_size=40960,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=94,
+        n_head=64,
+        n_embd=4096,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=12288,
+        moe_intermediate_size=1536,
+        norm_eps=1e-6,
+        rope_base=1000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+]
+configs.extend(qwen_3_moe)
 
 
 #############
