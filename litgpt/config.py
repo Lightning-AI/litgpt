@@ -183,7 +183,8 @@ class Config:
         # `self.norm_class_name` cannot be the type to keep the config serializable
 
         from functools import partial
-        import torch # Torch import is lazy to make config loading faster
+
+        import torch  # Torch import is lazy to make config loading faster
 
         if self.norm_class_name == "RMSNorm":
             from litgpt.model import RMSNorm
