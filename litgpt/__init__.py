@@ -31,6 +31,7 @@ _LAZY_IMPORTS = {
     "utils": "litgpt.utils",
 }
 
+
 def __getattr__(name):
     """
     Allow for lazy imports of all litgpt submodules,
@@ -46,11 +47,13 @@ def __getattr__(name):
     # If the attribute is not found, raise an AttributeError
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 def __dir__():
     """
     Return a list of all attributes in the litgpt module.
     """
     return sorted(list(_LAZY_IMPORTS.keys()) + list(globals().keys()))
+
 
 # Suppress excessive warnings, see https://github.com/pytorch/pytorch/issues/111632
 pattern = re.compile(".*Profiler function .* will be ignored")
