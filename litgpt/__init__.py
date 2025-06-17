@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import importlib
 import logging
 import re
 from typing import TYPE_CHECKING
@@ -12,53 +13,44 @@ if TYPE_CHECKING:
     from litgpt.tokenizer import Tokenizer
 
 
+_LAZY_IMPORTS = {
+    "LLM": "litgpt.api",
+    "Config": "litgpt.config",
+    "GPT": "litgpt.model",
+    "PromptStyle": "litgpt.prompts",
+    "Tokenizer": "litgpt.tokenizer",
+    "api": "litgpt.api",
+    "chat": "litgpt.chat",
+    "config": "litgpt.config",
+    "generate": "litgpt.generate",
+    "lora": "litgpt.lora",
+    "model": "litgpt.model",
+    "prompts": "litgpt.prompts",
+    "scripts": "litgpt.scripts",
+    "tokenizer": "litgpt.tokenizer",
+    "utils": "litgpt.utils",
+}
+
 def __getattr__(name):
-    if name == "LLM":
-        from litgpt.api import LLM
-
-        return LLM
-    elif name == "Config":
-        from litgpt.config import Config
-
-        return Config
-    elif name == "GPT":
-        from litgpt.model import GPT
-
-        return GPT
-    elif name == "PromptStyle":
-        from litgpt.prompts import PromptStyle
-
-        return PromptStyle
-    elif name == "Tokenizer":
-        from litgpt.tokenizer import Tokenizer
-
-        return Tokenizer
-
-    # Handle the modules that used to be available immediately after the top-level import
-    elif name == "api":
-        import litgpt.api as api
-
-        return api
-    elif name == "config":
-        import litgpt.config as config
-
-        return config
-    elif name == "model":
-        import litgpt.model as model
-
-        return model
-    elif name == "prompts":
-        import litgpt.prompts as prompts
-
-        return prompts
-    elif name == "tokenizer":
-        import litgpt.tokenizer as tokenizer
-
-        return tokenizer
+    """
+    Allow for lazy imports of all litgpt submodules,
+    as well as some selected top-level attributes.
+    """
+    if name in _LAZY_IMPORTS:
+        module_name = _LAZY_IMPORTS[name]
+        module = importlib.import_module(module_name)
+        if not module_name.endswith(name):
+            return getattr(module, name)
+        return module
 
     # If the attribute is not found, raise an AttributeError
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+def __dir__():
+    """
+    Return a list of all attributes in the litgpt module.
+    """
+    return sorted(list(_LAZY_IMPORTS.keys()) + list(globals().keys()))
 
 # Suppress excessive warnings, see https://github.com/pytorch/pytorch/issues/111632
 pattern = re.compile(".*Profiler function .* will be ignored")
