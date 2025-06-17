@@ -11,13 +11,13 @@ on:
 
 # lock down all permissions by default
 permissions:
-  contents: read        # needed to check out code
-  checks: write         # needed for test results
-  pull-requests: read   # needed for PR metadata
-  actions: read         # needed to use actions
-  metadata: read        # needed for repo metadata
+  contents: read # needed to check out code
+  checks: write # needed for test results
+  pull-requests: read # needed for PR metadata
+  actions: read # needed to use actions
+  metadata: read # needed for repo metadata
   security-events: none
-  statuses: write       # needed to update commit status
+  statuses: write # needed to update commit status
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
