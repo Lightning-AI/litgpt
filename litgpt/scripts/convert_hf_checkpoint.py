@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
+from lightning_utilities.core.imports import RequirementCache
 from safetensors.torch import load_file as load_safetensors
 from tqdm import tqdm
 
@@ -286,6 +287,17 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
+_TRANSFORMERS_GREATER_EQUAL_4_52 = RequirementCache("transformers>=4.52.0")
+
+GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "language_model.model"
+
+GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "vision_tower"
+
+GEMMA3_MM_PROJECTOR_PREFIX = (
+    "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
+)
+
+
 def copy_weights_gemma_3(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -319,15 +331,21 @@ def copy_weights_gemma_3(
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
     # gemma3 4b+ are multimodel models, but we are only loading the text weights
-    is_multimodal = any(k.startswith("language_model") for k in hf_weights)
+    is_multimodal = any(k.startswith(GEMMA3_LANGUAGE_MODEL_PREFIX) for k in hf_weights)
     if is_multimodal:
         warnings.warn("For Gemma3 models only the text component is supported.")
-        weight_map = {f"language_model.{k}": v for k, v in weight_map.items()}
+        new_weight_map = dict()
+        prefix = "model"
+        for k, v in weight_map.items():
+            if k.startswith(prefix):
+                k = GEMMA3_LANGUAGE_MODEL_PREFIX + k[len(prefix) :]
+            new_weight_map[k] = v
+        weight_map = new_weight_map
     for from_name, param in hf_weights.items():
-        if from_name.startswith("vision_tower") or from_name.startswith("multi_modal_projector"):
+        if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX) or from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
             continue
         name_template, *ids = layer_template(from_name, num_matches=2)
-        to_name = weight_map[name_template]
+        to_name = weight_map.get(name_template)
         param = load_param(param, from_name, dtype, verbose=debug_mode)
         # in multimodal models, the text weights are the first part of the weights
         if is_multimodal and to_name == "transformer.wte.weight" and config is not None:
@@ -533,6 +551,170 @@ def copy_weights_qwen_2_5(
                 pbar.update(progress_per_file)
 
 
+def copy_weights_olmo2(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False,
+) -> None:
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.norm_q.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.post_attention_norm.weight",
+        "model.layers.{}.post_attention_layernorm.bias": "transformer.h.{}.post_attention_norm.bias",
+        "model.layers.{}.post_feedforward_layernorm.weight": "transformer.h.{}.post_mlp_norm.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "model.norm.bias": "transformer.ln_f.bias",
+        "lm_head.weight": "lm_head.weight",
+    }
+    if config.mlp_class_name in ("LLaMAMLP", "GemmaMLP"):
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+                "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+            }
+        )
+    else:
+        raise NotImplementedError
+
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+
+    for from_name, param in hf_weights.items():
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        to_name = weight_map[name_template]
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+        if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
+            weight_name, weight_type = from_name.split(".")[-2:]
+            qkv[weight_type][weight_name] = param
+        if to_name is None:
+            continue
+        to_name = to_name.format(*ids)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                # qkv is split across different .bin files
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
+            qkv = torch.cat((q, k, v))
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
+            del qkv_weights[i][weight_type]
+
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+
+
+def copy_weights_qwen_3(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False,
+) -> None:
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.norm_q.weight",
+        "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+    if config.mlp_class_name == "LLaMAMoE":
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.experts.{}.gate_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_1.weight",
+                "model.layers.{}.mlp.experts.{}.up_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_2.weight",
+                "model.layers.{}.mlp.experts.{}.down_proj.weight": "transformer.h.{}.mlp.experts.{}.proj.weight",
+                "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+            }
+        )
+    elif config.mlp_class_name == "LLaMAMLP":
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
+                "model.layers.{}.mlp.up_proj.weight": "transformer.h.{}.mlp.fc_2.weight",
+                "model.layers.{}.mlp.down_proj.weight": "transformer.h.{}.mlp.proj.weight",
+            }
+        )
+    else:
+        raise NotImplementedError
+
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+
+    for from_name, param in hf_weights.items():
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        to_name = weight_map[name_template]
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+        if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
+            weight_name, weight_type = from_name.split(".")[-2:]
+            qkv[weight_type][weight_name] = param
+        if to_name is None:
+            continue
+        to_name = to_name.format(*ids)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                # qkv is split across different .bin files
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
+            qkv = torch.cat((q, k, v))
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = qkv
+            del qkv_weights[i][weight_type]
+
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+
+
 def qkv_reassemble(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -624,6 +806,14 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)
+    elif model_name.lower().startswith("olmo-2-"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_olmo2, config, qkv_weights)
+    elif model_name.lower().startswith("qwen3"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_qwen_3, config, qkv_weights)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

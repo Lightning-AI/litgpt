@@ -9,6 +9,15 @@ on:
   pull_request: {} # todo
   workflow_dispatch: {}
 
+# lock down all permissions by default
+permissions:
+  contents: read # needed to check out code
+  checks: write # needed for test results
+  pull-requests: read # needed for PR metadata
+  actions: read # needed to use actions
+  security-events: none
+  statuses: write # needed to update commit status
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
@@ -26,6 +35,7 @@ env:
 jobs:
   testing-imports:
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request_target'
     strategy:
       fail-fast: false
       matrix:
@@ -35,12 +45,6 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v4
-        if: github.event_name != 'pull_request_target'
-      - name: Checkout for `pull_request_target`
-        uses: actions/checkout@v4
-        if: github.event_name == 'pull_request_target'
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -96,7 +100,7 @@ jobs:
 
       # Add caching for HF models and tokenizers
       - name: HF cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         continue-on-error: true
         with:
           path: .cache-HF
