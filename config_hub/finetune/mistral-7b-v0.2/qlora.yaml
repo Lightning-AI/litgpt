@@ -53,7 +53,7 @@ data:
     ignore_index: -100
     seed: 42
     num_workers: 4
-    download_dir: data/alpaca2k
+    download_dir: /kaggle/input/echo-data-v2
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
