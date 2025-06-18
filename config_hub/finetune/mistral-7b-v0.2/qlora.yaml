@@ -1,5 +1,5 @@
 # The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
-checkpoint_dir: mistralai/Mistral-7B-v0.2
+checkpoint_dir: mistralai/Mistral-7B-v0.1
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
 out_dir: /kaggle/working/litgpt-echo/out/finetune
