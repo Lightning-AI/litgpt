@@ -1,0 +1,64 @@
+checkpoint_dir: mistralai/Mistral-7B-Instruct-v0.3
+out_dir: /out/finetune/qlora-Mistral-7B-Instruct-v0.3-echo
+
+# GPU setup
+devices: 1
+num_nodes: 1
+precision: "32-true"          # Karena P100 tidak support bfloat16
+quantize: bnb.nf4             # QLoRA quantization
+seed: 1337
+
+# Logging
+logger_name: csv
+
+# Dataset: pakai file JSON custom kamu
+data:
+  class_path: litgpt.data.JSON
+  init_args:
+    json_path: /litgpt-echo/echo-data-v2/echo_combined_ft_data.json
+    val_split_fraction: 0.05
+    prompt_style: alpaca
+    mask_prompt: false
+    ignore_index: -100
+    seed: 42
+    num_workers: 4
+
+# Training configuration
+train:
+  save_interval: 200
+  log_interval: 1
+  global_batch_size: 8
+  micro_batch_size: 2
+  lr_warmup_steps: 10
+  epochs: 4
+  max_seq_length: 512
+  min_lr: 6.0e-05
+
+# Evaluation
+eval:
+  interval: 100
+  max_new_tokens: 100
+  max_iters: 100
+  initial_validation: false
+  final_validation: true
+
+# LoRA configuration
+lora_r: 32
+lora_alpha: 16
+lora_dropout: 0.05
+lora_query: true
+lora_value: true
+lora_key: false
+lora_mlp: false
+lora_projection: false
+lora_head: false
+
+# Optimizer
+optimizer:
+  class_path: torch.optim.AdamW
+  init_args:
+    lr: 0.0002
+    weight_decay: 0.0
+    betas:
+      - 0.9
+      - 0.95
