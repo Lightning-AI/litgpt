@@ -4,8 +4,8 @@ out_dir: /kaggle/temp/out/finetune/qlora-Mistral-7B-Instruct-v0.3-echo
 # GPU setup
 devices: 1
 num_nodes: 1
-precision: "32-true"          # Karena P100 tidak support bfloat16
-quantize: bnb.nf4             # QLoRA quantization
+precision: "32-true" # Karena P100 tidak support bfloat16
+quantize: bnb.nf4 # QLoRA quantization
 seed: 1337
 
 # Logging
@@ -15,7 +15,7 @@ logger_name: csv
 data:
   class_path: litgpt.data.JSON
   init_args:
-    json_path: /kaggle/input/echo-data-v2/echo_combined_ft_data.json
+    json_path: /echo-data-v2/echo_combined_ft_data.json
     val_split_fraction: 0.05
     prompt_style: alpaca
     mask_prompt: false
