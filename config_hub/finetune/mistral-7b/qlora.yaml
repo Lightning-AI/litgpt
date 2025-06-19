@@ -11,7 +11,7 @@ precision: bf16-true
 quantize: bnb.nf4
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
-devices: 1
+devices: 2
 
 # How many nodes to use. (type: int, default: 1)
 num_nodes: 1
@@ -53,7 +53,7 @@ data:
     ignore_index: -100
     seed: 42
     num_workers: 4
-    download_dir: data/alpaca2k
+    download_dir: /kaggle/input/echo-data-v2
 
 # Training-related arguments. See ``litgpt.args.TrainArgs`` for details
 train:
