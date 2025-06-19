@@ -15,7 +15,7 @@ logger_name: csv
 data:
   class_path: litgpt.data.JSON
   init_args:
-    json_path: /litgpt-echo/echo-data-v2/echo_combined_ft_data.json
+    json_path: /echo-data-v2/echo_combined_ft_data.json
     val_split_fraction: 0.05
     prompt_style: alpaca
     mask_prompt: false
