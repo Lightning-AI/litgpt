@@ -1,10 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import math
-import random
 from copy import deepcopy
 from functools import partial
-from typing import Optional
 
 import pytest
 import torch
@@ -40,10 +37,6 @@ import litgpt.attention
 import litgpt.attention_utils
 import litgpt.config as config_module
 from litgpt import GPT, Config
-from litgpt.attention import (
-    DefaultKeysAndValues, scaled_dot_product_attention,
-)
-from litgpt.attention_utils import build_mask_cache, build_mask_slice
 from litgpt.model import CausalSelfAttention
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
@@ -57,7 +50,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_qwen_3,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
-from litgpt.utils import _RunIf, batched_index_select
+from litgpt.utils import _RunIf
 
 
 @torch.inference_mode()

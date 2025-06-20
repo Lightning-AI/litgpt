@@ -10,11 +10,10 @@ from dataclasses import replace
 from functools import partial
 from typing import Any, List, Optional, Tuple, Union
 
-from typing_extensions import Self
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing_extensions import Self
 
 from litgpt.attention import (
     DefaultKeysAndValues,
@@ -603,7 +602,6 @@ class CausalSelfAttention(nn.Module):
 
         self.config = config
         self.block_idx = block_idx
-
 
     def forward(
         self,
