@@ -1,4 +1,3 @@
-# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
 import sys
 from pathlib import Path
@@ -31,11 +30,10 @@ class BaseLitAPI(LitAPI):
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
+        api_path: Optional[str] = None,
     ) -> None:
-        if not _LITSERVE_AVAILABLE:
-            raise ImportError(str(_LITSERVE_AVAILABLE))
+        super().__init__(api_path=api_path)
 
-        super().__init__()
         self.checkpoint_dir = checkpoint_dir
         self.quantize = quantize
         self.precision = precision
@@ -61,12 +59,11 @@ class BaseLitAPI(LitAPI):
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy="sequential" if self.devices is not None and self.devices > 1 else None,
+            generate_strategy=("sequential" if self.devices is not None and self.devices > 1 else None),
         )
         print("Model successfully initialized.", file=sys.stderr)
 
     def decode_request(self, request: Dict[str, Any]) -> Any:
-        # Convert the request payload to your model input.
         prompt = str(request["prompt"])
         return prompt
 
@@ -82,20 +79,34 @@ class SimpleLitAPI(BaseLitAPI):
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
+        api_path: Optional[str] = None,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+            api_path=api_path,
+        )
 
     def setup(self, device: str):
         super().setup(device)
 
     def predict(self, inputs: str) -> Any:
         output = self.llm.generate(
-            inputs, temperature=self.temperature, top_k=self.top_k, top_p=self.top_p, max_new_tokens=self.max_new_tokens
+            inputs,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            max_new_tokens=self.max_new_tokens,
         )
         return output
 
     def encode_response(self, output: str) -> Dict[str, Any]:
-        # Convert the model output to a response payload.
         return {"output": output}
 
 
@@ -110,14 +121,24 @@ class StreamLitAPI(BaseLitAPI):
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
+        api_path: Optional[str] = None,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+            api_path=api_path,
+        )
 
     def setup(self, device: str):
         super().setup(device)
 
     def predict(self, inputs: torch.Tensor) -> Any:
-        # Run the model on the input and return the output.
         yield from self.llm.generate(
             inputs,
             temperature=self.temperature,
@@ -143,8 +164,19 @@ class OpenAISpecLitAPI(BaseLitAPI):
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
+        api_path: Optional[str] = None,
     ):
-        super().__init__(checkpoint_dir, quantize, precision, temperature, top_k, top_p, max_new_tokens, devices)
+        super().__init__(
+            checkpoint_dir,
+            quantize,
+            precision,
+            temperature,
+            top_k,
+            top_p,
+            max_new_tokens,
+            devices,
+            api_path=api_path,
+        )
 
     def setup(self, device: str):
         super().setup(device)
@@ -167,18 +199,20 @@ class OpenAISpecLitAPI(BaseLitAPI):
         self.template = Template(self.chat_template)
 
     def decode_request(self, request: "ChatCompletionRequest") -> Any:
-        # Apply chat template to request messages
         return self.template.render(messages=request.messages)
 
     def predict(self, inputs: str, context: dict) -> Any:
-        # Extract parameters from context with fallback to instance attributes
         temperature = context.get("temperature") or self.temperature
         top_p = context.get("top_p", self.top_p) or self.top_p
         max_new_tokens = context.get("max_completion_tokens") or self.max_new_tokens
 
-        # Run the model on the input and return the output.
         yield from self.llm.generate(
-            inputs, temperature=temperature, top_k=self.top_k, top_p=top_p, max_new_tokens=max_new_tokens, stream=True
+            inputs,
+            temperature=temperature,
+            top_k=self.top_k,
+            top_p=top_p,
+            max_new_tokens=max_new_tokens,
+            stream=True,
         )
 
 
@@ -196,6 +230,7 @@ def run_server(
     stream: bool = False,
     openai_spec: bool = False,
     access_token: Optional[str] = None,
+    api_path: Optional[str] = "/predict",
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -235,11 +270,13 @@ def run_server(
         stream: Whether to stream the responses.
         openai_spec: Whether to use the OpenAISpec.
         access_token: Optional API token to access models with restrictions.
+        api_path: The custom API path for the endpoint (e.g., "/my_api/classify").
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
 
     api_class = OpenAISpecLitAPI if openai_spec else StreamLitAPI if stream else SimpleLitAPI
+
     server = LitServer(
         api_class(
             checkpoint_dir=checkpoint_dir,
@@ -250,6 +287,7 @@ def run_server(
             top_p=top_p,
             max_new_tokens=max_new_tokens,
             devices=devices,
+            api_path=api_path,
         ),
         spec=OpenAISpec() if openai_spec else None,
         accelerator=accelerator,
