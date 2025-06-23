@@ -184,7 +184,7 @@ class Config:
 
         from functools import partial
 
-        import torch
+        import torch  # Torch import is lazy to make config loading faster
 
         if self.norm_class_name == "RMSNorm":
             from litgpt.model import RMSNorm
