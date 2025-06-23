@@ -52,9 +52,5 @@ body:
         ```
         pip show litgpt | grep Version:
         ```
-      value: |
-        ```
-
-        ```
     validations:
       required: false
