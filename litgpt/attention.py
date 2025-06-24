@@ -1,16 +1,16 @@
 import math
-from typing import Optional, Tuple, List, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch.nn import functional as F
 from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from litgpt.attention_utils import (
-    filter_sdpa_kernels,
-    build_mask_cache,
-    build_mask_slice,
     attention_compute_scores,
     attention_compute_weighted_values,
+    build_mask_cache,
+    build_mask_slice,
+    filter_sdpa_kernels,
 )
 from litgpt.config import Config
 
@@ -94,6 +94,7 @@ class MultiHeadSelfAttention:
     `torch.nn.functional.scaled_dot_product_attention` is never used.
 
     """
+
     def __init__(
         self,
         config: Config,
@@ -157,12 +158,16 @@ class MultiHeadSelfAttention:
             # Build attention mask
             mask_dtype = torch.float32 if use_eager_sdpa else query.dtype
             if is_causal:
-                mask = build_mask_cache(
-                    max_seq_length=T,
-                    sliding_window_size=sliding_window_size,
-                    dtype=mask_dtype,
-                    device=query.device,
-                ).view(1, 1, T, T).detach()
+                mask = (
+                    build_mask_cache(
+                        max_seq_length=T,
+                        sliding_window_size=sliding_window_size,
+                        dtype=mask_dtype,
+                        device=query.device,
+                    )
+                    .view(1, 1, T, T)
+                    .detach()
+                )
             elif (not use_eager_sdpa) or T > 1:
                 # We need a mask if T > 1, since inference needs to be causal
                 # for the new tokens
@@ -197,7 +202,12 @@ class MultiHeadSelfAttention:
         return_attn_weights: bool,
         k_and_v: KeysAndValues,
     ) -> bool:
-        return return_attn_weights or self.use_eager_sdpa_always or self.config.attention_logit_softcapping is not None or not k_and_v.both_in_parallel()
+        return (
+            return_attn_weights
+            or self.use_eager_sdpa_always
+            or self.config.attention_logit_softcapping is not None
+            or not k_and_v.both_in_parallel()
+        )
 
     def _filter_sdpa_kernels(
         self,

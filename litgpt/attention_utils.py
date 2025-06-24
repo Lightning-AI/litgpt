@@ -2,11 +2,11 @@ from typing import List, Optional
 
 import torch
 from torch.backends.cuda import (
-    can_use_flash_attention,
-    can_use_efficient_attention,
     can_use_cudnn_attention,
+    can_use_efficient_attention,
+    can_use_flash_attention,
 )
-from torch.nn.attention import SDPBackend, SDPAParams
+from torch.nn.attention import SDPAParams, SDPBackend
 
 
 def filter_sdpa_kernels(
@@ -20,9 +20,7 @@ def filter_sdpa_kernels(
     enable_gqa: bool,
     **kwargs,
 ) -> List[SDPBackend]:
-    params = SDPAParams(
-        query, key, value, attn_mask, dropout_p, is_causal, enable_gqa
-    )
+    params = SDPAParams(query, key, value, attn_mask, dropout_p, is_causal, enable_gqa)
     new_kernels = []
     for kernel in sdpa_kernels:
         if kernel == SDPBackend.FLASH_ATTENTION and not can_use_flash_attention(params):
@@ -107,7 +105,10 @@ def mask_cache_bool(
 ) -> torch.Tensor:
     # Usual causal mask:
     mask = torch.ones(
-        max_seq_length, max_seq_length, device=device, dtype=dtype,
+        max_seq_length,
+        max_seq_length,
+        device=device,
+        dtype=dtype,
     ).triu(diagonal=1)
     if sliding_window_size is not None:
         mask += torch.ones_like(mask).tril(diagonal=-sliding_window_size)
@@ -151,25 +152,52 @@ def mask_slice_bool(
     tp_dtype = token_positions.dtype
     batch_size, n_query_groups, _ = token_positions.shape
     assert n_head % n_query_groups == 0 and n_head >= n_query_groups
-    token_positions = token_positions.to(device=device).unsqueeze(2).expand(
-        -1, -1, num, -1,
+    token_positions = (
+        token_positions.to(device=device)
+        .unsqueeze(2)
+        .expand(
+            -1,
+            -1,
+            num,
+            -1,
+        )
     )
     kwargs = dict(device=device, dtype=tp_dtype)
-    bool_mask = torch.arange(
-        input_pos, input_pos + num, **kwargs,
-    ).view(1, 1, -1, 1).expand_as(token_positions) < token_positions
-    if sliding_window_size is not None:
-        extra_mask = torch.arange(
-            input_pos - sliding_window_size,
-            input_pos + num - sliding_window_size,
+    bool_mask = (
+        torch.arange(
+            input_pos,
+            input_pos + num,
             **kwargs,
-        ).view(1, 1, -1, 1).expand_as(token_positions) >= token_positions
+        )
+        .view(1, 1, -1, 1)
+        .expand_as(token_positions)
+        < token_positions
+    )
+    if sliding_window_size is not None:
+        extra_mask = (
+            torch.arange(
+                input_pos - sliding_window_size,
+                input_pos + num - sliding_window_size,
+                **kwargs,
+            )
+            .view(1, 1, -1, 1)
+            .expand_as(token_positions)
+            >= token_positions
+        )
         bool_mask |= extra_mask
     if n_head != n_query_groups:
         q_per_kv = n_head // n_query_groups
-        bool_mask = bool_mask.unsqueeze(2).expand(
-            -1, -1, q_per_kv, -1, -1,
-        ).reshape(batch_size, n_head, num, -1)
+        bool_mask = (
+            bool_mask.unsqueeze(2)
+            .expand(
+                -1,
+                -1,
+                q_per_kv,
+                -1,
+                -1,
+            )
+            .reshape(batch_size, n_head, num, -1)
+        )
     return bool_mask
 
 
@@ -201,7 +229,12 @@ def build_mask_slice(
 
     """
     bool_mask = mask_slice_bool(
-        input_pos, num, token_positions, n_head, device, sliding_window_size,
+        input_pos,
+        num,
+        token_positions,
+        n_head,
+        device,
+        sliding_window_size,
     )
     mask = torch.zeros(bool_mask.shape, dtype=dtype, device=device)
     mask.masked_fill_(bool_mask, minus_infinity(dtype))
