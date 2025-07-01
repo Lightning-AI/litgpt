@@ -314,7 +314,10 @@ def test_against_original_gemma_2(model_name):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(
         # some macOS devices have numerical differences, hence the tol bump
-        ours_y, theirs_y, atol=1e-4, rtol=1e-5
+        ours_y,
+        theirs_y,
+        atol=1e-4,
+        rtol=1e-5,
     )
 
 
