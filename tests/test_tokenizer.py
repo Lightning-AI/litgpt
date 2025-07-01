@@ -39,10 +39,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     ours = Tokenizer(tmp_path)
 
     assert ours.vocab_size == theirs.vocab_size
-    if config.name.startswith("CodeLlama-70b-Instruct"):
-        # TODO: the HF tokenizer returns 1 less token for this model. why?
-        assert ours.vocab_size == config.vocab_size - 1
-    elif config.name == "Mixtral-8x22B-v0.1":
+    if config.name == "Mixtral-8x22B-v0.1":
         pytest.xfail(reason="Mixtral certainly lists 32000 vocab in its config")
     else:
         assert ours.vocab_size == config.vocab_size

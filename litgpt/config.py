@@ -1536,7 +1536,9 @@ code_llama = [
         name="CodeLlama-70b-Instruct-hf",
         hf_config=dict(org="codellama", name="CodeLlama-70b-Instruct-hf"),
         block_size=16384,
-        vocab_size=32016,
+        # 32016 is an added token, so not reported in vocab_size
+        # https://huggingface.co/codellama/CodeLlama-70b-Instruct-hf/blob/main/tokenizer_config.json
+        vocab_size=32015,
         padding_multiple=16,
         n_layer=80,
         n_head=64,
