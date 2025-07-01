@@ -82,7 +82,7 @@ jobs:
         include:
           - { os: "macOS-14", python-version: "3.9" }
           - { os: "windows-2022", python-version: "3.9" }
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout generic
         uses: actions/checkout@v4
@@ -118,7 +118,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout 180
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
         run: |
