@@ -81,6 +81,60 @@ Example input
 ```
 
 &nbsp;
+## Serve an LLM with OpenAI-compatible API
+
+LitGPT provides OpenAI-compatible endpoints that allow you to use the OpenAI SDK or any OpenAI-compatible client to interact with your models. This is useful for integrating LitGPT into existing applications that use the OpenAI API.
+
+&nbsp;
+### Step 1: Start the server with OpenAI specification
+
+```bash
+# 1) Download a pretrained model (alternatively, use your own finetuned model)
+litgpt download HuggingFaceTB/SmolLM2-135M-Instruct
+
+# 2) Start the server with OpenAI-compatible endpoints
+litgpt serve HuggingFaceTB/SmolLM2-135M-Instruct --openai_spec true
+```
+
+> [!TIP]
+> The `--openai_spec true` flag enables OpenAI-compatible endpoints at `/v1/chat/completions` instead of the default `/predict` endpoint.
+
+&nbsp;
+### Step 2: Query using OpenAI-compatible endpoints
+
+You can now send requests to the OpenAI-compatible endpoint using curl:
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "SmolLM2-135M-Instruct",
+    "messages": [{"role": "user", "content": "Hello! How are you?"}]
+  }'
+```
+
+Or use the OpenAI Python SDK:
+
+```python
+from openai import OpenAI
+
+# Configure the client to use your local LitGPT server
+client = OpenAI(
+    base_url="http://127.0.0.1:8000/v1",
+    api_key="not-needed"  # LitGPT doesn't require authentication by default
+)
+
+response = client.chat.completions.create(
+    model="SmolLM2-135M-Instruct",
+    messages=[
+        {"role": "user", "content": "Hello! How are you?"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+&nbsp;
 ## Serve an LLM UI with Chainlit
 
 If you are interested in developing a simple ChatGPT-like UI prototype, see the Chainlit tutorial in the following Studio:

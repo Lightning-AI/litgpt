@@ -233,7 +233,9 @@ def run_server(
             The "auto" setting (default) chooses a GPU if available, and otherwise uses a CPU.
         port: The network port number on which the model is configured to be served.
         stream: Whether to stream the responses.
-        openai_spec: Whether to use the OpenAISpec.
+        openai_spec: Whether to use the OpenAISpec and enable OpenAI-compatible API endpoints. When True, the server will provide
+            `/v1/chat/completions` endpoints that work with the OpenAI SDK and other OpenAI-compatible clients,
+            making it easy to integrate with existing applications that use the OpenAI API.
         access_token: Optional API token to access models with restrictions.
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
