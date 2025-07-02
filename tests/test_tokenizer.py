@@ -33,6 +33,11 @@ def test_tokenizer_against_hf(config, tmp_path):
             warnings.warn(str(ex), RuntimeWarning)
     if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
         raise ConnectionError("Unable to download any tokenizer files from HF")
+
+    # we need to rename the dir to match the model name in testing as well
+    # since we use to it determine the model in tokenizer.py
+    tmp_path = tmp_path.rename(tmp_path.parent / config.hf_config['name'])
+
     for filename, hf_file in hf_files.items():
         shutil.copy(hf_file, str(tmp_path / filename))
 
@@ -67,11 +72,6 @@ def test_tokenizer_against_hf(config, tmp_path):
     prompt = PromptStyle.from_config(config).apply(prompt)
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
-    if (expected[0] == theirs.bos_token_id and actual[0] != theirs.bos_token_id) or (
-        expected[0] == theirs.bos_token_id and expected[1] == theirs.bos_token_id
-    ):
-        # TODO: check what is going on with the bos_tokens
-        del expected[0]
     if config.name.startswith("CodeLlama-70b"):
         # TODO: there's a encoding difference with this model. why? note that the decoding is equal
         # "Hello": 10994, "▁Hello": 15043
