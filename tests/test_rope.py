@@ -231,8 +231,6 @@ def test_rope_llama_3_2():
 
 
 # See https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json for settings
-# TODO: update HF transformers version to support Gemma3 and fix errors that causes after the update
-@pytest.mark.skip(reason="This test fails due to the HF transformers version not supporting Gemma3")
 @torch.inference_mode()
 def test_rope_gemma_3():
     from transformers.models.gemma3.configuration_gemma3 import Gemma3TextConfig
