@@ -72,12 +72,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     prompt = PromptStyle.from_config(config).apply(prompt)
     actual = ours.encode(prompt)
     expected = theirs.encode(prompt)
-    if config.name.startswith("CodeLlama-70b"):
-        # TODO: there's a encoding difference with this model. why? note that the decoding is equal
-        # "Hello": 10994, "▁Hello": 15043
-        assert [15043 if t == 10994 else t for t in actual.tolist()] == expected
-    else:
-        assert actual.tolist() == expected
+    assert actual.tolist() == expected
     assert ours.decode(actual) == theirs.decode(expected, skip_special_tokens=True)
 
     if not config.name.startswith(("Mistral", "Mixtral")):
