@@ -6,7 +6,7 @@ import time
 import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import lightning as L
 import torch
@@ -70,7 +70,6 @@ def setup(
         lr_warmup_steps=100,
         epochs=5,
         max_seq_length=None,
-        max_time=None,
     ),
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
@@ -154,10 +153,13 @@ def setup(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 and num_nodes=1"
                 " when using the --quantize flag."
             )
-        strategy = ModelParallelStrategy(
-            parallelize_fn=parallelize_fn,
-            data_parallel_size=devices * num_nodes,
-            tensor_parallel_size=1,
+
+        strategy = FSDPStrategy(
+            auto_wrap_policy={torch.nn.Linear},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
         )
     else:
         strategy = "auto"
@@ -174,7 +176,7 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes, precision)
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -189,7 +191,6 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     num_nodes: int = 1,
-    precision: Optional[str] = None,
 ) -> None:
     validate_args(train, eval)
 
@@ -230,14 +231,8 @@ def main(
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 
-    state_dict = torch.load(checkpoint_path, mmap=True)
-    load_from_full_model_state_dict(
-        model=model,
-        full_sd=state_dict,
-        device=fabric.device,
-        strict=False,
-        cpu_offload=True,
-    )
+    # strict=False because missing keys due to LoRA weights not contained in state dict
+    load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
     token_counts = fit(
@@ -271,21 +266,12 @@ def main(
     save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
-
-    fabric.barrier()
     if fabric.global_rank == 0:
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
-        lora_params = {k: v for k, v in vars(config).items() if "lora_" in k} 
-        merge_lora(
-            checkpoint_dir=save_path.parent,
-            pretrained_checkpoint_dir=checkpoint_dir,
-            precision=precision,
-            lora_params=lora_params,
-        )
-    fabric.barrier()
+        merge_lora(checkpoint_dir=save_path.parent)
 
 
 def fit(
@@ -332,8 +318,6 @@ def fit(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    max_time = train.max_time or float("inf")
-
     token_counts = {
         "raw_tokens": torch.tensor(0, device=fabric.device, dtype=torch.long),
         "raw_tokens_plus_prompt_template": torch.tensor(0, device=fabric.device, dtype=torch.long),
@@ -345,12 +329,6 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         if train_iterator.epoch >= train.epochs:
-            generate_example(fabric, model, tokenizer, eval, data)
-            fabric.print(f"Number of epochs {train.epochs} reached, stopping training...")
-            break
-        if iter_t0 - total_t0 > max_time:
-            generate_example(fabric, model, tokenizer, eval, data)
-            fabric.print(f"Max time ({max_time / 60.0:.2f}m) reached, stopping training...")
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
@@ -521,72 +499,9 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def parallelize_fn(model, device_mesh, activation_checkpointing=True):
-    from torch.distributed._composable.fsdp.fully_shard import fully_shard
-    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import checkpoint_wrapper, CheckpointWrapper
-
-    if activation_checkpointing:
-        model.transformer.h = torch.nn.ModuleList(
-            [checkpoint_wrapper(el, preserve_rng_state=False) for el in model.transformer.h]
-        )
-
-    dp_mesh = device_mesh["data_parallel"]
-
-    for m in reversed(list(model.modules())):
-        if ((isinstance(m, torch.nn.Linear) and m.weight.requires_grad) or
-            isinstance(m, CheckpointWrapper) or
-            isinstance(m, Block)):
-            fully_shard(m, mesh=dp_mesh)
-
-    fully_shard(model, mesh=dp_mesh) 
-
-    return model
-
-def load_from_full_model_state_dict(
-    model: torch.nn.Module,
-    full_sd: Dict[str, Any],
-    device: torch.device,
-    strict: bool = False,
-    cpu_offload: bool = False,
-):
-    from torch.distributed._tensor import distribute_tensor
-    meta_sharded_sd = model.state_dict()
-    sharded_sd = {}
-    for param_name, full_tensor in full_sd.items():
-        if "norm" not in param_name and "wte" not in param_name and "ln_f" not in param_name:
-            param_name = param_name.replace(".weight", ".linear.weight")
-        else:
-            param_name = param_name
-
-        sharded_meta_param = meta_sharded_sd.get(param_name)
-        full_tensor = full_tensor.to(sharded_meta_param.dtype).to(device)
-        sharded_tensor = distribute_tensor(
-            full_tensor,
-            sharded_meta_param.device_mesh,
-            sharded_meta_param.placements,
-        )
-        if cpu_offload:
-            sharded_tensor = sharded_tensor.cpu()
-        sharded_sd[param_name] = torch.nn.Parameter(sharded_tensor)
-    # choose `assign=True` since we cannot call `copy_` on meta tensor
-    return model.load_state_dict(sharded_sd, strict=strict, assign=True)
-
-
 def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
-    cpu_state_dict = {}
-    sharded_sd = model.state_dict()
-    for param_name, param in sharded_sd.items():
-        if "lora_" not in param_name:
-            continue
-        if param.is_cpu:
-            param = param.to(fabric.device)
-        if hasattr(param, "_local_tensor"):
-            param = param.full_tensor()
-        if fabric.is_global_zero:
-            cpu_state_dict[param_name] = param.cpu()
-        torch.distributed.barrier()
-    if fabric.is_global_zero:
-        torch.save(cpu_state_dict, file_path)
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
