@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.fabric.strategies import FSDPStrategy, ModelParallelStrategy
+from lightning.fabric.strategies import ModelParallelStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import ConcatDataset, DataLoader
@@ -20,7 +20,7 @@ from torchmetrics import RunningMean
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
-from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
+from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
@@ -37,7 +37,6 @@ from litgpt.utils import (
     init_out_dir,
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
-    load_checkpoint,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -174,7 +173,9 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes, precision)
+    fabric.launch(
+        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes, precision
+    )
 
 
 def main(
@@ -278,7 +279,7 @@ def main(
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
-        lora_params = {k: v for k, v in vars(config).items() if "lora_" in k} 
+        lora_params = {k: v for k, v in vars(config).items() if "lora_" in k}
         merge_lora(
             checkpoint_dir=save_path.parent,
             pretrained_checkpoint_dir=checkpoint_dir,
@@ -523,7 +524,7 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
 
 def parallelize_fn(model, device_mesh, activation_checkpointing=True):
     from torch.distributed._composable.fsdp.fully_shard import fully_shard
-    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import checkpoint_wrapper, CheckpointWrapper
+    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper, checkpoint_wrapper
 
     if activation_checkpointing:
         model.transformer.h = torch.nn.ModuleList(
@@ -533,14 +534,17 @@ def parallelize_fn(model, device_mesh, activation_checkpointing=True):
     dp_mesh = device_mesh["data_parallel"]
 
     for m in reversed(list(model.modules())):
-        if ((isinstance(m, torch.nn.Linear) and m.weight.requires_grad) or
-            isinstance(m, CheckpointWrapper) or
-            isinstance(m, Block)):
+        if (
+            (isinstance(m, torch.nn.Linear) and m.weight.requires_grad)
+            or isinstance(m, CheckpointWrapper)
+            or isinstance(m, Block)
+        ):
             fully_shard(m, mesh=dp_mesh)
 
-    fully_shard(model, mesh=dp_mesh) 
+    fully_shard(model, mesh=dp_mesh)
 
     return model
+
 
 def load_from_full_model_state_dict(
     model: torch.nn.Module,
@@ -550,6 +554,7 @@ def load_from_full_model_state_dict(
     cpu_offload: bool = False,
 ):
     from torch.distributed._tensor import distribute_tensor
+
     meta_sharded_sd = model.state_dict()
     sharded_sd = {}
     for param_name, full_tensor in full_sd.items():
