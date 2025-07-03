@@ -36,7 +36,7 @@ def test_tokenizer_against_hf(config, tmp_path):
 
     # we need to rename the dir to match the model name in testing as well
     # since we use to it determine the model in tokenizer.py
-    tmp_path = tmp_path.rename(tmp_path.parent / config.hf_config['name'])
+    tmp_path = tmp_path.rename(tmp_path.parent / config.hf_config["name"])
 
     for filename, hf_file in hf_files.items():
         shutil.copy(hf_file, str(tmp_path / filename))

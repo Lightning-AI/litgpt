@@ -93,8 +93,11 @@ def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tens
 
 
 def batched_next_token(
-    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]],
-    input_pos_maxp1: Optional[int] = None
+    model: GPT,
+    input_pos: torch.Tensor,
+    x: torch.Tensor,
+    kwargs: Union[dict, list[dict]],
+    input_pos_maxp1: Optional[int] = None,
 ) -> torch.Tensor:
     # Where:
     # input_pos is a 1d tensor of shape [seq_length...]
