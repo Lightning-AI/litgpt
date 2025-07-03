@@ -28,6 +28,8 @@ class TrainArgs:
     """Total number of tokens to train on"""
     max_steps: Optional[int] = None
     """Limits the number of optimizer steps to run"""
+    max_time: Optional[float] = None
+    """Limits the number of seconds to train for"""
     max_seq_length: Optional[int] = None
     """Limits the length of samples"""
     tie_embeddings: Optional[bool] = None

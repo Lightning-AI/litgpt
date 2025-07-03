@@ -12,6 +12,7 @@ from litgpt.finetune.adapter import setup as finetune_adapter_fn
 from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
 from litgpt.finetune.full import setup as finetune_full_fn
 from litgpt.finetune.lora import setup as finetune_lora_fn
+from litgpt.finetune.lora_legacy import setup as finetune_lora_legacy_fn
 from litgpt.generate.adapter import main as generate_adapter_fn
 from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
 from litgpt.generate.base import main as generate_base_fn
@@ -35,6 +36,7 @@ def main() -> None:
         "chat": chat_fn,
         "finetune": finetune_lora_fn,
         "finetune_lora": finetune_lora_fn,
+        "finetune_lora_legacy": finetune_lora_legacy_fn,
         "finetune_full": finetune_full_fn,
         "finetune_adapter": finetune_adapter_fn,
         "finetune_adapter_v2": finetune_adapter_v2_fn,
