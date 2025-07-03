@@ -93,7 +93,8 @@ def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tens
 
 
 def batched_next_token(
-    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]
+    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]],
+    input_pos_maxp1: Optional[int] = None
 ) -> torch.Tensor:
     # Where:
     # input_pos is a 1d tensor of shape [seq_length...]
@@ -116,7 +117,7 @@ def batched_next_token(
     _kwargs = kwargs if isinstance(kwargs, list) else [kwargs] * x.size(0)
 
     # Run the model on the batch.
-    logits_stack = model(x, input_pos)
+    logits_stack = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
 
     # Unbind the logits stack into a list of logits.
     logits_list = [logits_stack] if logits_stack.ndim == 1 else logits_stack.unbind(0)
@@ -302,10 +303,12 @@ def batched_generate_fn(
     tokens: torch.Tensor = prompts
     prefill_token = True
     input_pos = torch.arange(0, max_prompt_size, device=device, dtype=torch.int64)
+    input_pos_maxp1 = max_prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in model.modules()) else None
+
     for current_idx in range(max_returned_tokens - max_prompt_size):
         # Generate the next token for each prompt in the batch.
         # This is of shape [batch_size, 1].
-        tokens = batched_next_token(model, input_pos, tokens, sample_args)
+        tokens = batched_next_token(model, input_pos, tokens, sample_args, input_pos_maxp1=input_pos_maxp1)
         for i in range(batch_size):
             token_lists[i].append(tokens[i])
         int_tokens = [token.item() for token in tokens]
@@ -356,6 +359,9 @@ def batched_generate_fn(
             input_pos = torch.tensor([max_prompt_size], device=device, dtype=torch.int64)
         else:
             input_pos.add_(1)
+
+        if input_pos_maxp1 is not None:
+            input_pos_maxp1 += 1
 
     # Yield any remaining tokens
     max_token_lists = max(len(l) for l in token_lists)
