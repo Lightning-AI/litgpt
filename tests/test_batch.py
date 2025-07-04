@@ -290,7 +290,7 @@ def test_batch_generate_equivalence(tmp_path):
     second_batched_tokens = [t[1] for t in batch_tokens if t[1] is not None]
     third_batched_tokens = [t[2] for t in batch_tokens if t[2] is not None]
 
-    # Use the same model instance but reconfigure the KV cache for single generation
+    # Clear and reset KV cache
     model.clear_kv_cache()
     model.set_kv_cache(batch_size=1, max_seq_length=50, device=torch.device(device))
 
@@ -312,6 +312,10 @@ def test_batch_generate_equivalence(tmp_path):
         else:
             first_unbatched_tokens.extend(t.tolist())
 
+    # Clear and reset KV cache
+    model.clear_kv_cache()
+    model.set_kv_cache(batch_size=1, max_seq_length=50, device=torch.device(device))
+
     for t in generate_fn(
         model,
         prompt=batch_x[1],
@@ -325,6 +329,10 @@ def test_batch_generate_equivalence(tmp_path):
             second_unbatched_tokens.append(t.item())
         else:
             second_unbatched_tokens.extend(t.tolist())
+
+    # Clear and reset KV cache
+    model.clear_kv_cache()
+    model.set_kv_cache(batch_size=1, max_seq_length=50, device=torch.device(device))
 
     for t in generate_fn(
         model,
