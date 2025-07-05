@@ -45,7 +45,6 @@ class LLM(torch.nn.Module):
         checkpoint_dir: Path = None,
         fabric: L.Fabric = None,
         generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
-        kv_cache_initialized: bool = False,
         fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
     ) -> None:
         super().__init__()
@@ -57,7 +56,6 @@ class LLM(torch.nn.Module):
         self.checkpoint_dir = checkpoint_dir
         self.fabric = fabric
         self.generate_strategy = generate_strategy
-        self.kv_cache_initialized = kv_cache_initialized
         self.fixed_kv_cache_size = fixed_kv_cache_size
         self.prev_generated_seq_length = 0
 
@@ -81,6 +79,9 @@ class LLM(torch.nn.Module):
 
     def load_state_dict(self, state_dict, strict=True):
         return self.model.load_state_dict(state_dict, strict=strict)
+
+    def kv_cache_initialized(self) -> bool:
+        return all(block.attn.kv_cache is not None for block in self.model.transformer.h)
 
     def forward(
         self,
@@ -249,7 +250,6 @@ class LLM(torch.nn.Module):
             checkpoint_dir=checkpoint_dir,
             fabric=fabric,
             generate_strategy=None,
-            kv_cache_initialized=False,
             fixed_kv_cache_size=False,
         )
 
@@ -367,7 +367,6 @@ class LLM(torch.nn.Module):
 
         print("Fabric launched", file=sys.stderr)
 
-        self.kv_cache_initialized = False
         if generate_strategy is None:
             with fabric.init_module(empty_init=(total_devices > 1)):
                 model = GPT(self.config)
@@ -383,8 +382,10 @@ class LLM(torch.nn.Module):
                     kv_cache_size = model.max_seq_length
                 else:
                     kv_cache_size = fixed_kv_cache_size
-                model.set_kv_cache(batch_size=1, max_seq_length=kv_cache_size, device=fabric.device)
-                self.kv_cache_initialized = True
+                model.set_kv_caches(
+                    batch_size=1,
+                    max_seq_length=kv_cache_size,
+                )
                 self.fixed_kv_cache_size = fixed_kv_cache_size
 
         elif generate_strategy in ("sequential", "tensor_parallel"):
@@ -437,7 +438,7 @@ class LLM(torch.nn.Module):
                             # the rope cache which is on meta device
                             model.cos, model.sin = model.rope_cache()
                             # enable the kv cache
-                            model.set_kv_cache(batch_size=1)
+                            model.set_kv_caches(batch_size=1)
                         model.eval()
                         model = fabric.to_device(model)
 
@@ -447,8 +448,6 @@ class LLM(torch.nn.Module):
 
                 if fabric.global_rank == 0:
                     pbar.close()
-
-            self.kv_cache_initialized = True
 
         else:
             raise ValueError(f"Unsupported generate_strategy: {generate_strategy}")
@@ -508,20 +507,23 @@ class LLM(torch.nn.Module):
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 
-        if not self.kv_cache_initialized:
-            if self.fabric is not None:
-                device = self.fabric.device
-            else:
-                device = self.preprocessor.device
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=device)
-            self.kv_cache_initialized = True
+        if self.fabric is not None:
+            device = self.fabric.device
+        else:
+            device = self.preprocessor.device
+        if not self.kv_cache_initialized():
+            self.model.set_kv_caches(
+                batch_size=1,
+                max_seq_length=max_returned_tokens,
+            )
 
         # Dynamically grow the kv cache size if necessary
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
-            tmp_device = self.model.mask_cache.device
-            self.model.clear_kv_cache()
-            self.model.set_kv_cache(batch_size=1, max_seq_length=max_returned_tokens, device=tmp_device)
-
+            self.model.clear_kv_caches()
+            self.model.set_kv_caches(
+                batch_size=1,
+                max_seq_length=max_returned_tokens,
+            )
         else:
             for block in self.model.transformer.h:
                 block.attn.kv_cache.reset_parameters()

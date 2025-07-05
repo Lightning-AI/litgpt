@@ -31,7 +31,10 @@ def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(batch_size=batch_size, max_seq_length=max_seq_length, device=device)
+    model.set_kv_caches(
+        batch_size=batch_size,
+        max_seq_length=max_seq_length,
+    )
 
     return llm, model
 
@@ -41,8 +44,9 @@ def test_batched_equivalence(tmp_path):
     model_name = "microsoft/phi-2"
     download_from_hub(repo_id=model_name, tokenizer_only=True, checkpoint_dir=tmp_path)
 
-    device = "cuda:0"
+    device = torch.device("cuda:0")
     batch_size = 3
+    max_seq_length = 50
     sample_kwargs = {"top_k": 1}
 
     llm: LLM = LLM.load(
@@ -51,7 +55,7 @@ def test_batched_equivalence(tmp_path):
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(batch_size=1, max_seq_length=50, device=device)
+    model.set_kv_caches(batch_size=1, max_seq_length=50)
 
     input_pos_1 = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device)
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device=device)
@@ -65,8 +69,18 @@ def test_batched_equivalence(tmp_path):
     batch_x1 = torch.stack([x] * batch_size, dim=0)
 
     # Single token generation baseline
-    tok_1 = next_token(model, input_pos_1, x.unsqueeze(0), **sample_kwargs)
-    tok_2 = next_token(model, input_pos_2, tok_1.unsqueeze(0), **sample_kwargs)
+    tok_1 = next_token(
+        model=model,
+        x=x.unsqueeze(0),
+        input_pos=0,
+        **sample_kwargs,
+    )
+    tok_2 = next_token(
+        model=model,
+        x=tok_1.unsqueeze(0),
+        input_pos=x.shape[0],
+        **sample_kwargs,
+    )
 
     assert tok_1.ndim == 1
     assert tok_2.ndim == 1
@@ -74,11 +88,24 @@ def test_batched_equivalence(tmp_path):
     assert tok_2.size(0) == 1
 
     # Switch to batched generation
-    model.clear_kv_cache()
-    model.set_kv_cache(batch_size=batch_size, max_seq_length=50, device="cuda:0")
+    model.clear_kv_caches()
+    model.set_kv_caches(
+        batch_size=batch_size,
+        max_seq_length=max_seq_length,
+    )
 
-    toks_1: torch.Tensor = batched_next_token(model, input_pos_1, batch_x1, sample_kwargs)
-    toks_2: torch.Tensor = batched_next_token(model, input_pos_2, toks_1, sample_kwargs)
+    toks_1: torch.Tensor = batched_next_token(
+        model=model,
+        x=batch_x1,
+        input_pos=0,
+        kwargs=sample_kwargs,
+    )
+    toks_2: torch.Tensor = batched_next_token(
+        model=model,
+        x=toks_1,
+        input_pos=x.shape[0],
+        kwargs=sample_kwargs,
+    )
 
     assert toks_1.ndim == 2
     assert toks_2.ndim == 2
@@ -97,27 +124,21 @@ def test_simple_batch():
     config = litgpt.Config.from_name("microsoft/phi-2", padded_vocab_size=10000, n_layer=2, n_head=8, n_embd=256)
     with torch.device("cuda"):
         m = litgpt.GPT(config).requires_grad_(False).eval()
-        x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 7]])
-        input_pos0 = torch.tensor([[0, 1, 2, 3], [0, 1, 2, 2]])
+        m.max_seq_length = 10
+        # Note: This KV cache can be used throughout, also for batch size 1
+        # It is reset whenever `input_pos=0` (prefill)
+        m.set_kv_caches(2)
+        x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]])
         x1 = torch.tensor([[1], [2]])
-        input_pos1 = torch.tensor([[4], [3]])
 
-    with torch.device("cuda"):
-        m.set_kv_cache(2)
-    outs0 = m(x0, input_pos0)
-    outs1 = m(x1, input_pos1)
+    outs0 = m(x0, input_pos=0)
+    outs1 = m(x1, input_pos=4)
 
-    with torch.device("cuda"):
-        m.set_kv_cache(1)
+    outs0_ref0 = m(x0[:1], input_pos=0)
+    outs1_ref0 = m(x1[:1], input_pos=4)
 
-    outs0_ref0 = m(x0[:1], input_pos0[0])
-    outs1_ref0 = m(x1[:1], input_pos1[0])
-
-    with torch.device("cuda"):
-        m.set_kv_cache(1)
-
-    outs0_ref1 = m(x0[1:], input_pos0[1])
-    outs1_ref1 = m(x1[1:], input_pos1[1])
+    outs0_ref1 = m(x0[1:], input_pos=0)
+    outs1_ref1 = m(x1[1:], input_pos=4)
 
     outs0_ref = torch.cat([outs0_ref0, outs0_ref1])
     outs1_ref = torch.cat([outs1_ref0, outs1_ref1])
@@ -133,7 +154,7 @@ def test_simple_batch():
 def test_batch_generate(tmp_path):
     torch.use_deterministic_algorithms(True)
 
-    device = "cuda:0"
+    device = torch.device("cuda:0")
     batch_size = 3
     sample_kwargs = {"top_k": 1}
     llm, model = create_llm(tmp_path, batch_size, 50, device)
@@ -151,12 +172,11 @@ def test_batch_generate(tmp_path):
     # Generate tokens
     tokens = []
     for l in batched_generate_fn(
-        model,
+        model=model,
         prompts=batch_x,
         max_returned_tokens=50,
         sample_args=sample_kwargs,
         include_prompt=True,
-        include_eos=False,
     ):
         tokens.append([t.item() if t is not None else None for t in l])
 
@@ -216,13 +236,12 @@ def test_batch_generate(tmp_path):
     # Now we generate again, stopping early at the stop tokens.
     tokens = []
     for l in batched_generate_fn(
-        model,
+        model=model,
         prompts=batch_x,
         max_returned_tokens=50,
-        stop_tokens=[(s,) for s in stops],
+        stop_tokens=tuple([s] for s in stops),
         sample_args=sample_kwargs,
         include_prompt=True,
-        include_eos=False,
     ):
         tokens.append([t.item() if t is not None else None for t in l])
 
@@ -257,7 +276,7 @@ def test_batch_generate(tmp_path):
 def test_batch_generate_equivalence(tmp_path):
     torch.use_deterministic_algorithms(True)
 
-    device = "cuda:0"
+    device = torch.device("cuda:0")
     batch_size = 3
     sample_kwargs = {"top_k": 1}
     llm, model = create_llm(tmp_path, batch_size, 50, device)
@@ -276,12 +295,11 @@ def test_batch_generate_equivalence(tmp_path):
 
     batch_tokens = []
     for l in batched_generate_fn(
-        model,
+        model=model,
         prompts=batch_x,
         max_returned_tokens=50,
         sample_args=sample_kwargs,
         include_prompt=False,
-        include_eos=False,
     ):
         batch_tokens.append([t.item() if t is not None else None for t in l])
 
@@ -292,7 +310,7 @@ def test_batch_generate_equivalence(tmp_path):
 
     tokens = []
     for t in generate_fn(
-        model,
+        model=model,
         prompt=batch_x[0],
         max_returned_tokens=50,
         include_prompt=False,
