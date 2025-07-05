@@ -5,8 +5,7 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
-from ast import Index
-from dataclasses import replace
+
 from functools import partial
 from typing import Any, List, Optional, Tuple, Union
 
