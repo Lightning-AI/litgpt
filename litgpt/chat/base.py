@@ -123,7 +123,7 @@ def process_prompt(
 
     t = time.perf_counter() - t0
 
-    model.clear_kv_cache()
+    model.clear_kv_caches()
     fabric.print(
         f"\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec, {tokens_generated} tokens",
         file=sys.stderr,
@@ -262,7 +262,7 @@ def main(
 
     with fabric.init_module(empty_init=True):
         model = GPT(config)
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
     load_checkpoint(fabric, model, checkpoint_path)
     model.eval()
 

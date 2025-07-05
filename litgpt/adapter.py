@@ -51,7 +51,7 @@ class GPT(BaseModel):
         self.mha = MultiHeadSelfAttention(config, **mha_kwargs)
         self.max_seq_length = self.config.block_size
         self._start_of_layer_hook = config.start_of_layer_hook
-        # Have dense KV caches been created by `set_kv_cache`?
+        # Have dense KV caches been created by `set_kv_caches`?
         self._default_kv_cache = False
 
     @classmethod

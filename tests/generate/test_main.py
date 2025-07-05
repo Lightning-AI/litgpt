@@ -41,7 +41,7 @@ def test_generate():
     model = GPT(config)
     max_new_tokens = 20
     model.max_seq_length = T + max_new_tokens
-    model.set_kv_cache(batch_size=1)
+    model.set_kv_caches(batch_size=1)
 
     multinomial_results = []
 
@@ -180,7 +180,7 @@ def test_generate_different_results_with_different_top_p():
     )
     model = GPT(config)
     model.max_seq_length = 50
-    model.set_kv_cache(batch_size=1)
+    model.set_kv_caches(batch_size=1)
 
     torch.manual_seed(123)
     input_idx = torch.randint(10, size=(1,))

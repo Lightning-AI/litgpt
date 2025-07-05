@@ -126,7 +126,7 @@ def test_generate(max_seq_length, speculative_k):
     target_model = GPT(Config(vocab_size=16, block_size=128, n_layer=2, n_head=8, n_embd=16))
     for model in (draft_model, target_model):
         model.max_seq_length = max_seq_length
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
 
     # generate tokens
     out, acceptance_rate = generate.generate(

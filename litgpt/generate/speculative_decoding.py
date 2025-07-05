@@ -80,7 +80,7 @@ def support_speculative_decoding(model: GPT) -> bool:
         return True
     caches = [block.attn.kv_cache for block in model.transformer.h]
     if any(c is None for c in caches):
-        raise ValueError("Some KV caches are not assigned. Use 'model.assign_kv_caches' or 'model.set_kv_cache'")
+        raise ValueError("Some KV caches are not assigned. Use 'model.assign_kv_caches' or 'model.set_kv_caches'")
     result = all(isinstance(c, DenseKVCache) for c in caches)
     if not result:
         print(
@@ -380,7 +380,7 @@ def setup_model(config: Config, max_returned_tokens: int, fabric: L.Fabric) -> G
         # set the max_seq_length to limit the memory usage to what we need
         model.max_seq_length = max_returned_tokens
         # enable the kv cache
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
     model.eval()
     return fabric.setup_module(model)
 

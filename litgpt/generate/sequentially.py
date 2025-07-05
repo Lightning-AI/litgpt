@@ -233,7 +233,7 @@ def main(
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
     print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
@@ -280,5 +280,5 @@ def main(
         print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
-    model.clear_kv_cache()
+    model.clear_kv_caches()
     print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)

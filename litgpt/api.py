@@ -382,7 +382,7 @@ class LLM(torch.nn.Module):
                     kv_cache_size = model.max_seq_length
                 else:
                     kv_cache_size = fixed_kv_cache_size
-                model.set_kv_cache(
+                model.set_kv_caches(
                     batch_size=1,
                     max_seq_length=kv_cache_size,
                 )
@@ -438,7 +438,7 @@ class LLM(torch.nn.Module):
                             # the rope cache which is on meta device
                             model.cos, model.sin = model.rope_cache()
                             # enable the kv cache
-                            model.set_kv_cache(batch_size=1)
+                            model.set_kv_caches(batch_size=1)
                         model.eval()
                         model = fabric.to_device(model)
 
@@ -512,15 +512,15 @@ class LLM(torch.nn.Module):
         else:
             device = self.preprocessor.device
         if not self.kv_cache_initialized():
-            self.model.set_kv_cache(
+            self.model.set_kv_caches(
                 batch_size=1,
                 max_seq_length=max_returned_tokens,
             )
 
         # Dynamically grow the kv cache size if necessary
         if not self.fixed_kv_cache_size and self.prev_generated_seq_length < max_returned_tokens:
-            self.model.clear_kv_cache()
-            self.model.set_kv_cache(
+            self.model.clear_kv_caches()
+            self.model.set_kv_caches(
                 batch_size=1,
                 max_seq_length=max_returned_tokens,
             )

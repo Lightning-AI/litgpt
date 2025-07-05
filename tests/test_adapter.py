@@ -131,7 +131,7 @@ def test_adapter_compile():
     assert explanation.graph_break_count == 0
 
     model = GPT(model.config)
-    model.set_kv_cache(2)
+    model.set_kv_caches(2)
     explanation = torch._dynamo.explain(model)(x, input_pos=0)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1

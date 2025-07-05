@@ -31,7 +31,7 @@ def create_llm(tmp_path, batch_size, max_seq_length, device) -> tuple[LLM, GPT]:
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(
+    model.set_kv_caches(
         batch_size=batch_size,
         max_seq_length=max_seq_length,
     )
@@ -55,7 +55,7 @@ def test_batched_equivalence(tmp_path):
         init="random",
     )
     model: GPT = llm.model
-    model.set_kv_cache(batch_size=1, max_seq_length=50)
+    model.set_kv_caches(batch_size=1, max_seq_length=50)
 
     input_pos_1 = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], dtype=torch.int64, device=device)
     input_pos_2 = torch.tensor([10], dtype=torch.int64, device=device)
@@ -88,8 +88,8 @@ def test_batched_equivalence(tmp_path):
     assert tok_2.size(0) == 1
 
     # Switch to batched generation
-    model.clear_kv_cache()
-    model.set_kv_cache(
+    model.clear_kv_caches()
+    model.set_kv_caches(
         batch_size=batch_size,
         max_seq_length=max_seq_length,
     )
@@ -127,7 +127,7 @@ def test_simple_batch():
         m.max_seq_length = 10
         # Note: This KV cache can be used throughout, also for batch size 1
         # It is reset whenever `input_pos=0` (prefill)
-        m.set_kv_cache(2)
+        m.set_kv_caches(2)
         x0 = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]])
         x1 = torch.tensor([[1], [2]])
 

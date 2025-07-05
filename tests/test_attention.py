@@ -295,7 +295,7 @@ class CausalSelfAttention_OLD(torch.nn.Module):
         # Apply kv-cache during inference.
         if input_pos is not None:
             if not isinstance(self.kv_cache, KVCache):
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
+                raise TypeError("You need to call `gpt.set_kv_caches()`")
             k, v = self.kv_cache(input_pos, k, v)
             if input_pos_maxp1 is not None:
                 # Subselect along sequence dimension

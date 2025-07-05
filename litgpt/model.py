@@ -5,7 +5,7 @@
 Based on the nanoGPT implementation: https://github.com/karpathy/nanoGPT and
 https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
-
+from ast import Index
 from dataclasses import replace
 from functools import partial
 from typing import Any, List, Optional, Tuple, Union
@@ -56,7 +56,7 @@ class GPT(nn.Module):
         self.mha = MultiHeadSelfAttention(config, **mha_kwargs)
         self.max_seq_length = config.block_size
         self._start_of_layer_hook = config.start_of_layer_hook
-        # Have dense KV caches been created by `set_kv_cache`?
+        # Have dense KV caches been created by `set_kv_caches`?
         self._default_kv_cache = False
 
     @property
@@ -97,7 +97,7 @@ class GPT(nn.Module):
             kv_cache = attn.kv_cache
             if kv_cache is not None and isinstance(kv_cache, DenseKVCache) and kv_cache.cache_length < value:
                 print(
-                    f"KV cache for layer {l_ix} too small: Call 'set_kv_cache(batch_size={kv_cache.batch_size}, max_seq_length={value}) before inference"
+                    f"KV cache for layer {l_ix} too small: Call 'set_kv_caches(batch_size={kv_cache.batch_size}, max_seq_length={value}) before inference"
                 )
                 break
         # Multi-head attention
@@ -123,7 +123,7 @@ class GPT(nn.Module):
         """
         Assigns specific KV caches to the multi-head attention blocks
         of each layer. This can only be done if no caches have been
-        assigned or created (see :meth:`set_kv_cache`) before.
+        assigned or created (see :meth:`set_kv_caches`) before.
 
         KV caches are required for inference (i.e., calling :meth:`forward` with
         `input_pos` argument). If no KV caches are assigned, inference calls
@@ -145,7 +145,7 @@ class GPT(nn.Module):
             else:
                 block.attn.kv_cache = cache
 
-    def set_kv_cache(
+    def set_kv_caches(
         self,
         batch_size: int,
         dtype: Optional[torch.dtype] = None,
@@ -264,10 +264,10 @@ class GPT(nn.Module):
         - Inference, `input_pos` is given. There are two cases: `input_pos=0`
           (prefill) and `input_pos > 0` (generation). For prefill, KV caches
           must have been assigned (:meth:`assign_kv_caches` or
-          :meth:`set_kv_cache`). We must have
+          :meth:`set_kv_caches`). We must have
           `T <= model.kv_cache_max_prefill_length()`.
         - For generation, KV caches must have been assigned
-          (:meth:`assign_kv_caches` or :meth:`set_kv_cache`). We check that
+          (:meth:`assign_kv_caches` or :meth:`set_kv_caches`). We check that
           `input_pos == kv_cache.next_token_pos`. Note that `T > 1` is
           permitted here as well.
 
@@ -317,7 +317,7 @@ class GPT(nn.Module):
             # the call fails
             if not self.are_kv_caches_assigned():
                 raise ValueError(
-                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'"
+                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_caches'"
                 )
             for_prefill = input_pos == 0
             if not for_prefill:
@@ -359,7 +359,7 @@ class GPT(nn.Module):
                 attn = block.attn
                 if attn.kv_cache.batch_size < eff_batch_size:
                     raise ValueError(
-                        f"Batch size {eff_batch_size} is too large for KV cache layer {block_idx} (batch size {attn.kv_cache.batch_size}). Use 'assign_kv_caches' or `set_kv_cache'"
+                        f"Batch size {eff_batch_size} is too large for KV cache layer {block_idx} (batch size {attn.kv_cache.batch_size}). Use 'assign_kv_caches' or `set_kv_caches'"
                     )
             if hook is not None:
                 # Call start of layer hook, passing detached layer input
@@ -441,7 +441,7 @@ class GPT(nn.Module):
             rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
-    def clear_kv_cache(self) -> None:
+    def clear_kv_caches(self) -> None:
         """
         Note that KV cache objects are removed only if they have not been
         assigned with :meth:`assign_kv_caches`.
@@ -452,39 +452,42 @@ class GPT(nn.Module):
                 block.attn.kv_cache = None
             self._default_kv_cache = False
 
-    def get_kv_cache_params(self) -> Optional[KVCacheParams]:
+    def get_kv_cache_params(self, layer_idx: int) -> Optional[KVCacheParams]:
         """
-        Assigned KV caches need not have the same `batch_size` and
-        `cache_length` values. For these, the returned :class:`KVCacheParams`
-        object contains the minimum values over all caches.
+        Args:
+            layer_idx: Layer for which KV cache params are requested
 
         Returns:
             Parameters for KV caches (see above), or `None` if KV caches are
             not assigned.
 
         """
-        kv_cache = self.transformer.h[0].attn.kv_cache
-        if kv_cache is None:
-            return None
-        # Caches need not have the same cache_length, batch_size
-        caches = [block.attn.kv_cache for block in self.transformer.h]
-        batch_size = min(c.batch_size for c in caches)
-        cache_length = min(c.cache_length for c in caches)
-        params = replace(
-            kv_cache.get_params(),
-            batch_size=batch_size,
-            cache_length=cache_length,
-        )
-        return params
+        if not (0 <= layer_idx < self.config.n_layer):
+            raise IndexError(f"layer_idx={layer_idx}, must be in [0, {self.config.n_layer})")
+        kv_cache = self.transformer.h[layer_idx].attn.kv_cache
+        return None if kv_cache is None else kv_cache.get_params()
 
     def kv_cache_max_tokens_forward(self) -> Optional[int]:
+        """
+        Returns:
+            Smallest `max_tokens_forward` over all KV caches, or `None` if KV
+            caches are not assigned.
+
+        """
         caches = [layer.attn.kv_cache for layer in self.transformer.h]
         if any(cache is None for cache in caches):
             return None
         else:
-            return min(cache.max_tokens_forward for cache in caches)
+            return min(kvc.max_tokens_forward for kvc in caches)
 
     def kv_cache_max_prefill_length(self) -> Optional[int]:
+        """
+        Returns:
+            Smallest `max_prefill_length` over all KV caches, or `None` if KV
+            caches are not assigned or if `max_prefill_length is None` for all
+            KV caches.
+
+        """
         caches = [layer.attn.kv_cache for layer in self.transformer.h]
         if any(cache is None for cache in caches):
             return None
@@ -652,7 +655,7 @@ class CausalSelfAttention(nn.Module):
             for_prefill = input_pos == 0
             if self.kv_cache is None:
                 raise ValueError(
-                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_cache'"
+                    "KV caches are not assigned. Assign KV caches with 'assign_kv_caches' or create default caches with 'set_kv_caches'"
                 )
             if not for_prefill:
                 if self.kv_cache.next_token_pos is None:

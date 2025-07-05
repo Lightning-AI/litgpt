@@ -203,7 +203,7 @@ def main(
     # still, use init_tensor for the precision
     with fabric.init_tensor(), torch.device("meta"):
         model = GPT(config)
-        model.set_kv_cache(batch_size=1)
+        model.set_kv_caches(batch_size=1)
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     # sequentially do: load the checkpoint on CPU -> quantize -> apply tp -> move to device
@@ -231,7 +231,7 @@ def main(
                 # the rope cache which is on meta device
                 model.cos, model.sin = model.rope_cache()
                 # enable the kv cache
-                model.set_kv_cache(batch_size=1)
+                model.set_kv_caches(batch_size=1)
             model.eval()
 
             t0 = time.perf_counter()
@@ -263,6 +263,6 @@ def main(
         fabric.print(
             f"Time for inference {i + 1}: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr
         )
-    model.clear_kv_cache()
+    model.clear_kv_caches()
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)

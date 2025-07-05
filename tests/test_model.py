@@ -1404,7 +1404,7 @@ def test_model_compile():
     assert explanation.graph_break_count == 0
 
     model = GPT(model.config)
-    model.set_kv_cache(2)
+    model.set_kv_caches(2)
     explanation = torch._dynamo.explain(model)(x)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
@@ -1416,7 +1416,7 @@ def test_model_kv_cache_amp():
     config = Config.from_name("pythia-14m", n_layer=2)
     model = GPT(config)
     encoded = torch.arange(45).view(1, -1)
-    model.set_kv_cache(batch_size=1)
+    model.set_kv_caches(batch_size=1)
     with torch.autocast("cpu", torch.bfloat16):
         output = model(encoded, input_pos=0)
     assert output.dtype is torch.bfloat16
@@ -1555,7 +1555,7 @@ def test_sdpa_choice_kv_cache(config):
         with torch.device("cuda"):
             model = GPT(config)
             model.max_seq_length = 16
-            model.set_kv_cache(2)
+            model.set_kv_caches(2)
             x = torch.randint(0, 10, (2, 10), dtype=torch.int32)
     except torch.cuda.OutOfMemoryError:
         # best effort, if the GPU can load it
@@ -1646,7 +1646,7 @@ def test_kv_cache_buffer_shape(n_query_groups):
     )
     model = GPT(config)
     model.max_seq_length = max_seq_length
-    model.set_kv_cache(batch_size)
+    model.set_kv_caches(batch_size)
     required_shape = (batch_size, n_query_groups, max_seq_length, config.head_size)
     for block in model.transformer.h:
         kv_cache = block.attn.kv_cache
