@@ -37,6 +37,7 @@ from litgpt.utils import (
     init_out_dir,
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
+    load_checkpoint,
     num_parameters,
     parse_devices,
     save_hyperparameters,
@@ -231,14 +232,7 @@ def main(
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 
-    state_dict = torch.load(checkpoint_path, mmap=True)
-    load_from_full_model_state_dict(
-        model=model,
-        full_sd=state_dict,
-        device=fabric.device,
-        strict=False,
-        cpu_offload=True,
-    )
+    load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
     token_counts = fit(
@@ -544,37 +538,6 @@ def parallelize_fn(model, device_mesh, activation_checkpointing=True):
     fully_shard(model, mesh=dp_mesh)
 
     return model
-
-
-def load_from_full_model_state_dict(
-    model: torch.nn.Module,
-    full_sd: Dict[str, Any],
-    device: torch.device,
-    strict: bool = False,
-    cpu_offload: bool = False,
-):
-    from torch.distributed._tensor import distribute_tensor
-
-    meta_sharded_sd = model.state_dict()
-    sharded_sd = {}
-    for param_name, full_tensor in full_sd.items():
-        if "norm" not in param_name and "wte" not in param_name and "ln_f" not in param_name:
-            param_name = param_name.replace(".weight", ".linear.weight")
-        else:
-            param_name = param_name
-
-        sharded_meta_param = meta_sharded_sd.get(param_name)
-        full_tensor = full_tensor.to(sharded_meta_param.dtype).to(device)
-        sharded_tensor = distribute_tensor(
-            full_tensor,
-            sharded_meta_param.device_mesh,
-            sharded_meta_param.placements,
-        )
-        if cpu_offload:
-            sharded_tensor = sharded_tensor.cpu()
-        sharded_sd[param_name] = torch.nn.Parameter(sharded_tensor)
-    # choose `assign=True` since we cannot call `copy_` on meta tensor
-    return model.load_state_dict(sharded_sd, strict=strict, assign=True)
 
 
 def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
