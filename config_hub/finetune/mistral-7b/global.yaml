@@ -4,8 +4,8 @@ out_dir: /out/finetune/qlora-Mistral-7B-Instruct-v0.3-echo
 # GPU setup
 devices: 1
 num_nodes: 1
-precision: "32-true"          # Karena P100 tidak support bfloat16
-quantize: bnb.nf4             # QLoRA quantization
+precision: "32-true" # Karena P100 tidak support bfloat16
+quantize: bnb.nf4 # QLoRA quantization
 seed: 1337
 
 # Logging
