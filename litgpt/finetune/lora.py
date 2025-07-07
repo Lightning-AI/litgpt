@@ -273,12 +273,10 @@ def main(
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
-        lora_params = {k: v for k, v in vars(config).items() if "lora_" in k}
         merge_lora(
             checkpoint_dir=save_path.parent,
             pretrained_checkpoint_dir=checkpoint_dir,
             precision=precision,
-            lora_params=lora_params,
         )
     fabric.barrier()
 
