@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-import pytest
 import torch
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXConfig, GPTNeoXRotaryEmbedding
 from transformers.models.gpt_neox.modeling_gpt_neox import apply_rotary_pos_emb as apply_rotary_pos_emb_gptneo
@@ -231,8 +230,6 @@ def test_rope_llama_3_2():
 
 
 # See https://huggingface.co/google/gemma-3-27b-it/blob/main/config.json for settings
-# TODO: update HF transformers version to support Gemma3 and fix errors that causes after the update
-@pytest.mark.skip(reason="This test fails due to the HF transformers version not supporting Gemma3")
 @torch.inference_mode()
 def test_rope_gemma_3():
     from transformers.models.gemma3.configuration_gemma3 import Gemma3TextConfig
