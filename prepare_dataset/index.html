@@ -1,0 +1,1721 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../oom/">
+      
+      
+        <link rel="next" href="../pretrain/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.15">
+    
+    
+      
+        <title>Preparing Datasets - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#preparing-datasets" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Preparing Datasets
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Preparation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alpaca" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Alpaca">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#truncating-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Truncating datasets
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-2k" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca-2k
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-gpt4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca-GPT4
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-libre" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca Libre
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deita" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deita
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dolly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dolly
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#longform" class="md-nav__link">
+    <span class="md-ellipsis">
+      LongForm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lima" class="md-nav__link">
+    <span class="md-ellipsis">
+      LIMA
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flan" class="md-nav__link">
+    <span class="md-ellipsis">
+      FLAN
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-for-instruction-finetuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets for Instruction Finetuning
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Preparing Custom Datasets for Instruction Finetuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-from-a-json-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets From a JSON File
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-using-datamodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets Using DataModule
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-pretraining-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Pretraining Datasets
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#preparation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Preparation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alpaca" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Alpaca">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#truncating-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Truncating datasets
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-2k" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca-2k
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-gpt4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca-GPT4
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpaca-libre" class="md-nav__link">
+    <span class="md-ellipsis">
+      Alpaca Libre
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deita" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deita
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dolly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dolly
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#longform" class="md-nav__link">
+    <span class="md-ellipsis">
+      LongForm
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lima" class="md-nav__link">
+    <span class="md-ellipsis">
+      LIMA
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flan" class="md-nav__link">
+    <span class="md-ellipsis">
+      FLAN
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-for-instruction-finetuning" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets for Instruction Finetuning
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Preparing Custom Datasets for Instruction Finetuning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-from-a-json-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets From a JSON File
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#preparing-custom-datasets-using-datamodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Custom Datasets Using DataModule
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#preparing-pretraining-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Preparing Pretraining Datasets
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="preparing-datasets">Preparing Datasets</h1>
+<p>Below is a table of all datasets that are currently supported in LitGPT:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Task</th>
+<th>Size</th>
+<th>Reference Repo</th>
+<th>Paper / Blog</th>
+<th>Data License</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Alpaca</td>
+<td>Finetuning</td>
+<td>51,759 samples</td>
+<td><a href="https://github.com/tatsu-lab/stanford_alpaca">URL</a></td>
+<td><a href="https://crfm.stanford.edu/2023/03/13/alpaca.html">URL</a></td>
+<td>Attribution-NonCommercial 4.0 International, <a href="https://crfm.stanford.edu/2023/03/13/alpaca.html">URL</a></td>
+</tr>
+<tr>
+<td>Alpaca-2k</td>
+<td>Finetuning</td>
+<td>2000 samples</td>
+<td><a href="https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test">URL</a></td>
+<td>See Alpaca above</td>
+<td>See Alpaca Above</td>
+</tr>
+<tr>
+<td>Alpaca-GPT4</td>
+<td>Finetuning</td>
+<td>52,002 samples</td>
+<td><a href="https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM">URL</a></td>
+<td><a href="https://arxiv.org/abs/2304.03277">URL</a></td>
+<td>Attribution-NonCommercial 4.0 International, <a href="https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM/blob/main/DATA_LICENSE">URL</a></td>
+</tr>
+<tr>
+<td>Alpaca Libre</td>
+<td>Finetuning</td>
+<td>55,370 samples</td>
+<td><a href="https://github.com/mobarski/alpaca-libre">URL</a></td>
+<td>-</td>
+<td>CC0/MIT,  <a href="https://github.com/mobarski/alpaca-libre">URL</a></td>
+</tr>
+<tr>
+<td>Deita</td>
+<td>Finetuning</td>
+<td>9,500 samples</td>
+<td><a href="https://huggingface.co/datasets/HuggingFaceH4/deita-10k-v0-sft/tree/main/data">URL</a></td>
+<td><a href="https://arxiv.org/abs/2312.15685">URL</a></td>
+<td>MIT <a href="https://huggingface.co/datasets/hkust-nlp/deita-10k-v0/blob/main/README.md">URL</a></td>
+</tr>
+<tr>
+<td>Dolly</td>
+<td>Finetuning</td>
+<td>15,011 samples</td>
+<td><a href="https://github.com/databrickslabs/dolly/tree/master/data">URL</a></td>
+<td><a href="https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm">URL</a></td>
+<td>CC-BY-SA, <a href="https://github.com/databrickslabs/dolly#model-overview">URL</a></td>
+</tr>
+<tr>
+<td>FLAN</td>
+<td>Finetuning</td>
+<td>1,753,240 samples</td>
+<td><a href="https://huggingface.co/datasets/Muennighoff/flan">UR</a></td>
+<td><a href="https://blog.research.google/2023/02/the-flan-collection-advancing-open.html">URL</a></td>
+<td>Subset dependent</td>
+</tr>
+<tr>
+<td>LongForm</td>
+<td>Finetuning</td>
+<td>23,652 samples</td>
+<td><a href="https://github.com/akoksal/LongForm">URL</a></td>
+<td><a href="https://arxiv.org/abs/2304.08460">URL</a></td>
+<td>No information provided and subset-dependent, <a href="https://github.com/akoksal/LongForm">URL</a></td>
+</tr>
+<tr>
+<td>LIMA</td>
+<td>Finetuning</td>
+<td>1,084 samples</td>
+<td><a href="https://huggingface.co/datasets/GAIR/lima">URL</a></td>
+<td><a href="https://arxiv.org/abs/2305.11206">URL</a></td>
+<td>"If the source data of LIMA has a stricter license than CC BY-NC-SA, the LIMA dataset follows the same. Otherwise, it follows the CC BY-NC-SA license", <a href="https://huggingface.co/datasets/GAIR/lima#license">URL</a></td>
+</tr>
+<tr>
+<td>OpenWeb Text</td>
+<td>Pretraining</td>
+<td>8,013,769 documents</td>
+<td><a href="https://github.com/jcpeterson/openwebtext">URL</a></td>
+<td><a href="https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf">URL</a></td>
+<td>Unspecified</td>
+</tr>
+<tr>
+<td>TinyLlama</td>
+<td>Pretraining</td>
+<td>1 T tokens</td>
+<td><a href="https://github.com/jzhang38/TinyLlama">URL</a></td>
+<td><a href="https://arxiv.org/abs/2401.02385">URL</a></td>
+<td></td>
+</tr>
+<tr>
+<td>TinyStories</td>
+<td>Pretraining</td>
+<td>4,967,871 stories</td>
+<td><a href="https://huggingface.co/datasets/roneneldan/TinyStories">URL</a></td>
+<td><a href="https://arxiv.org/abs/2305.07759">URL</a></td>
+<td>CDLA-Sharing-1.0</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h2 id="preparation">Preparation</h2>
+<p>The steps here only need to be done once before preparing the finetuning datasets in the following subsections:</p>
+<ol>
+<li>Follow the instructions in the <a href="../README.md">README</a> to install the dependencies.</li>
+<li>Download and convert the weights following our <a href="../download_model_weights/">guide</a>.</li>
+</ol>
+<p>For the following examples, we will focus on finetuning with the <code>litgpt finetune_lora</code> command and use a Falcon 7B model.
+However, the same steps apply to all other models and finetuning scripts.
+Please read the <a href=".">tutorials/finetune_*.md</a> documents for more information about finetuning models.</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!IMPORTANT]
+By default, the maximum sequence length is obtained from the model configuration file. In case you run into out-of-memory errors, especially in the cases of LIMA and Dolly,
+you can try to lower the context length by setting the <code>--train.max_seq_length</code> parameter, for example, <code>litgpt finetune lora --train.max_seq_length 256</code>. For more information on truncating datasets, see the <em>Truncating datasets</em> section in the Alpaca section near the top of this article.</p>
+</blockquote>
+<p>&nbsp;</p>
+<h3 id="alpaca">Alpaca</h3>
+<p>The Alpaca dataset consists of 52,000 instructions and demonstrations produced by OpenAI's text-davinci-003 engine. This data is used in instruction-tuning, helping improve the performance of language models to follow instructions.</p>
+<p>In its development, the creators leveraged the data generation methodology from the <a href="https://github.com/yizhongw/self-instruct">Self-Instruct framework</a>.</p>
+<p>The original <a href="https://crfm.stanford.edu/2023/03/13/alpaca.html">Alpaca</a> dataset can be used as follows:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Alpaca
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help Alpaca</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<h4 id="truncating-datasets">Truncating datasets</h4>
+<p>By default, the finetuning scripts will determine the size of the longest tokenized sample in the dataset to determine the block size. However, if you are willing to truncate a few examples in the training set, you can reduce the computational resource requirements significantly. For instance you can set a sequence length threshold via <code>--train.max_seq_length</code>. We can determine an appropriate maximum sequence length by considering the distribution of the data sample lengths shown in the histogram below.</p>
+<p><img src="images/prepare_dataset/alpaca.jpg" width=400px></p>
+<p>In this case, a cut-off of 256 may be a reasonable choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Alpaca \
+  --train.max_seq_length 256
+</code></pre>
+<p>For comparison, the Falcon 7B model requires 23.52 GB of memory for the original Alpaca dataset and 15.73 GB of memory for the truncated Alpaca dataset when finetuning with LoRA using a micro batchsize of 1 and bfloat-16 precision.</p>
+<p>&nbsp;</p>
+<h3 id="alpaca-2k">Alpaca-2k</h3>
+<p><a href="https://huggingface.co/datasets/mhenrichsen/alpaca_2k_test">Alpaca-2k</a> is a smaller, 2000-sample subset of Alpaca described above.</p>
+<pre><code class="language-bash">litgpt finetune_lora &quot;tiiuae/falcon-7b&quot; \
+  --data Alpaca2k
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt_finetune --data.help Alpaca2k</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>The Alpaca-2k dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/alpaca-2k.jpg" width=400px></p>
+<h3 id="alpaca-gpt4">Alpaca-GPT4</h3>
+<p>The Alpaca-GPT4 was built by using the prompts of the original Alpaca dataset and generate the responses via GPT 4. The
+dataset consists of 52,000 instructions and responses.</p>
+<p>The original <a href="https://github.com/Instruction-Tuning-with-GPT-4/GPT-4-LLM">Alpaca-GPT4</a> dataset can be used as follows:</p>
+<pre><code class="language-bash">litgpt finetune lora &quot;tiiuae/falcon-7b&quot; \
+  --data AlpacaGPT4
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt_finetune --data.help AlpacaGPT4</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>The Alpaca-GPT4 dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/alpacagpt4.jpg" width=400px></p>
+<p>&nbsp;</p>
+<h3 id="alpaca-libre">Alpaca Libre</h3>
+<p><a href="https://github.com/mobarski/alpaca-libre">Alpaca Libre</a> is a reimplementation or alternative to Alpaca using the same formatting.</p>
+<p>To use Alpaca Libre instead of the original Alpaca dataset, use the following command:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Alpaca \
+  --data.file_url &quot;https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json&quot; \
+  --data.file_name &quot;alpaca_libre_data_cleaned_archive.json&quot;
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help Alpaca</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>The Alpaca Libre dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/alpaca_libre.jpg" width=400px></p>
+<p>You may want to consider truncating the dataset (see the <em>Truncating datasets</em> discussion in the Alpaca section for more information.) For this dataset, a cut-off of 256 may be a good choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Alpaca \
+  --data.file_url &quot;https://raw.githubusercontent.com/mobarski/alpaca-libre/main/data/output/alpaca_libre_ok_tasks_v4.json&quot; \
+  --data.file_name &quot;alpaca_libre_data_cleaned_archive.json&quot; \
+  --train.max_seq_length 256
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="deita">Deita</h3>
+<p>The Deita dataset (short for Data-Efficient Instruction Tuning for Alignment) is a collection of 9500 prompts and responses, as described in the <a href="https://arxiv.org/abs/2312.15685">What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning</a> paper.
+Using Falcon 7b as an example, we can use the dataset as follows:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Deita
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help Deita</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>Deita contains multiturn conversations. By default, only the first instruction-response pairs from
+each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
+and responses, set <code>--data.include_multiturn_conversations True</code>, which will include all multiturn conversations as regular
+prompt-response pairs. Considering the multiturn-answers, the dataset consists of 209,272 prompt-response pairs.</p>
+<p>The Deita dataset distribution without including multit-turn conversations is shown below.</p>
+<p><img src="images/prepare_dataset/deita.jpg" width=400px></p>
+<p>The Deita dataset distribution including multit-turn conversations is depicted in the following histogram.</p>
+<p><img src="images/prepare_dataset/deita-multiturn.jpg" width=400px></p>
+<p>You may want to consider truncating the dataset (see the <em>Truncating datasets</em> discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Deita \
+  --train.max_seq_length 512
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="dolly">Dolly</h3>
+<p>The Dolly dataset is a publicly available collection of 15k instruction-following entries created by Databricks. It spans multiple behavioral domains, as described in the <a href="https://arxiv.org/abs/2203.02155">InstructGPT paper</a> paper. These include areas like brainstorming, classification, closed QA, content creation, information retrieval, open QA, and summary generation.</p>
+<p>The usage is similar to the Alpaca dataset described above. Using Falcon 7b as an example, we can use the dataset as follows:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Dolly
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help Dolly</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>The Dolly dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/dolly.jpg" width=400px></p>
+<p>You may want to consider truncating the dataset (see the <em>Truncating datasets</em> discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data Dolly \
+  --train.max_seq_length 256
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="longform">LongForm</h3>
+<p>LongForm is a semi-synthetic dataset based on raw text corpora for which the instructions were generated via an LLM. For more details about the instruction-generation process, please refer to the <a href="https://arxiv.org/abs/2304.08460">LongForm research paper</a> by Köksal et al. According to the research paper, a Llama 7B model trained on LongForm achieves substantially better performance than the same Llama model trained on the 2x larger Alpaca dataset.</p>
+<p>LongForm consists of 23,652 training samples, 2,042 validation samples, and 2,045 test samples. (In LitGPT, the validation samples are currently not used.)</p>
+<p>The more detailed dataset composition is as follows based on a table taken from the <a href="https://github.com/akoksal/LongForm">dataset repository</a>:</p>
+<table>
+<thead>
+<tr>
+<th><strong>Type</strong></th>
+<th><strong>Source</strong></th>
+<th><strong>Number of Examples</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Corpora</strong></td>
+<td>C4</td>
+<td>10,000</td>
+</tr>
+<tr>
+<td></td>
+<td>Wikipedia</td>
+<td>5,000</td>
+</tr>
+<tr>
+<td><strong>Structured Corpora</strong></td>
+<td>Stack Exchange</td>
+<td>4,380</td>
+</tr>
+<tr>
+<td></td>
+<td>WikiHow</td>
+<td>2,500</td>
+</tr>
+<tr>
+<td><strong>Tasks</strong></td>
+<td>NIv2</td>
+<td>3,684</td>
+</tr>
+<tr>
+<td></td>
+<td>Big Bench</td>
+<td>600</td>
+</tr>
+<tr>
+<td></td>
+<td>BEA-GEC</td>
+<td>1,203</td>
+</tr>
+<tr>
+<td></td>
+<td>Enron</td>
+<td>372</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td>27,739</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Train</strong></td>
+<td></td>
+<td>23,652</td>
+</tr>
+<tr>
+<td><strong>Validation</strong></td>
+<td></td>
+<td>2,042</td>
+</tr>
+<tr>
+<td><strong>Test</strong></td>
+<td></td>
+<td>2,045</td>
+</tr>
+</tbody>
+</table>
+<p>License information is not provided but would depend on the individual subsets listed above.</p>
+<p>The LongForm dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/longform.jpg" width=400px></p>
+<p>You may want to consider truncating the dataset (see the <em>Truncating datasets</em> discussion in the Alpaca section for more information.) For this dataset, a cut-off of 1500 may be a good choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data LongForm \
+  --train.max_seq_length 1500
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help LongForm</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h3 id="lima">LIMA</h3>
+<p>The LIMA dataset is a collection of 1,000 carefully curated prompts and responses, as described in the <a href="https://arxiv.org/abs/2305.11206">LIMA: Less Is More for Alignment</a> paper. The dataset is sourced from three community Q&amp;A websites: Stack Exchange, wikiHow, and the Pushshift Reddit Dataset. In addition, it also contains prompts and answers written and collected by the authors of the LIMA paper.</p>
+<p>The usage is similar to the Dolly dataset described above except that it requires an Hugging Face access token that you need to copy &amp; paste from your Hugging Face account. Using Falcon 7b as an example, we can use the dataset as follows:</p>
+<pre><code class="language-bash">export HF_TOKEN=&quot;insert_your_huggingface_token_here&quot;
+
+litgpt finetune lora \
+  --data LIMA \
+  --checkpoint_dir &quot;tiiuae/falcon-7b&quot;
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help LIMA</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>LIMA contains a handful of multiturn conversations. By default, only the first instruction-response pairs from
+each of these multiturn conversations are included. If you want to override this behavior and include the follow-up instructions
+and responses, set <code>--data.include_multiturn_conversations True</code>.</p>
+<p>The LIMA dataset distribution is shown below.</p>
+<p><img src="images/prepare_dataset/lima.jpg" width=400px></p>
+<p>You may want to consider truncating the dataset (see the <em>Truncating datasets</em> discussion in the Alpaca section for more information.) For this dataset, a cut-off of 512 may be a good choice:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data LIMA \
+  --train.max_seq_length 512
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="flan">FLAN</h3>
+<p>FLAN is a collection of several dataset subsets by Google. In particular, the provided script in LitGPT loads the subsets from
+<a href="https://huggingface.co/datasets/Muennighoff/flan">here</a>.</p>
+<p>By default, all subsets (1,386,050 samples) and validations sets (367,190 subsets) are combined into a single dataset:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data FLAN
+</code></pre>
+<p>However, you can also select individual subsets via comma-separated strings as follows:</p>
+<pre><code class="language-bash">litgpt finetune lora tiiuae/falcon-7b \
+  --data FLAN \
+  --data.subsets &quot;aeslc_10templates,ag_news_subset_10templates,anli_r1_10templates&quot;
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help FLAN</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>You can find a list of all 66 supported subsets <a href="https://huggingface.co/datasets/Muennighoff/flan">here</a>.</p>
+<p>&nbsp;</p>
+<h2 id="preparing-custom-datasets-for-instruction-finetuning">Preparing Custom Datasets for Instruction Finetuning</h2>
+<p>The models in LitGPT expect datasets for instruction finetuning in the following format:</p>
+<pre><code class="language-text">[
+    {
+        &quot;instruction&quot;: &quot;Write a limerick about a
+                        pelican.”,
+        &quot;input&quot;: &quot;&quot;,
+        &quot;output&quot;: &quot;There once was a pelican so fine,
+                   \nHis beak was as colorful as
+                   sunshine,\nHe would fish all day,\nIn
+                   a very unique way,\nThis pelican was
+                   truly divine!\n\n\n&quot;
+    },
+    {
+        &quot;instruction&quot;: &quot;Identify the odd one out from
+                        the group.&quot;,
+        &quot;input&quot;: &quot;Carrot, Apple, Banana, Grape&quot;,
+        &quot;output&quot;: &quot;Carrot\n\n&quot;
+    },
+]
+</code></pre>
+<p>(Note that depending on the task, the <code>"input"</code> text can be an empty string, as shown above.)</p>
+<p>You can use your own data in LitGPT by either reading in a JSON file in the format shown above or by implementing a custom <code>DataModule</code>.</p>
+<p>&nbsp;</p>
+<h3 id="preparing-custom-datasets-from-a-json-file">Preparing Custom Datasets From a JSON File</h3>
+<p>You can prepare custom dataset using a JSON file where each row is a dictionary with these keys:</p>
+<ul>
+<li><code>instruction</code>: Column which will describe the task.</li>
+<li><code>input</code>: A string holding a special input value for the instruction. This applies to some samples, and in others, this is empty (empty string).</li>
+<li><code>output</code>: The expected response</li>
+</ul>
+<blockquote>
+<p>If any of the fields are missing, then the script will fail to read the dataset.</p>
+</blockquote>
+<p>Then simply run any of the finetuning scripts with this input:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data JSON \
+  --data.json_path path/to/your/data.json \
+  --data.val_split_fraction 0.1
+</code></pre>
+<p>You can also customize how the dataset is read by using these additional parameters</p>
+<ul>
+<li>
+<p><code>val_split_fraction</code>: The fraction of the data to split. Defaults to <code>0.1</code></p>
+</li>
+<li>
+<p><code>seed</code>: The seed value to reproduce the same random splits for train and test data.</p>
+</li>
+<li>
+<p><code>mask_inputs</code>: Whether to mask the prompt section from the label (with <code>ignore_index</code>).</p>
+</li>
+<li>
+<p><code>ignore_index</code>: The index to use for labels that should be ignored. Defaults to <code>-100</code> (used when <code>mask_inputs</code> is <code>True</code>).</p>
+</li>
+</ul>
+<p>To use the settings described above, you can add the respective command line arguments when calling the finetuning scripts as shown in the example below:</p>
+<pre><code class="language-bash">litgpt finetune_lora tiiuae/falcon-7b \
+  --data JSON \
+  --data.json_path path/to/your/data.json \
+  --data.val_split_fraction 0.1 \
+  --data.seed 42 \
+  --data.mask_inputs False \
+  --data.ignore_index -100
+</code></pre>
+<p>You can also pass a directory containing a <code>train.json</code> and <code>val.json</code> to <code>--data.json_path</code> to define a fixed train/val split.</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>litgpt finetune --data.help JSON</code> to list additional dataset-specific command line options.</p>
+</blockquote>
+<p>&nbsp;</p>
+<h3 id="preparing-custom-datasets-using-datamodule">Preparing Custom Datasets Using DataModule</h3>
+<p>If you don't have a JSON file following the format described in the previous section, the easiest way to prepare a new dataset is to copy and modify one of the existing data modules in LitGPT:</p>
+<ul>
+<li><a href="https://github.com/Lightning-AI/litgpt/blob/main/litgpt/data/alpaca.py"><code>litgpt/data/alpaca.py</code></a> (if you plan to load a dataset from a JSON file);</li>
+<li><a href="https://github.com/Lightning-AI/litgpt/blob/main/litgpt/data/lima.py"><code>litgpt/data/lima.py</code></a> (if you plan to load a dataset using the <code>datasets</code> Python library).</li>
+</ul>
+<p>Note that you only need to modify a small fraction of the code file, namely the portion that downloads and formats the training data (see the <code>prepare_data</code> and <code>setup()</code> methods).</p>
+<p>&nbsp;</p>
+<h2 id="preparing-pretraining-datasets">Preparing Pretraining Datasets</h2>
+<p>In addition to the finetuning dataset described above, LitGPT also supports several datasets for pretraining. The pretraining datasets are described in more detail in the following separate tutorial documents:</p>
+<ul>
+<li><a href="../pretrain_tinyllama/">Pretrain TinyLlama on Slimpajama and Starcoder</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.56ea9cef.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>

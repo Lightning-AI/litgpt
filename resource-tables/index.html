@@ -1,0 +1,1912 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../quantize/">
+      
+      
+        <link rel="next" href="../developer-docs/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.15">
+    
+    
+      
+        <title>Resource Tables - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#resource-tables" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Resource Tables
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-lora-on-1-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with LoRA on 1 GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-adapter-on-1-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with Adapter on 1 GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-lora-on-multiple-gpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with LoRA on Multiple GPUs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-gpu-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Single-GPU Inference
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-lora-on-1-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with LoRA on 1 GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-adapter-on-1-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with Adapter on 1 GPU
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetuning-with-lora-on-multiple-gpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetuning with LoRA on Multiple GPUs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-gpu-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Single-GPU Inference
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="resource-tables">Resource Tables</h1>
+<ul>
+<li>Last updated: 10/20/2023</li>
+<li>LitGPT version: commit 8641822</li>
+<li>Hardware: NVIDIA A100-SXM4-40GB</li>
+<li>OS: Ubuntu 22.04.3 LTS (x86_64)</li>
+<li>Nvidia driver version: 525.125.06</li>
+<li>Relevant libraries</li>
+<li>PyTorch 2.1.0+cu121</li>
+<li>Bitsandbytes 0.41.1</li>
+</ul>
+<p>This document provides an overview and examples of hardware requirements when running models in LitGPT.</p>
+<p>For additional tips on lowering the GPU memory footprint, please also see the <a href="../oom/">Dealing with out-of-memory (OOM) errors</a> document.</p>
+<p>All experiments were run using 16-bit brain floating point precision (<code>--precision bf16-true</code>). If your GPU does not support brain floating point precision, you can use regular 16-bit floating point precision (<code>--precision 16-true</code>).</p>
+<p>All experiments were conducted using the Alpaca dataset with its default length. Note that due to different tokenizers being used by the different models, the number of tokens in the longest training example differs based on the model:</p>
+<ul>
+<li>phi1.5: 1044 tokens</li>
+<li>StableLM Alpha: 1034 tokens</li>
+<li>Llama 2: 1304 tokens</li>
+<li>Falcon 1079 tokens</li>
+</ul>
+<p>Note that the number of tokens in the training set does not affect the supported context width (block size) of the models, which is as follows:</p>
+<ul>
+<li>phi1.5: 2048 tokens</li>
+<li>StableLM 3B Alpha: 4096 tokens</li>
+<li>Llama 2: 4048 tokens</li>
+<li>Falcon: 2048 tokens</li>
+<li>CodeLlama 13B: 16384 tokens</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="finetuning-with-lora-on-1-gpu">Finetuning with LoRA on 1 GPU</h2>
+<p>The following experiments were conducted on 1xA100 with a minibatch size of 128 using the <code>litgpt finetune_lora</code> command.</p>
+<table>
+<thead>
+<tr>
+<th>Size</th>
+<th>Model</th>
+<th>Quantization</th>
+<th>Microbatch size</th>
+<th>Trainable parameters</th>
+<th>Max GPU RAM</th>
+<th>Time 1k iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>4.82 GB</td>
+<td>1.62 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>3.78 GB</td>
+<td>1.77 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>3.72 GB</td>
+<td>1.87 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>2</td>
+<td>1,572,864</td>
+<td>6.76 GB</td>
+<td>1.65 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>4</td>
+<td>1,572,864</td>
+<td>10.68 GB</td>
+<td>1.70 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>1</td>
+<td>2,097,152</td>
+<td>9.69 GB</td>
+<td>1.24 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>2,097,152</td>
+<td>6.35 GB</td>
+<td>1.82 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>2,097,152</td>
+<td>6.19 GB</td>
+<td>1.87 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>2</td>
+<td>2,097,152</td>
+<td>12.10 GB</td>
+<td>1.33 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>4</td>
+<td>2,097,152</td>
+<td>16.92 GB</td>
+<td>1.50 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>4,194,304</td>
+<td>21.30 GB</td>
+<td>2.36 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>4,194,304</td>
+<td>14.14 GB</td>
+<td>3.68 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>4,194,304</td>
+<td>13.84 GB</td>
+<td>3.83 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>2</td>
+<td>4,194,304</td>
+<td>29.07 GB</td>
+<td>2.52 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>4</td>
+<td>4,194,304</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>38.12 GB</td>
+<td>3.19 min</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>23.14 GB</td>
+<td>6.38 min</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>22.55 GB</td>
+<td>6.55 min</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>2</td>
+<td>6,553,600</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>4</td>
+<td>6,553,600</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>None</td>
+<td>1</td>
+<td>12,042,240</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>12,042,240</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>12,042,240</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h2 id="finetuning-with-adapter-on-1-gpu">Finetuning with Adapter on 1 GPU</h2>
+<p>The following experiments were conducted on 1xA100 with a minibatch size of 128 using the <code>litgpt finetune_adapter</code> command.</p>
+<table>
+<thead>
+<tr>
+<th>Size</th>
+<th>Model</th>
+<th>Quantization</th>
+<th>Microbatch size</th>
+<th>Trainable parameters</th>
+<th>Max GPU RAM</th>
+<th>Time 1k iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>1</td>
+<td>573,888</td>
+<td>9.10 GB</td>
+<td>0.74 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>573,888</td>
+<td>5.65 GB</td>
+<td>1.38 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>573,888</td>
+<td>5.48 GB</td>
+<td>1.46 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>1,229,760</td>
+<td>19.98 GB</td>
+<td>1.50 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>1,229,760</td>
+<td>12.68 GB</td>
+<td>2.93 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>1,229,760</td>
+<td>12.38 GB</td>
+<td>3.00 min</td>
+</tr>
+</tbody>
+</table>
+<p>The same config, but using the <code>litgpt finetune_adapter_v2</code> command.</p>
+<table>
+<thead>
+<tr>
+<th>Size</th>
+<th>Model</th>
+<th>Quantization</th>
+<th>Microbatch size</th>
+<th>Trainable parameters</th>
+<th>Max GPU RAM</th>
+<th>Time 1k iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>1</td>
+<td>2,125,248</td>
+<td>10.71 GB</td>
+<td>0.87 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>2,125,248</td>
+<td>7.41 GB</td>
+<td>1.59 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>2,125,248</td>
+<td>7.25 GB</td>
+<td>1.62 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>4,279,744</td>
+<td>25.51 GB</td>
+<td>1.81 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>4,279,744</td>
+<td>18.30 GB</td>
+<td>3.23 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>4,279,744</td>
+<td>17.98 GB</td>
+<td>3.32 min</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h2 id="finetuning-with-lora-on-multiple-gpus">Finetuning with LoRA on Multiple GPUs</h2>
+<p>The following experiments were conducted on multiple A100 GPUs with a minibatch size of 128 using the <code>litgpt finetune_lora</code> command.</p>
+<table>
+<thead>
+<tr>
+<th>Size</th>
+<th>Model</th>
+<th>Quantization</th>
+<th>Microbatch size</th>
+<th>Trainable parameters</th>
+<th>GPU</th>
+<th>Max GPU RAM</th>
+<th>Time 1k iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>2 x A100</td>
+<td>4.86 GB</td>
+<td>3.81 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>2 x A100</td>
+<td>N/A</td>
+<td>-</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>1,572,864</td>
+<td>2 x A100</td>
+<td>N/A</td>
+<td>-</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>2</td>
+<td>1,572,864</td>
+<td>2 x A100</td>
+<td>5.05 GB</td>
+<td>3.63 min</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>4</td>
+<td>1,572,864</td>
+<td>2 x A100</td>
+<td>5.88 GB</td>
+<td>3.64 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>1</td>
+<td>2,097,152</td>
+<td>2 x A100</td>
+<td>12.75 GB</td>
+<td>2.92 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>2</td>
+<td>2,097,152</td>
+<td>2 x A100</td>
+<td>12.94 GB</td>
+<td>3.06 min</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>4</td>
+<td>2,097,152</td>
+<td>2 x A100</td>
+<td>13.45 GB</td>
+<td>3.86 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td>-</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>4,194,304</td>
+<td>2 x A100</td>
+<td>22.18 GB</td>
+<td>5.93 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>2</td>
+<td>4,194,304</td>
+<td>2 x A100</td>
+<td>22.47 GB</td>
+<td>6.48 min</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>4</td>
+<td>4,194,304</td>
+<td>2 x A100</td>
+<td>23.39 GB</td>
+<td>8.66 min</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>2 x A100</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>2 x A100</td>
+<td>N/A</td>
+<td>-</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>2 x A100</td>
+<td>N/A</td>
+<td>-</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1</td>
+<td>6,553,600</td>
+<td>4 x A100</td>
+<td>35.57 GB</td>
+<td>10.25 min</td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>None</td>
+<td>1</td>
+<td>12,042,240</td>
+<td>4 x A100</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<p>&nbsp;</p>
+<h2 id="single-gpu-inference">Single-GPU Inference</h2>
+<table>
+<thead>
+<tr>
+<th>Size</th>
+<th>Model</th>
+<th>Quantization</th>
+<th>GPU</th>
+<th>Max GPU RAM</th>
+<th>Token/sec</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>2.86 GB</td>
+<td>42.56</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>1.39 GB</td>
+<td>22.89</td>
+</tr>
+<tr>
+<td>1.3 B</td>
+<td>phi-1.5</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>1.33 GB</td>
+<td>22.75</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>7.30 GB</td>
+<td>49.01</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>3.20 GB</td>
+<td>29.04</td>
+</tr>
+<tr>
+<td>3 B</td>
+<td>StableLM Alpha</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>3.04 GB</td>
+<td>27.15</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>13.52 GB</td>
+<td>30.97</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>4.57 GB</td>
+<td>19.98</td>
+</tr>
+<tr>
+<td>7 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>4.26 GB</td>
+<td>17.3</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>26.21 GB</td>
+<td>24.82</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>8.32 GB</td>
+<td>16.73</td>
+</tr>
+<tr>
+<td>13 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>7.72 GB</td>
+<td>14.43</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>34 B</td>
+<td>CodeLlama</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>34 B</td>
+<td>CodeLlama</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>20.52 GB</td>
+<td>14.32</td>
+</tr>
+<tr>
+<td>34 B</td>
+<td>CodeLlama</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>18.95 GB</td>
+<td>12.37</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>26.55 GB</td>
+<td>13.25</td>
+</tr>
+<tr>
+<td>40 B</td>
+<td>Falcon</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>24.63 GB</td>
+<td>11.64</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>70 B</td>
+<td>Llama 2</td>
+<td>None</td>
+<td>1 x A100</td>
+<td>OOM</td>
+<td>-</td>
+</tr>
+<tr>
+<td>70 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4</td>
+<td>1 x A100</td>
+<td>CUDA error: CUBLAS_STATUS_NOT_INITIALIZED</td>
+<td>-</td>
+</tr>
+<tr>
+<td>70 B</td>
+<td>Llama 2</td>
+<td>bnb.nf4-dq</td>
+<td>1 x A100</td>
+<td>37.21 GB</td>
+<td>7.97</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.56ea9cef.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>
