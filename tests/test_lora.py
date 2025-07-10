@@ -955,3 +955,232 @@ def test_load_legacy_state_dict():
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)
+
+
+@_RunIf(standalone=True, min_cuda_gpus=2)
+def test_parallelize_fn():
+    from litgpt.finetune.lora import parallelize_fn
+    
+    config = Config(
+        n_layer=2,
+        n_head=4,
+        n_embd=32,
+        block_size=8,
+        vocab_size=8,
+        lora_r=4,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
+    )
+    
+    fabric = Fabric(devices=2, strategy="fsdp", precision="16-true")
+    fabric.launch()
+    
+    # create model in distributed setup
+    with fabric.init_module(empty_init=True):
+        model = LoRAGPT(config)
+    mark_only_lora_as_trainable(model)
+    
+    # create device mesh for data parallel
+    device_mesh = {"data_parallel": fabric.device_mesh}
+    
+    # test with activation checkpointing enabled (default)
+    parallelized_model = parallelize_fn(model, device_mesh, activation_checkpointing=True)
+    
+    # verify the model is still functional
+    assert parallelized_model is not None
+    assert isinstance(parallelized_model, LoRAGPT)
+    
+    # test forward pass to ensure the parallelized model works
+    x = torch.randint(0, config.padded_vocab_size, size=(1, config.block_size), dtype=torch.int64, device=fabric.device)
+    parallelized_model = fabric.setup(parallelized_model)
+    
+    # verify forward pass works
+    with torch.no_grad():
+        output = parallelized_model(x)
+        assert output.shape == (1, config.block_size, config.padded_vocab_size)
+    
+    # test with activation checkpointing disabled
+    with fabric.init_module(empty_init=True):
+        model_no_checkpoint = LoRAGPT(config)
+    mark_only_lora_as_trainable(model_no_checkpoint)
+    
+    parallelized_model_no_checkpoint = parallelize_fn(model_no_checkpoint, device_mesh, activation_checkpointing=False)
+    
+    # verify the model is still functional
+    assert parallelized_model_no_checkpoint is not None
+    assert isinstance(parallelized_model_no_checkpoint, LoRAGPT)
+    
+    # test forward pass to ensure the parallelized model works
+    parallelized_model_no_checkpoint = fabric.setup(parallelized_model_no_checkpoint)
+    
+    with torch.no_grad():
+        output = parallelized_model_no_checkpoint(x)
+        assert output.shape == (1, config.block_size, config.padded_vocab_size)
+    
+    # verify that all parameters are properly distributed (not on meta device)
+    for module in parallelized_model.modules():
+        for param_name, param in module.named_parameters():
+            if param.requires_grad:  # Only check trainable parameters (LoRA parameters)
+                assert not param.is_meta, f"Parameter `{param_name}` should not be on meta device"
+                assert param.device.type == "cuda", f"Parameter `{param_name}` should be on CUDA device"
+
+
+@_RunIf(standalone=True, min_cuda_gpus=2)
+def test_load_from_full_model_state_dict():
+    from litgpt.utils import load_from_full_model_state_dict
+    from lightning.fabric.strategies import ModelParallelStrategy
+    from litgpt.finetune.lora import parallelize_fn
+    
+    config = Config(
+        n_layer=2,
+        n_head=4,
+        n_embd=32,
+        block_size=8,
+        vocab_size=8,
+        lora_r=4,
+        lora_alpha=8,
+        lora_dropout=0.1,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
+        lora_mlp=True,
+        lora_head=True,
+    )
+    
+    # set up distributed environment with ModelParallelStrategy
+    strategy = ModelParallelStrategy(
+        parallelize_fn=parallelize_fn,
+        data_parallel_size=2,
+        tensor_parallel_size=1,
+    )
+    fabric = Fabric(devices=2, strategy=strategy, precision="16-true")
+    fabric.launch()
+    
+    # create a reference model to get the full state dict
+    reference_model = LoRAGPT(config)
+    mark_only_lora_as_trainable(reference_model)
+    
+    # initialize the reference model with some values
+    with torch.no_grad():
+        for param in reference_model.parameters():
+            if param.requires_grad:
+                param.fill_(0.1)
+    
+    # get the full state dict (simulating a checkpoint)
+    full_state_dict = {}
+    for name, param in reference_model.named_parameters():
+        if param.requires_grad:
+            # Convert LoRA parameter names to match what would be in a checkpoint
+            checkpoint_name = name.replace(".linear.weight", ".weight")
+            full_state_dict[checkpoint_name] = param.detach().clone()
+    
+    # create distributed model
+    with fabric.init_module(empty_init=True):
+        model = LoRAGPT(config)
+    mark_only_lora_as_trainable(model)
+    
+    # set up device mesh for distributed model
+    device_mesh = {"data_parallel": fabric.device_mesh}
+    model = parallelize_fn(model, device_mesh, activation_checkpointing=False)
+    model = fabric.setup_module(model)
+    
+    # test with default parameters (strict=False, cpu_offload=False)
+    result = load_from_full_model_state_dict(
+        model=model,
+        full_sd=full_state_dict,
+        device=fabric.device,
+        strict=False,
+        cpu_offload=False,
+    )
+    
+    # verify that the function returns the missing/unexpected keys
+    assert hasattr(result, "missing_keys")
+    assert hasattr(result, "unexpected_keys")
+    
+    # verify that parameters are loaded correctly
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            # Check that parameter is not on meta device
+            assert not param.is_meta, f"Parameter {name} should not be on meta device"
+            # Check that parameter is on the correct device
+            assert param.device.type == "cuda", f"Parameter {name} should be on CUDA device"
+            # Check that parameter values are approximately correct (accounting for distributed precision)
+            assert torch.allclose(param.detach(), torch.full_like(param, 0.1), atol=1e-3), \
+                f"Parameter {name} values don't match expected values"
+    
+    # test with cpu_offload=True
+    with fabric.init_module(empty_init=True):
+        model_cpu_offload = LoRAGPT(config)
+    mark_only_lora_as_trainable(model_cpu_offload)
+    model_cpu_offload = parallelize_fn(model_cpu_offload, device_mesh, activation_checkpointing=False)
+    model_cpu_offload = fabric.setup_module(model_cpu_offload)
+    
+    result_cpu_offload = load_from_full_model_state_dict(
+        model=model_cpu_offload,
+        full_sd=full_state_dict,
+        device=fabric.device,
+        strict=False,
+        cpu_offload=True,
+    )
+    
+    # verify that the function returns the missing/unexpected keys
+    assert hasattr(result_cpu_offload, "missing_keys")
+    assert hasattr(result_cpu_offload, "unexpected_keys")
+    
+    # verify that parameters are loaded correctly with CPU offload
+    for name, param in model_cpu_offload.named_parameters():
+        if param.requires_grad:
+            # Check that parameter is not on meta device
+            assert not param.is_meta, f"Parameter {name} should not be on meta device"
+            # Parameter device could be CPU or CUDA depending on offload behavior
+            assert param.device.type in ["cpu", "cuda"], f"Parameter {name} should be on CPU or CUDA device"
+    
+    # test with strict=True (this might raise an error if keys don't match exactly)
+    with fabric.init_module(empty_init=True):
+        model_strict = LoRAGPT(config)
+    mark_only_lora_as_trainable(model_strict)
+    model_strict = parallelize_fn(model_strict, device_mesh, activation_checkpointing=False)
+    model_strict = fabric.setup_module(model_strict)
+    
+    # create a more complete state dict for strict loading
+    strict_state_dict = {}
+    for name, param in model_strict.named_parameters():
+        if param.requires_grad:
+            # map the parameter name to what would be in a checkpoint
+            checkpoint_name = name.replace(".linear.weight", ".weight")
+            strict_state_dict[checkpoint_name] = torch.full_like(param, 0.2)
+    
+    result_strict = load_from_full_model_state_dict(
+        model=model_strict,
+        full_sd=strict_state_dict,
+        device=fabric.device,
+        strict=True,
+        cpu_offload=False,
+    )
+    
+    # verify that parameters are loaded correctly with strict=True
+    for name, param in model_strict.named_parameters():
+        if param.requires_grad:
+            # check that parameter is not on meta device
+            assert not param.is_meta, f"Parameter {name} should not be on meta device"
+            # check that parameter is on the correct device
+            assert param.device.type == "cuda", f"Parameter {name} should be on CUDA device"
+            # check that parameter values are approximately correct
+            assert torch.allclose(param.detach(), torch.full_like(param, 0.2), atol=1e-3), \
+                f"Parameter {name} values don't match expected values"
+    
+    # test forward pass to ensure model still works after loading
+    x = torch.randint(0, config.padded_vocab_size, size=(1, config.block_size), dtype=torch.int64, device=fabric.device)
+    
+    with torch.no_grad():
+        output = model(x)
+        assert output.shape == (1, config.block_size, config.padded_vocab_size)
+        
+        output_cpu_offload = model_cpu_offload(x)
+        assert output_cpu_offload.shape == (1, config.block_size, config.padded_vocab_size)
+        
+        output_strict = model_strict(x)
+        assert output_strict.shape == (1, config.block_size, config.padded_vocab_size)
