@@ -7,7 +7,13 @@ parametrize:
   exclude: []
 
 env:
-  HELLO: "world"
+  CI: "true"
+  NCCL_DEBUG: "INFO"
+  PYTHON_VERSION: "3.10"
+  CUDA_VERSION: "12.6.3"
+  TORCH_VERSION: "2.7.1"
+  CUDNN_FRONTEND_VERSION: "1.10.0"
+
 run: |
   dpkg-query -W -f='${Package} ${Version}\n' libnccl2 libnccl-dev
   whereis nvidia
