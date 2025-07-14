@@ -15,7 +15,6 @@ env:
   CUDNN_FRONTEND_VERSION: "1.10.0"
 
 run: |
-  dpkg-query -W -f='${Package} ${Version}\n' libnccl2 libnccl-dev
   whereis nvidia
   nvidia-smi
   which python && which pip
