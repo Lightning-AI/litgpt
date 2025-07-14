@@ -1,0 +1,18 @@
+image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
+machine: "L4"
+parametrize:
+  matrix:
+    dependency: ["", "compiler"]
+  include: []
+  exclude: []
+
+env:
+  HELLO: "world"
+run: |
+  dpkg-query -W -f='${Package} ${Version}\n' libnccl2 libnccl-dev
+  whereis nvidia
+  nvidia-smi
+  which python && which pip
+  python --version
+  pip --version
+  pip list
