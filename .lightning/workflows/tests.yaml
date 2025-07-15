@@ -28,8 +28,7 @@ run: |
   pip --version
   pip list
 
-  pip install --upgrade pip
-  pip install '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
+  pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
 
   if [ "${dependency}" == "compiler" ]; then
     pip uninstall -y torchvision torchaudio
