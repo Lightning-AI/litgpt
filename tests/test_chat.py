@@ -46,6 +46,9 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
     model = MagicMock()
     model.config.block_size = 100
     model.max_seq_length = 100
+    # Mock methods called during generation
+    monkeypatch.setattr(model, "kv_cache_max_prefill_length", lambda: 80)
+    monkeypatch.setattr(model, "kv_cache_max_tokens_forward", lambda: 20)
     it = iter(generated)
 
     def multinomial(*_, **__):
