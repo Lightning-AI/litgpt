@@ -48,7 +48,7 @@ optional-dependencies.extra = [
   # quantization:
   "bitsandbytes>=0.45.2,<0.45.5; sys_platform=='linux' or sys_platform=='win32'",
   # litgpt.evaluate:
-  "datasets>=2.18,<4.0.0",
+  "datasets>=2.18,<4",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
   "litdata==0.2.49",
