@@ -1,0 +1,1560 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../convert_hf_checkpoint/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.15">
+    
+    
+      
+        <title>Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#zero-to-litgpt-getting-started-with-pretraining-finetuning-and-using-llms" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install-litgpt" class="md-nav__link">
+    <span class="md-ellipsis">
+      Install LitGPT
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pretrain-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pretrain LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-pretrained-model-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Download pretrained model weights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetune-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetune LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      LLM inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-litgpt-python-api-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the LitGPT Python API for Inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluating-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating models
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploy LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-litgpt-model-weights-to-safetensors-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting LitGPT model weights to safetensors format
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-involved" class="md-nav__link">
+    <span class="md-ellipsis">
+      Get involved!
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" >
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/adding-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer-docs/python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install-litgpt" class="md-nav__link">
+    <span class="md-ellipsis">
+      Install LitGPT
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pretrain-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pretrain LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-pretrained-model-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Download pretrained model weights
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#finetune-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Finetune LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      LLM inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-the-litgpt-python-api-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the LitGPT Python API for Inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evaluating-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Evaluating models
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-llms" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deploy LLMs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-litgpt-model-weights-to-safetensors-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting LitGPT model weights to safetensors format
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#get-involved" class="md-nav__link">
+    <span class="md-ellipsis">
+      Get involved!
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="zero-to-litgpt-getting-started-with-pretraining-finetuning-and-using-llms">Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs</h1>
+<p>This tutorial walks you through the main features and usage patterns for ⚡️LitGPT, a library for pretraining, finetuning, and using LLMs that focuses on an efficient user experience while being developer-friendly.</p>
+<p>The topics, following the installation of LitGPT, are in chronological order, reflecting the steps in an LLM lifecycle: Pretraining → Finetuning → Inference.</p>
+<p>&nbsp;</p>
+<p><img src="images/0_to_litgpt/usage.webp" width=500></p>
+<p>&nbsp;</p>
+<p><img src="images/0_to_litgpt/commands.webp" width=300></p>
+<p>&nbsp;</p>
+<p>However, it is also possible, and even common, to use and deploy models with LitGPT without pretraining and finetuning. So, if you are not interested in pretraining and finetuning, please feel free to skip these sections.</p>
+<p>&nbsp;</p>
+<h2 id="install-litgpt">Install LitGPT</h2>
+<p>LitGPT is available as a Python library from the PyPI package repository, and we recommend installing it using Python's <code>pip</code> installer module, including all required package dependencies:</p>
+<pre><code class="language-bash">pip install 'litgpt[all]'
+</code></pre>
+<p>Alternatively, if you are a researcher or developer planning to make changes to LitGPT, you can clone the GitHub repository and install it from a local folder as follows:</p>
+<pre><code>git clone https://github.com/Lightning-AI/litgpt.git
+cd litgpt
+pip install -e '.[all]'
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="pretrain-llms">Pretrain LLMs</h2>
+<p>Pretraining LLMs requires substantial compute resources and time commitment. For that reason, most researchers and practitioners prefer to skip this step and continue with the <em>Download pretrained model weights</em> section instead.</p>
+<p>However, if you feel adventurous and want to pretrain your own LLM, here's how.</p>
+<p>First, we have to decide which type of model architecture we want to use. We list the available architectures by using the <code>pretrain</code> command without any additional arguments:</p>
+<pre><code class="language-bash">litgpt pretrain list
+</code></pre>
+<p>This prints a list of all available model architectures in alphabetical order:</p>
+<pre><code>Camel-Platypus2-13B
+Camel-Platypus2-70B
+CodeLlama-13b-Python-hf
+...
+EleutherAI/pythia-410m
+...
+vicuna-13b-v1.3
+vicuna-13b-v1.5
+vicuna-13b-v1.5-16k
+vicuna-33b-v1.3
+vicuna-7b-v1.3
+vicuna-7b-v1.5
+vicuna-7b-v1.5-16k
+</code></pre>
+<p>Suppose we want to pretraining the 1.1B parameter small <code>tiny-llama-1.1b</code> model. Before starting finetuning, we must also choose and download a tokenizer.</p>
+<p>We can download a tokenizer via the <code>download</code> command. Note that running <code>litgpt download list</code> will also print a list of all available models and tokenizers to download.</p>
+<p>To filter for specific models, e.g., TinyLlama, we can use the <code>grep</code> command in our terminal:</p>
+<pre><code class="language-bash">litgpt download list | grep  TinyLlama
+</code></pre>
+<p>This prints</p>
+<pre><code>TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+TinyLlama/TinyLlama-1.1B-Chat-v1.0
+</code></pre>
+<p>Let's now download the tokenizer corresponding to <code>TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T</code> that we can then use to pretrain the TinyLlama model:</p>
+<pre><code>litgpt download \
+   TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T \
+   --tokenizer_only true
+</code></pre>
+<p>(when specified)</p>
+<p>&nbsp;</p>
+<p><img src="images/0_to_litgpt/pretrain.webp" width=400></p>
+<p>&nbsp;</p>
+<p>Next, we can pretrain the model on the OpenWebText dataset with the default setting as follows:</p>
+<pre><code class="language-bash">litgpt pretrain tiny-llama-1.1b \
+  --data OpenWebText \
+  --tokenizer_dir TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T
+</code></pre>
+<p>If you are interested in additional settings, you can use the help command as follows:</p>
+<pre><code>litgpt pretrain --help
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Above, we only covered the most basic commands for pretraining a model using LitGPT. We highly recommend checking the resources below if you are interested in pretraining a model.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../pretrain/">tutorials/pretrain</a>: General information about pretraining in LitGPT</li>
+<li><a href="../pretrain_tinyllama/">tutorials/pretrain_tinyllama</a>: A tutorial for finetuning a 1.1B TinyLlama model on 3 trillion tokens</li>
+<li><a href="../config_hub/pretrain">config_hub/pretrain</a>: Pre-made config files for pretraining that work well out of the box</li>
+<li>Project templates in reproducible environments with multi-GPU and multi-node support:</li>
+<li><a href="https://lightning.ai/lightning-ai/studios/prepare-the-tinyllama-1t-token-dataset">Prepare the TinyLlama 1T token dataset</a></li>
+<li><a href="https://lightning.ai/lightning-ai/studios/pretrain-llms-tinyllama-1-1b">Pretrain LLMs - TinyLlama 1.1B</a></li>
+<li><a href="https://lightning.ai/lightning-ai/studios/continued-pretraining-with-tinyllama-1-1b">Continued Pretraining with TinyLlama 1.1B</a></li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="download-pretrained-model-weights">Download pretrained model weights</h2>
+<p>Most practical use cases, like LLM inference (/chat) or finetuning, involve using pretrained model weights. LitGPT supports a large number of model weights, which can be listed by executing the <code>download</code> with <code>list</code> as an argument:</p>
+<pre><code class="language-bash">litgpt download list
+</code></pre>
+<p>This will print a (long) list of all supported pretrained models (abbreviated for readability below):</p>
+<pre><code>..
+google/gemma-2b
+...
+meta-llama/Llama-2-7b-hf
+...
+microsoft/phi-2
+...
+mistralai/Mixtral-8x7B-Instruct-v0.1
+...
+</code></pre>
+<p>To download the model weights, provide one of the model strings above as input argument:</p>
+<pre><code class="language-bash">litgpt download microsoft/phi-2
+</code></pre>
+<pre><code>model-00001-of-00002.safetensors: 100%|████████████████████████████████| 5.00G/5.00G [00:40&lt;00:00, 124MB/s]
+model-00002-of-00002.safetensors: 100%|████████████████████████████████| 564M/564M [00:01&lt;00:00, 330MB/s]
+tokenizer.json: 100%|██████████████████████████████████████████████████| 2.11M/2.11M [00:00&lt;00:00, 54.0MB/s]
+...
+Converting checkpoint files to LitGPT format.
+Processing checkpoints/microsoft/phi-2/model-00001-of-00002.bin
+...
+Saving converted checkpoint to checkpoints/microsoft/phi-2
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Note that some models, such as Llama 2, require that you accept Meta AI's terms of service for this model, and you need to use a special access token via the <code>litgpt download ... --access_token ...</code> option. For more information, visit the respective Model Hub website, e.g., <a href="https://huggingface.co/meta-llama/Llama-2-7b-hf">meta-llama/Llama-2-7b-hf</a>. The access token can be created under your Model Hub in the <code>Profile &gt; Access Tokens</code> menu.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>By default, the weights are going to be stored in a <code>./checkpoints</code> subdirectory:</p>
+<pre><code class="language-bash">ls -lh checkpoints/microsoft/phi-2/
+</code></pre>
+<pre><code>total 11G
+-rw-r--r-- 1 sebastian sebastian  863 Mar 19 21:14 config.json
+-rw-r--r-- 1 sebastian sebastian  124 Mar 19 21:14 generation_config.json
+-rw-r--r-- 1 sebastian sebastian 5.2G Mar 19 21:15 lit_model.pth
+-rw-r--r-- 1 sebastian sebastian 4.7G Mar 19 21:15 model-00001-of-00002.bin
+-rw-r--r-- 1 sebastian sebastian 538M Mar 19 21:15 model-00002-of-00002.bin
+-rw-r--r-- 1 sebastian sebastian  528 Mar 19 21:15 model_config.yaml
+-rw-r--r-- 1 sebastian sebastian 2.1M Mar 19 21:14 tokenizer.json
+-rw-r--r-- 1 sebastian sebastian 7.2K Mar 19 21:14 tokenizer_config.json
+</code></pre>
+<p>The model is now ready for inference and chat, for example, using the <code>chat</code> command on the checkpoint directory:</p>
+<pre><code class="language-bash">litgpt chat microsoft/phi-2
+</code></pre>
+<pre><code>Now chatting with phi-2.
+To exit, press 'Enter' on an empty prompt.
+
+Seed set to 1234
+&gt;&gt; Prompt: Why are LLMs so useful?
+&gt;&gt; Reply:  When building applications or operating systems, you can use LLMs to know how a computer should respond to your commands. This can make your programs run faster and more efficiently.
+
+Time for inference: 1.26 sec total, 27.81 tokens/sec, 35 tokens
+
+&gt;&gt; Prompt:
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Use <code>--multiline true</code> to support prompts that require multiple input lines.</p>
+</blockquote>
+<p><br></p>
+<p>&nbsp;
+<strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../download_model_weights/">tutorials/download_model_weights</a>: A more comprehensive download tutorial, tips for GPU memory limitations, and more</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="finetune-llms">Finetune LLMs</h2>
+<p>LitGPT supports several methods of supervised instruction finetuning, which allows you to finetune models to follow instructions.</p>
+<p>Datasets for Instruction-finetuning are usually formatted in the following way:</p>
+<p>&nbsp;</p>
+<p><img src="images/0_to_litgpt/instruction-1.webp" width=400></p>
+<p>&nbsp;</p>
+<p>Alternatively, datasets for instruction finetuning can also contain an <code>'input'</code> field:</p>
+<p>In an instruction-finetuning context, "full" finetuning means updating all model parameters as opposed to only a subset. Adapter and LoRA (short for low-rank adaptation) are methods for parameter-efficient finetuning that only require updating a small fraction of the model weights.</p>
+<p>&nbsp;</p>
+<p><img src="images/0_to_litgpt/finetune.webp" width=400></p>
+<p>&nbsp;</p>
+<p>Parameter-efficient finetuning is much more resource-efficient and cheaper than full finetuning, and it often results in the same good performance on downstream tasks.</p>
+<p>In the following example, we will use LoRA for finetuning, which is one of the most popular LLM finetuning methods. (For more information on how LoRA works, please see <a href="https://lightning.ai/lightning-ai/studios/code-lora-from-scratch">Code LoRA from Scratch</a>.)</p>
+<p>Before we start, we have to download a model as explained in the previous "Download pretrained model" section above:</p>
+<pre><code class="language-bash">litgpt download microsoft/phi-2
+</code></pre>
+<p>The LitGPT interface can be used via command line arguments and configuration files. We recommend starting with the configuration files from the <a href="../config_hub">config_hub</a> and either modifying them directly or overriding specific settings via the command line. For example, we can use the following setting to train the downloaded 2.7B parameter <code>microsoft/phi-2</code> model, where we set <code>--max_steps 5</code> for a quick test run.</p>
+<p>If you have downloaded or cloned the LitGPT repository, you can provide the <code>config</code> file via a relative path:</p>
+<pre><code class="language-bash">litgpt finetune_lora microsoft/phi-2\
+  --config config_hub/finetune/phi-2/lora.yaml \
+  --train.max_steps 5
+</code></pre>
+<p>Alternatively, you can provide a URL:</p>
+<pre><code class="language-bash">litgpt finetune_lora microsoft/phi-2\
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/finetune/phi-2/lora.yaml \
+  --train.max_steps 5
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Note that the config file above will finetune the model on the <code>Alpaca2k</code> dataset on 1 GPU and save the resulting files in an <code>out/finetune/lora-phi-2</code> directory. All of these settings can be changed via a respective command line argument or by changing the config file.
+To see more options, execute <code>litgpt finetune_lora --help</code>.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>Running the previous finetuning command will initiate the finetuning process, which should only take about a minute on a GPU due to the <code>--train.max_steps 5</code> setting.</p>
+<pre><code>{'checkpoint_dir': PosixPath('checkpoints/microsoft/phi-2'),  # TODO
+ 'data': Alpaca2k(mask_prompt=False,
+                  val_split_fraction=0.03847,
+                  prompt_style=&lt;litgpt.prompts.Alpaca object at 0x7f5fa2867e80&gt;,
+                  ignore_index=-100,
+                  seed=42,
+                  num_workers=4,
+                  download_dir=PosixPath('data/alpaca2k')),
+ 'devices': 1,
+ 'eval': EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
+ 'logger_name': 'csv',
+ 'lora_alpha': 16,
+ 'lora_dropout': 0.05,
+ 'lora_head': True,
+ 'lora_key': True,
+ 'lora_mlp': True,
+ 'lora_projection': True,
+ 'lora_query': True,
+ 'lora_r': 8,
+ 'lora_value': True,
+ 'num_nodes': 1,
+ 'out_dir': PosixPath('out/finetune/lora-phi-2'),
+ 'precision': 'bf16-true',
+ 'quantize': None,
+ 'seed': 1337,
+ 'train': TrainArgs(save_interval=800,
+                    log_interval=1,
+                    global_batch_size=8,
+                    micro_batch_size=4,
+                    lr_warmup_steps=10,
+                    epochs=1,
+                    max_tokens=None,
+                    max_steps=5,
+                    max_seq_length=512,
+                    tie_embeddings=None,
+                    learning_rate=0.0002,
+                    weight_decay=0.0,
+                    beta1=0.9,
+                    beta2=0.95,
+                    max_norm=None,
+                    min_lr=6e-05)}
+Seed set to 1337
+Number of trainable parameters: 12,226,560
+Number of non-trainable parameters: 2,779,683,840
+The longest sequence length in the train data is 512, the model's maximum sequence length is 512 and context length is 2048
+Validating ...
+Recommend a movie for me to watch during the weekend and explain the reason.
+Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+Recommend a movie for me to watch during the weekend and explain the reason.
+
+### Response:
+I recommend you watch &quot;Parasite&quot; because it's a critically acclaimed movie that won multiple awards, including the Academy Award for Best Picture. It's a thought-provoking and suspenseful film that will keep you on the edge of your seat. The movie also tackles social and economic inequalities, making it a must-watch for anyone interested in meaningful storytelling.
+
+/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/site-packages/torchmetrics/utilities/prints.py:43: UserWarning: The ``compute`` method of metric MeanMetric was called before the ``update`` method which may lead to errors, as metric states have not yet been updated.
+  warnings.warn(*args, **kwargs)  # noqa: B028
+Missing logger folder: out/finetune/lora-phi-2/logs/csv
+Epoch 1 | iter 1 step 0 | loss train: 1.646, val: n/a | iter time: 820.31 ms
+Epoch 1 | iter 2 step 1 | loss train: 1.660, val: n/a | iter time: 548.72 ms (step)
+Epoch 1 | iter 3 step 1 | loss train: 1.687, val: n/a | iter time: 300.07 ms
+Epoch 1 | iter 4 step 2 | loss train: 1.597, val: n/a | iter time: 595.27 ms (step)
+Epoch 1 | iter 5 step 2 | loss train: 1.640, val: n/a | iter time: 260.75 ms
+Epoch 1 | iter 6 step 3 | loss train: 1.703, val: n/a | iter time: 568.22 ms (step)
+Epoch 1 | iter 7 step 3 | loss train: 1.678, val: n/a | iter time: 511.70 ms
+Epoch 1 | iter 8 step 4 | loss train: 1.741, val: n/a | iter time: 514.14 ms (step)
+Epoch 1 | iter 9 step 4 | loss train: 1.689, val: n/a | iter time: 423.59 ms
+Epoch 1 | iter 10 step 5 | loss train: 1.524, val: n/a | iter time: 603.03 ms (step)
+Training time: 11.20s
+Memory used: 13.90 GB
+Saving LoRA weights to 'out/finetune/lora-phi-2/final/lit_model.pth.lora'
+Saved merged weights to 'out/finetune/lora-phi-2/final/lit_model.pth'
+</code></pre>
+<p>Notice that the LoRA script saves both the LoRA weights (<code>'out/finetune/lora-phi-2/final/lit_model.pth.lora'</code>) and the LoRA weight merged back into the original model (<code>'out/finetune/lora-phi-2/final/lit_model.pth'</code>) for convenience. This allows us to use the finetuned model via the <code>chat</code> function directly:</p>
+<pre><code class="language-bash">litgpt chat out/finetune/lora-phi-2/final/
+</code></pre>
+<pre><code>Now chatting with phi-2.
+To exit, press 'Enter' on an empty prompt.
+
+Seed set to 1234
+&gt;&gt; Prompt: Why are LLMs so useful?
+&gt;&gt; Reply: LLMs are useful because they can be trained to perform various natural language tasks, such as language translation, text generation, and question-answering. They are also able to understand the context of the input data, which makes them particularly useful for tasks such as sentiment analysis and text summarization. Additionally, because LLMs can learn from large amounts of data, they are able to generalize well and perform well on new data.
+
+Time for inference: 2.15 sec total, 39.57 tokens/sec, 85 tokens
+
+&gt;&gt; Prompt:
+</code></pre>
+<p>&nbsp;</p>
+<p><strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../prepare_dataset/">tutorials/prepare_dataset</a>: A summary of all out-of-the-box supported datasets in LitGPT and utilities for preparing custom datasets</li>
+<li><a href="../finetune/">tutorials/finetune</a>: An overview of the different finetuning methods supported in LitGPT</li>
+<li><a href="../finetune_full/">tutorials/finetune_full</a>: A tutorial on full-parameter finetuning</li>
+<li><a href="../finetune_lora/">tutorials/finetune_lora</a>: Options for parameter-efficient finetuning with LoRA and QLoRA</li>
+<li><a href="../finetune_adapter/">tutorials/finetune_adapter</a>: A description of the parameter-efficient Llama-Adapter methods supported in LitGPT</li>
+<li><a href="../oom/">tutorials/oom</a>: Tips for dealing with out-of-memory (OOM) errors</li>
+<li><a href="../config_hub/finetune">config_hub/finetune</a>: Pre-made config files for finetuning that work well out of the box</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="llm-inference">LLM inference</h2>
+<p>To use a downloaded or finetuned model for chat, you only need to provide the corresponding checkpoint directory containing the model and tokenizer files. For example, to chat with the phi-2 model from Microsoft, download it as follows, as described in the "Download pretrained model" section:</p>
+<pre><code class="language-bash">litgpt download microsoft/phi-2
+</code></pre>
+<pre><code>model-00001-of-00002.safetensors: 100%|████████████████████████████████| 5.00G/5.00G [00:40&lt;00:00, 124MB/s]
+model-00002-of-00002.safetensors: 100%|████████████████████████████████| 564M/564M [00:01&lt;00:00, 330MB/s]
+tokenizer.json: 100%|██████████████████████████████████████████████████| 2.11M/2.11M [00:00&lt;00:00, 54.0MB/s]
+...
+Converting checkpoint files to LitGPT format.
+Processing checkpoints/microsoft/phi-2/model-00001-of-00002.bin
+...
+Saving converted checkpoint to checkpoints/microsoft/phi-2
+</code></pre>
+<p>Then, chat with the model using the following command:</p>
+<pre><code class="language-bash">litgpt chat microsoft/phi-2
+</code></pre>
+<pre><code>Now chatting with phi-2.
+To exit, press 'Enter' on an empty prompt.
+
+Seed set to 1234
+&gt;&gt; Prompt: What is the main difference between a large language model and a traditional search engine?
+&gt;&gt; Reply:  A large language model uses deep learning algorithms to analyze and generate natural language, while a traditional search engine uses algorithms to retrieve information from web pages.
+
+Time for inference: 1.14 sec total, 26.26 tokens/sec, 30 tokens
+</code></pre>
+<blockquote>
+<p>[!TIP]
+Most model weights are already represented in an efficient bfloat16 format. However, if the model currently exceeds your GPU memory, you can try to pass the <code>--precision bf16-true</code> option. In addition, you can check the quantization documentation for further optimization, which is linked below.</p>
+</blockquote>
+<p>&nbsp;
+<strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../inference/">tutorials/inference</a>: Chat and inference tutorial</li>
+<li><a href="../quantize/">tutorials/quantize</a>: Quantizing models to reduce GPU memory requirements</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="using-the-litgpt-python-api-for-inference">Using the LitGPT Python API for Inference</h2>
+<p>The previous section explained how to use the <code>litgpt chat</code> command line interface for inference. Alternatively, LitGPT also offers a Python API approach to generate text using an LLM:</p>
+<pre><code class="language-python">from litgpt import LLM
+
+llm = LLM.load(&quot;microsoft/phi-2&quot;)
+text = llm.generate(&quot;What do Llamas eat?&quot;, top_k=1, max_new_tokens=30)
+print(text)
+</code></pre>
+<p>Note that the if you pass a supported model name to <code>LLM.load()</code>, as shown above, it will download the model from the HF hub if it doesn't exist locally, yet (use <code>litgpt download list</code> on the command line to get a list of all currently supported models.)</p>
+<p>Alternatively, to load model from a local path, just provide the corresponding path as input to the <code>load</code> method:</p>
+<pre><code class="language-python">llm = LLM.load(&quot;path/to/my/local/checkpoint&quot;)
+</code></pre>
+<p>&nbsp;
+<strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../python-api/">tutorials/python-api</a>: The LitGPT Python API documentation</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="evaluating-models">Evaluating models</h2>
+<p>LitGPT comes with a handy <code>litgpt evaluate</code> command to evaluate models with <a href="https://github.com/EleutherAI/lm-evaluation-harness">Eleuther AI's Evaluation Harness</a>. For example, to evaluate the previously downloaded <code>microsoft/phi-2</code> model on several tasks available from the Evaluation Harness, you can use the following command:</p>
+<pre><code class="language-bash">litgpt evaluate microsoft/phi-2
+  --batch_size 16 \
+  --tasks &quot;hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge&quot;
+</code></pre>
+<p>(A list of supported tasks can be found <a href="https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md">here</a>.)</p>
+<p>&nbsp;</p>
+<h2 id="deploy-llms">Deploy LLMs</h2>
+<p>You can deploy LitGPT LLMs using your tool of choice. Below is an example using LitGPT built-in serving capabilities:</p>
+<pre><code class="language-bash"># 1) Download a pretrained model (alternatively, use your own finetuned model)
+litgpt download microsoft/phi-2
+
+# 2) Start the server
+litgpt serve microsoft/phi-2
+</code></pre>
+<pre><code class="language-python"># 3) Use the server (in a separate session)
+import requests, json
+ response = requests.post(
+     &quot;http://127.0.0.1:8000/predict&quot;,
+     json={&quot;prompt&quot;: &quot;Fix typos in the following sentence: Example input&quot;}
+)
+print(response.json()[&quot;output&quot;])
+</code></pre>
+<p>This prints:</p>
+<pre><code>Instruct: Fix typos in the following sentence: Example input
+Output: Example input.
+</code></pre>
+<p>&nbsp;
+<strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../deploy/">tutorials/deploy</a>: A full deployment tutorial and example</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="converting-litgpt-model-weights-to-safetensors-format">Converting LitGPT model weights to <code>safetensors</code> format</h2>
+<p>Sometimes, it can be useful to convert LitGPT model weights for third-party and external tools. For example, we can convert a LitGPT model to the Hugging Face format and save it via <code>.safetensors</code> files, which we can do as follows:</p>
+<pre><code class="language-bash">litgpt convert_from_litgpt microsoft/phi-2 out/converted_model/
+</code></pre>
+<p>Certain tools like the <code>.from_pretrained</code> method in Hugging Face <code>transformers</code> also require the original <code>config.json</code> file that originally came with the downloaded model:</p>
+<pre><code class="language-bash">cp checkpoints/microsoft/phi-2/config.json out/converted_model/config.json
+</code></pre>
+<p>You can now load the model into a Hugging Face transformers model and safe it in a <code>.safetensors</code> format as follows:</p>
+<pre><code class="language-bash">import torch
+from transformers import AutoModel
+
+# Load model
+state_dict = torch.load('out/converted_model/model.pth')
+model = AutoModel.from_pretrained(
+    &quot;microsoft/phi-2&quot;, state_dict=state_dict
+)
+
+# Save .safetensors files
+model.save_pretrained(&quot;out/converted_model/&quot;)
+</code></pre>
+<pre><code>⚡ ~/litgpt ls -lh out/converted_model
+total 16G
+-rwxr--r-- 1 sebastian sebastian  891 Mar 20 17:08 config.json
+-rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:08 model-00001-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:09 model-00002-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 601M Mar 20 17:09 model-00003-of-00003.safetensors
+-rw-r--r-- 1 sebastian sebastian 5.2G Mar 20 16:30 model.pth
+-rw-r--r-- 1 sebastian sebastian  33K Mar 20 17:09 model.safetensors.index.json
+</code></pre>
+<p>You can then use the model with external tools, for example, Eleuther AI's <a href="https://github.com/EleutherAI/lm-evaluation-harness">LM Evaluation Harness</a> (see the <code>lm_eval</code> installation instructions <a href="https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#install">here</a>).</p>
+<p>The LM Evaluation Harness requires a tokenizer to be present in the model checkpoint folder, which we can copy from the original download checkpoint:</p>
+<pre><code class="language-bash"># Copy the tokenizer needed by the Eval Harness
+cp checkpoints/microsoft/phi-2/tokenizer*
+out/converted_model
+</code></pre>
+<p>Then, we can run the Evaluation Harness as follows:</p>
+<pre><code class="language-bash">lm_eval --model hf \
+    --model_args pretrained=&quot;out/converted_model&quot; \
+    --tasks &quot;hellaswag,gsm8k,truthfulqa_mc2,mmlu,winogrande,arc_challenge&quot; \
+    --device &quot;cuda:0&quot; \
+    --batch_size 4
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+The Evaluation Harness tasks above are those used in Open LLM Leaderboard. You can find a list all supported tasks <a href="https://github.com/EleutherAI/lm-evaluation-harness/blob/master/docs/task_table.md">here</a>.</p>
+</blockquote>
+<p>&nbsp;
+<strong>More information and additional resources</strong></p>
+<ul>
+<li><a href="../convert_lit_models/">tutorials/convert_lit_models</a>: Tutorial on converting LitGPT weights</li>
+</ul>
+<p>&nbsp;</p>
+<h2 id="get-involved">Get involved!</h2>
+<p>We appreciate your feedback and contributions. If you have feature requests, questions, or want to contribute code or config files, please don't hesitate to use the <a href="https://github.com/Lightning-AI/litgpt/issues">GitHub Issue</a> tracker.</p>
+<p>We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!TIP]
+Unsure about contributing? Check out our <a href="https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/">How to Contribute to LitGPT</a> guide.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>If you have general questions about building with LitGPT, please <a href="https://discord.gg/VptPCZkGNa">join our Discord</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.56ea9cef.min.js"></script>
+      
+        <script src="../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>

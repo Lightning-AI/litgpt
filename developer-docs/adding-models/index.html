@@ -1,0 +1,1400 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../python-api/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.15">
+    
+    
+      
+        <title>Adding New Models - LitGPT Tutorials</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/mkdocs_pagetree_plugin.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adding-new-models" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="LitGPT Tutorials" class="md-header__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LitGPT Tutorials
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Adding New Models
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="LitGPT Tutorials" class="md-nav__button md-logo" aria-label="LitGPT Tutorials" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LitGPT Tutorials
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../0_to_litgpt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zero to LitGPT: Getting Started with Pretraining, Finetuning, and Using LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../convert_hf_checkpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Converting Hugging Face Transformers to LitGPT weights
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../convert_lit_models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Convert lit models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Serve and Deploy LLMs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../download_model_weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Download Model Weights with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LLM Evaluation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../finetune/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../finetune_adapter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with Adapter
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../finetune_full/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning the whole model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../finetune_lora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Finetuning with LoRA / QLoRA
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../inference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inference
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../oom/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Oom
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../prepare_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Preparing Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pretrain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain LLMs with LitGPT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pretrain_tinyllama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pretrain TinyLlama
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quantize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quantize the model
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resource-tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resource Tables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_20" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_20" id="__nav_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Developer docs
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            Developer docs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Adding New Models
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-discuss-the-llm-to-be-added" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Discuss the LLM to be added
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-set-up-your-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Set up your development environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-update-the-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Update the config file
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-try-downloading-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Try downloading the model
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-update-the-checkpoint-conversion-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Update the checkpoint conversion script
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-add-the-prompt-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Add the Prompt Style
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-try-using-the-model-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Try using the model for inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-add-unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Add unit tests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Add unit tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-add-model-unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.1 Add model unit tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-add-prompt-style-unit-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.2 Add prompt style unit test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-try-finetuning-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Try finetuning the model
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-update-the-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Update the documentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Update the documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-update-the-readme-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.1 Update the README file
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-update-the-download-tutorials" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.2 Update the download tutorials
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LitGPT High-level Python API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21" >
+        
+          
+          <label class="md-nav__link" for="__nav_21" id="__nav_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Examples
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_21_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_21_1" id="__nav_21_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Ptl trainer
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_21_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ptl trainer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/ptl-trainer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Index
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-discuss-the-llm-to-be-added" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Discuss the LLM to be added
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-set-up-your-development-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Set up your development environment
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-update-the-config-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Update the config file
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-try-downloading-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Try downloading the model
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-update-the-checkpoint-conversion-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Update the checkpoint conversion script
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-add-the-prompt-style" class="md-nav__link">
+    <span class="md-ellipsis">
+      6. Add the Prompt Style
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-try-using-the-model-for-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      7. Try using the model for inference
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-add-unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      8. Add unit tests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Add unit tests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-add-model-unit-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.1 Add model unit tests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-add-prompt-style-unit-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      8.2 Add prompt style unit test
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-try-finetuning-the-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      9. Try finetuning the model
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-update-the-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      10. Update the documentation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="10. Update the documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#101-update-the-readme-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.1 Update the README file
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#102-update-the-download-tutorials" class="md-nav__link">
+    <span class="md-ellipsis">
+      10.2 Update the download tutorials
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adding-new-models">Adding New Models</h1>
+<p>This document provides an overview and explanation of how new LLM architectures and model weights can be added to LitGPT.</p>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+One of the design focus areas of LitGPT is to provide efficient readable code. At the same time, LitGPT aims to support selected LLMs that are useful to the community. LitGPT aims to reuse and share as much code as possible between different LLMs to strike a balance between code readability and enabling support for various LLMs. In short, we try to minimize writing custom code for a given LLM and aim for code reuse.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2 id="1-discuss-the-llm-to-be-added">1. Discuss the LLM to be added</h2>
+<p>As an open-source project, we appreciate your contributions! However, before you begin putting valuable time and work into a contribution, ideally, open an issue to discuss whether support for a certain model is within the project's scope.</p>
+<p>&nbsp;</p>
+<h2 id="2-set-up-your-development-environment">2. Set up your development environment</h2>
+<p>Clone the repository:</p>
+<pre><code class="language-bash">git clone https://github.com/Lightning-AI/litgpt.git
+</code></pre>
+<p>Then, install it with the "editable" mode for development:</p>
+<pre><code class="language-bash">cd litgpt
+pip install litgpt -e &quot;.[all]&quot;
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="3-update-the-config-file">3. Update the config file</h2>
+<p>Update the <a href="../../litgpt/config.py">litgpt/config.py</a> config file, adding the new model configuration there. It's easiest to start with the most similar model, copy the configuration, and then modify it according to the <code>config.json</code> file on the HF hub.</p>
+<p>For example, suppose an entry for Llama 3 8B already exists and you want to add support for Llama 3 70B.</p>
+<p>Copy the Llama 3 8B entry:</p>
+<pre><code class="language-python"> # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
+ dict(
+     name=&quot;Llama-3-8B{}&quot;,
+     hf_config=dict(org=&quot;meta-llama&quot;, name=&quot;Meta-Llama-3-8B{}&quot;),
+     vocab_size=128256,
+     padding_multiple=64,
+     n_layer=32,
+     n_head=32,
+     n_query_groups=8,
+     rotary_percentage=1.0,
+     parallel_residual=False,
+     bias=False,
+     norm_class_name=&quot;RMSNorm&quot;,
+     mlp_class_name=&quot;LLaMAMLP&quot;,
+     intermediate_size=14336,
+     rope_base=500000,
+ ),
+</code></pre>
+<p>Then create the entry for the 70B model. Here, make sure you update the values according to the <code>config.json</code> file available on the HF hub:</p>
+<pre><code class="language-python"># https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
+ dict(
+     name=&quot;Llama-3-70B{}&quot;,
+     hf_config=dict(org=&quot;meta-llama&quot;, name=&quot;Meta-Llama-3-70B{}&quot;),
+     vocab_size=128256,
+     padding_multiple=64,
+     n_layer=80,
+     n_head=64,
+     n_embd=8192,
+     n_query_groups=8,
+     rotary_percentage=1.0,
+     parallel_residual=False,
+     bias=False,
+     norm_class_name=&quot;RMSNorm&quot;,
+     mlp_class_name=&quot;LLaMAMLP&quot;,
+     intermediate_size=28672,
+     rope_base=500000,
+ ),
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+Some models may require you to implement a new MLP class analogous to <code>class LLaMAMLP</code>.
+A more or less reliable indicator is the presence of a <code>modeling.py</code> file in the model's original repository.
+If this file exists, it suggests that this model requires custom code.
+This will then also require additional changes beyond simply updating
+the configuration in LitGPT's <code>config.py</code>.</p>
+</blockquote>
+<p>&nbsp;</p>
+<h2 id="4-try-downloading-the-model">4. Try downloading the model</h2>
+<p>After making the modifications above, try downloading the model:</p>
+<pre><code class="language-bash">litgpt download meta-llama/Meta-Llama-3-70B --access_token ...
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+Not all models require an access token</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>If the conversion following the download fails, proceed with the next section.</p>
+<p>&nbsp;</p>
+<h2 id="5-update-the-checkpoint-conversion-script">5. Update the checkpoint conversion script</h2>
+<p>If the <code>litgpt download ...</code> command from the previous section failed, you may have to adjust the checkpoint conversion script: <a href="../../litgpt/scripts/convert_hf_checkpoint.py">litgpt/scripts/convert_hf_checkpoint.py</a>.</p>
+<p>Here, you may have to adjust or implement a new <code>def copy_weights_hf_...</code> function.</p>
+<p>You can test the updated conversion code without needing to redownload the weights as follows:</p>
+<pre><code class="language-bash">python litgpt/scripts/convert_hf_checkpoint.py meta-llama/Meta-Llama-3-70B
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="6-add-the-prompt-style">6. Add the Prompt Style</h2>
+<p>If you are adding a new model class, find out its prompt style. First, check <a href="../../litgpt/prompts.py">litgpt/prompts.py</a> if a similar prompt style template already exists. For Llama 3, this is as follows:</p>
+<pre><code class="language-python">class Llama3(PromptStyle):
+     def apply(self, prompt: str, **kwargs: str) -&gt; str:
+         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
+         return (
+             &quot;&lt;|begin_of_text|&gt;&lt;|start_header_id|&gt;system&lt;|end_header_id|&gt;\n\n&quot;
+             &quot;You are a helpful assistant.&lt;|eot_id|&gt;\n&quot;  # The system prompt is optional
+             &quot;&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;\n\n&quot;
+             f&quot;{prompt}&lt;|eot_id|&gt;\n&quot;
+             &quot;&lt;|start_header_id|&gt;assistant&lt;|end_header_id|&gt;\n\n&quot;
+         )
+
+     def stop_tokens(self, tokenizer: &quot;Tokenizer&quot;) -&gt; Tuple[List[int], ...]:
+         return (
+             [tokenizer.eos_id],
+             [tokenizer.token_to_id(&quot;&lt;|eot_id|&gt;&quot;)],
+         )
+</code></pre>
+<p>If your model requires a different prompt template, create a new <code>PromptStyle</code> class.</p>
+<p>Then, in the same file, update the <code>prompt_styles</code> dictionary:</p>
+<pre><code class="language-python">prompt_styles: Dict[str, Type[PromptStyle]] = {
+    ...
+    &quot;llama3&quot;: Llama3,
+}
+</code></pre>
+<p>Finally, also in the same file, update the <code>model_name_to_prompt_style</code> function:</p>
+<pre><code class="language-python">def model_name_to_prompt_style(model_name: str) -&gt; PromptStyle:
+    ...
+    if re.search(&quot;Llama-3.*-Instruct&quot;, model_name):
+    return Llama3()
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="7-try-using-the-model-for-inference">7. Try using the model for inference</h2>
+<p>Next, use the model to see if inference works:</p>
+<pre><code class="language-bash">litgpt generate meta-llama/Meta-Llama-3-70B
+</code></pre>
+<p>&nbsp;</p>
+<blockquote>
+<p>[!NOTE]
+If you notice that the model produces non-sensible language outputs, you need to double-check the config file and find out if there are incorrect values or other problems. The next section on adding unit tests may offer additional pointers.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2 id="8-add-unit-tests">8. Add unit tests</h2>
+<p>&nbsp;</p>
+<h3 id="81-add-model-unit-tests">8.1 Add model unit tests</h3>
+<p>Open the <a href="../../tests/test_model.py"><code>tests/test_model.py</code></a> file and add a new <code>def test_against_hf_...</code> function using one of the existing functions as a template. For instance,</p>
+<pre><code class="language-python">def test_against_hf_llama2(ours_kwargs, device, dtype):
+...
+    # test end to end
+    x = torch.tensor([[9856, 23, 491, 1536, 304]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)[&quot;logits&quot;].to(dtype)  # HF converts logits to float
+    torch.testing.assert_close(ours_y, theirs_y)
+</code></pre>
+<p>If the</p>
+<pre><code class="language-bash">litgpt generate meta-llama/Meta-Llama-3-70B
+</code></pre>
+<p>command from the previous section produces incoherent text, this function can be a helpful guide for debugging. For this, modify the implementation in <code>transformers</code> and <code>litgpt</code> packages (on your local installation), to inspect or print out the intermediate values at a layer. It's recommend starting with the embedding layers and then go through one layer at the time, to find out where the values differ to get pointers for debugging.</p>
+<p>Test the unit test via</p>
+<pre><code class="language-python">pytest tests/test_model.py::test_against_hf_...
+</code></pre>
+<p>&nbsp;</p>
+<h3 id="82-add-prompt-style-unit-test">8.2 Add prompt style unit test</h3>
+<p>Open the <a href="../../tests/test_model.py"><code>tests/test_model.py</code></a> file and add a test for the respective prompts you added earlier, if applicable. For example,</p>
+<pre><code class="language-python">def test_prompt_style_from_config():
+    model_names = [
+        ...
+        &quot;Llama-3-70B-Instruct&quot;,
+        ...
+    ]
+</code></pre>
+<p>Run the unit test via</p>
+<pre><code class="language-python">pytest tests/test_prompts.py
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="9-try-finetuning-the-model">9. Try finetuning the model</h2>
+<p>Now, try finetuning the model:</p>
+<pre><code class="language-bash">litgpt finetune meta-llama/Meta-Llama-3-70B --train.max_steps 10
+</code></pre>
+<p>&nbsp;</p>
+<h2 id="10-update-the-documentation">10. Update the documentation</h2>
+<p>Finally, update the documentation files.</p>
+<p>&nbsp;</p>
+<h3 id="101-update-the-readme-file">10.1 Update the README file</h3>
+<p>Update the "All Models" table in the <a href="../../README.md">README.md</a> file.</p>
+<p>&nbsp;</p>
+<h3 id="102-update-the-download-tutorials">10.2 Update the download tutorials</h3>
+<p>Add the new model to the model table at the top as well as to the list under <code>litgpt download list</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.56ea9cef.min.js"></script>
+      
+        <script src="../../assets/mkdocs_pagetree_plugin.js"></script>
+      
+    
+  </body>
+</html>
