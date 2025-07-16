@@ -6,6 +6,7 @@ trigger:
 
 image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
 machine: "L4_X_4"
+timeout: "90"
 parametrize:
   matrix:
     dependency: ["", "compiler"]
@@ -13,7 +14,6 @@ parametrize:
   exclude: []
 
 env:
-  CI: "true"
   NCCL_DEBUG: "INFO"
   TORCH_VERSION: "2.7.1"
 
