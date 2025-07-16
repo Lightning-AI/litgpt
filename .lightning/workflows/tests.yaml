@@ -36,12 +36,12 @@ run: |
 
   pip list
   python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
-  python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '$(TORCH_VERSION)', f'PyTorch: installed {ver} but expected $(TORCH_VERSION)'"
+  python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '$TORCH_VERSION', f'PyTorch: installed {ver} but expected $TORCH_VERSION'"
 
-  # todo: add a way to run tests in parallel
-  #  wget https://raw.githubusercontent.com/Lightning-AI/utilities/main/scripts/run_standalone_tests.sh
-  #  bash run_standalone_tests.sh "tests"
+  pytest -v --durations=100
 
+  wget https://raw.githubusercontent.com/Lightning-AI/utilities/main/scripts/run_standalone_tests.sh
+  bash run_standalone_tests.sh "tests"
 
   if [ "${dependency}" == "compiler" ]; then
     pip uninstall -y lightning-thunder
