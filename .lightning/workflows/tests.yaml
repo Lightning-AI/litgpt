@@ -26,6 +26,7 @@ run: |
   python --version
   pip --version
   pip list
+  set -ex
 
   pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
 
