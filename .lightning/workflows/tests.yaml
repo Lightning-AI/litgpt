@@ -16,7 +16,7 @@ parametrize:
 env:
   NCCL_DEBUG: "INFO"
   TORCH_VERSION: "2.7.1"
-  PL_RUN_CUDA_TESTS: "1" # run CUDA tests only
+  RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
 
 run: |
   whereis nvidia
@@ -49,5 +49,5 @@ run: |
     # install thunder from source, so that, thunder.tests will be available
     pip install -U "lightning-thunder[test] @ git+https://github.com/Lightning-AI/lightning-thunder.git" "torch==${TORCH_VERSION}"
     # without env var, it filters out all tests
-    PL_RUN_CUDA_TESTS=0 pytest tests/ext_thunder/test_thunder_networks.py -v
+    RUN_ONLY_CUDA_TESTS=0 pytest tests/ext_thunder/test_thunder_networks.py -v
   fi
