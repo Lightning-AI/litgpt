@@ -6,7 +6,7 @@ trigger:
 
 image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
 machine: "L4_X_4"
-timeout: "90" # minutes
+timeout: "30" # minutes
 parametrize:
   matrix:
     dependency: ["", "compiler"]
@@ -16,6 +16,7 @@ parametrize:
 env:
   NCCL_DEBUG: "INFO"
   TORCH_VERSION: "2.7.1"
+  PL_RUN_CUDA_TESTS: "1" # run CUDA tests only
 
 run: |
   whereis nvidia
@@ -41,7 +42,7 @@ run: |
   pytest -v --durations=100
 
   wget https://raw.githubusercontent.com/Lightning-AI/utilities/main/scripts/run_standalone_tests.sh
-  bash run_standalone_tests.sh "tests"
+  PL_RUN_STANDALONE_TESTS=1 bash run_standalone_tests.sh "tests"
 
   if [ "${dependency}" == "compiler" ]; then
     pip uninstall -y lightning-thunder
