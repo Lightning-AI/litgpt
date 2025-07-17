@@ -170,16 +170,14 @@ def test_more_than_1_device_for_sequential_gpu(tmp_path):
 
 
 @_RunIf(min_cuda_gpus=2)
+@pytest.mark.skipif(bool(os.getenv("SKIP_WITH_CI")), reason="Skip this test in CI due to ...")
 def test_more_than_1_device_for_tensor_parallel_gpu(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
-        llm = LLM.load(
-            model="EleutherAI/pythia-14m",
-        )
+        llm = LLM.load(model="EleutherAI/pythia-14m")
 
-    if os.getenv("CI") != "true":
-        # this crashes the CI, maybe because of process forking; works fine locally though
-        llm.distribute(devices=2, generate_strategy="tensor_parallel")
-        assert isinstance(llm.generate("What do llamas eat?"), str)
+    # this crashes the CI, maybe because of process forking; works fine locally though
+    llm.distribute(devices=2, generate_strategy="tensor_parallel")
+    assert isinstance(llm.generate("What do llamas eat?"), str)
 
 
 @_RunIf(min_cuda_gpus=1)

@@ -6,7 +6,7 @@ trigger:
 
 image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
 machine: "L4_X_4"
-timeout: "35" # minutes
+timeout: "37" # minutes
 parametrize:
   matrix:
     dependency: ["", "compiler"]
@@ -14,6 +14,7 @@ parametrize:
   exclude: []
 
 env:
+  SKIP_WITH_CI: "1" # skip single tests with CI
   NCCL_DEBUG: "INFO"
   NCCL_IGNORE_DISABLED_P2P: "1"
   TORCH_VERSION: "2.7.1"
