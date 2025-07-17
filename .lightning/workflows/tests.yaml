@@ -6,7 +6,7 @@ trigger:
 
 image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
 machine: "L4_X_4"
-timeout: "30" # minutes
+timeout: "35" # minutes
 parametrize:
   matrix:
     dependency: ["", "compiler"]
@@ -22,7 +22,6 @@ env:
 run: |
   whereis nvidia
   nvidia-smi
-  which python && which pip
   python --version
   pip --version
   pip list
@@ -38,7 +37,7 @@ run: |
   fi
 
   pip list
-  python -c "import torch ; mgpu = torch.cuda.device_count() ; assert mgpu == 2, f'GPU: {mgpu}'"
+  python -c "import torch ; gpus = torch.cuda.device_count() ; assert gpus >= 2, f'GPU: {gpus}'"
   python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '$TORCH_VERSION', f'PyTorch: installed {ver} but expected $TORCH_VERSION'"
 
   pytest -v --durations=100
