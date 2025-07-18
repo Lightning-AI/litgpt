@@ -32,7 +32,7 @@ run: |
 
   if [ "${dependency}" == "compiler" ]; then
     pip uninstall -y torchvision torchaudio
-    pip install '.[compiler,extra,test]' "torch==${TORCH_VERSION}"
+    pip install -q '.[compiler,extra,test]' "torch==${TORCH_VERSION}"
     python -c "from thunder.executors import nvfuser_available ; assert nvfuser_available(), 'nvFuser is missing!'"
     python -c "from thunder.executors.triton_utils import triton_version ; assert triton_version() is not None, 'triton is missing!'"
   fi
