@@ -122,7 +122,7 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
     conditions = []
     filtered, skipped = 0, 0
 
-    options = {"standalone": "PL_RUN_STANDALONE_TESTS", "min_cuda_gpus": "PL_RUN_CUDA_TESTS"}
+    options = {"standalone": "PL_RUN_STANDALONE_TESTS", "min_cuda_gpus": "RUN_ONLY_CUDA_TESTS"}
     if os.getenv(options["standalone"], "0") == "1" and os.getenv(options["min_cuda_gpus"], "0") == "1":
         # special case: we don't have a CPU job for standalone tests, so we shouldn't run only cuda tests.
         # by deleting the key, we avoid filtering out the CPU tests
