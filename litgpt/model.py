@@ -377,8 +377,26 @@ class CausalSelfAttention(nn.Module):
         # - T          | time-step (sequence length)
         # - C          | model's embeddings size (n_embd)
         # - C*         | attentions's embeddings size
-        # - nh_(q,k,v) | number of heads for query, key and value
         # - hs         | head size
+        # - nh_(q,k,v) | number of heads for query, key and value
+        # - n_query_groups = nh_k = nh_v | number of query groups sharing key and value heads
+        # alternative notation: num_kv_groups = n_query_groups
+        # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐             ┌───┐
+        # │ v ││ v ││ v ││ v │     │ v │    │ v │             │ v │
+        # └───┘└───┘└───┘└───┘     └───┘    └───┘             └───┘
+        #   │    │    │    │         │        │                 │
+        # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐             ┌───┐
+        # │ k ││ k ││ k ││ k │     │ k │    │ k │             │ k │
+        # └───┘└───┘└───┘└───┘     └───┘    └───┘             └───┘
+        #   │    │    │    │      ┌──┴──┐  ┌──┴──┐      ┌────┬──┴─┬────┐
+        # ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐
+        # │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │
+        # └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘
+        # ◀──────────────────▶  ◀──────────────────▶  ◀──────────────────▶
+        #         MHA                    GQA                   MQA
+        #   n_query_groups=4       n_query_groups=2      n_query_groups=1
+        #
+        # credit https://arxiv.org/pdf/2305.13245.pdf
         head_size = self.config.head_size
         n_head = self.config.n_head
         n_query_groups = self.config.n_query_groups
@@ -390,7 +408,7 @@ class CausalSelfAttention(nn.Module):
         qkv = self.qkv(x)  # (B, T, 3xC*)
 
         # Define query, key and value sizes.
-        # If grouped/multi query is enabled, these sizes are not equal (see the diagram in `lit_gpt/config.py::Config`).
+        # If grouped/multi query is enabled, these sizes are not equal (see the diagram above).
         query_size = n_head * head_size
         key_size = value_size = n_query_groups * head_size
         # Split qkv into query, key and value matrices.
@@ -402,9 +420,12 @@ class CausalSelfAttention(nn.Module):
 
         # To place the num_heads (nh) dimension right after the batch (B) dimension, the first step is to decouple the
         # embedding size (C) into num_heads (nh) and head_size (hs).
+
+        # The original GQA paper is followed here and the term query groups is used.
+        # alternative notation: Query groups are also referred to as KV groups.
         q = q.view(B, T, n_head, head_size)  # (B, T, nh_q, hs)
-        k = k.view(B, T, n_query_groups, head_size)  # (B, T, nh_k, hs)
-        v = v.view(B, T, n_query_groups, head_size)  # (B, T, nh_v, hs)
+        k = k.view(B, T, n_query_groups, head_size)  # (B, T, n_query_groups, hs)
+        v = v.view(B, T, n_query_groups, head_size)  # (B, T, n_query_groups, hs)
 
         # The tensors `query`, `key`, and `value` are now accurately structured: within each batch element (B), there are
         # multiple heads (nh), and within each head, there is a sequence of elements (T), each represented by a vector
