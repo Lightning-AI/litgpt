@@ -56,7 +56,7 @@ def test_pretrain(_, tmp_path):
     with redirect_stdout(stdout):
         pretrain.setup(
             "pythia-14m",
-            devices=2,
+            devices=torch.cuda.device_count(),
             model_config=model_config,
             out_dir=out_dir,
             train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
