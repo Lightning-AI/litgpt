@@ -53,13 +53,14 @@ def test_pretrain(_, tmp_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
+    gpus = torch.cuda.device_count()
     with redirect_stdout(stdout):
         pretrain.setup(
             "pythia-14m",
-            devices=torch.cuda.device_count(),
+            devices=gpus,
             model_config=model_config,
             out_dir=out_dir,
-            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            train=TrainArgs(global_batch_size=gpus, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
         )
 
