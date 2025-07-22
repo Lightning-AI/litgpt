@@ -203,12 +203,16 @@ class OpenAISpecLitAPI(BaseLitAPI):
         self.template = Template(self.chat_template)
 
     def decode_request(self, request: "ChatCompletionRequest") -> Any:
+        # Apply chat template to request messages
         return self.template.render(messages=request.messages)
 
     def predict(self, inputs: str, context: dict) -> Any:
+        # Extract parameters from context with fallback to instance attributes
         temperature = context.get("temperature") or self.temperature
         top_p = context.get("top_p", self.top_p) or self.top_p
         max_new_tokens = context.get("max_completion_tokens") or self.max_new_tokens
+
+        # Run the model on the input and return the output.
 
         yield from self.llm.generate(
             inputs,
