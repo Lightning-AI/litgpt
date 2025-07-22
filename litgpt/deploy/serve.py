@@ -1,3 +1,4 @@
+# Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
 import sys
 from pathlib import Path
@@ -32,6 +33,9 @@ class BaseLitAPI(LitAPI):
         devices: int = 1,
         api_path: Optional[str] = None,
     ) -> None:
+        if not _LITSERVE_AVAILABLE:
+            raise ImportError(str(_LITSERVE_AVAILABLE))
+
         super().__init__(api_path=api_path)
 
         self.checkpoint_dir = checkpoint_dir
