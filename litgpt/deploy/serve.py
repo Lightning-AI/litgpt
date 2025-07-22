@@ -111,6 +111,7 @@ class SimpleLitAPI(BaseLitAPI):
         return output
 
     def encode_response(self, output: str) -> Dict[str, Any]:
+        # Convert the model output to a response payload.
         return {"output": output}
 
 
@@ -213,7 +214,6 @@ class OpenAISpecLitAPI(BaseLitAPI):
         max_new_tokens = context.get("max_completion_tokens") or self.max_new_tokens
 
         # Run the model on the input and return the output.
-
         yield from self.llm.generate(
             inputs,
             temperature=temperature,
