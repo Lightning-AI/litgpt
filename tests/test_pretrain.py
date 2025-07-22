@@ -44,6 +44,8 @@ def test_optimizer_args(_, tmp_path):
 # the CLI would capture pytest args, but unfortunately patching would mess with subprocess
 # launching, so we need to mock `save_hyperparameters()`
 @mock.patch("litgpt.pretrain.save_hyperparameters")
+# to simulate run on just two GPU, mock VISIBLE_DEVICES
+@mock.patch.dict(os.environ, {"CUDA_VISIBLE_DEVICES": "0,1"})
 def test_pretrain(_, tmp_path):
     model_config = Config(block_size=2, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
 
@@ -53,14 +55,13 @@ def test_pretrain(_, tmp_path):
 
     out_dir = tmp_path / "out"
     stdout = StringIO()
-    gpus = torch.cuda.device_count()
     with redirect_stdout(stdout):
         pretrain.setup(
             "pythia-14m",
-            devices=gpus,
+            devices=2,
             model_config=model_config,
             out_dir=out_dir,
-            train=TrainArgs(global_batch_size=gpus, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
+            train=TrainArgs(global_batch_size=2, max_tokens=16, save_interval=1, micro_batch_size=1, max_norm=1.0),
             eval=EvalArgs(interval=1, max_iters=1, final_validation=False),
         )
 
