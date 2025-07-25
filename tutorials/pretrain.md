@@ -81,7 +81,8 @@ litgpt pretrain pythia-14m \
    --tokenizer_dir EleutherAI/pythia-14m \
    --data TextFiles \
    --data.train_data_path custom_pretraining_data \
-   --train.lr_warmup_steps=200
+   --train.lr_warmup_steps=200 \
+   --optimizer AdamW \
    --optimizer.lr 0.005
 ```
 
@@ -121,7 +122,7 @@ The following subsections illustrate three typical scenarioes:
 For instance, let's assume we download a Pythia model:
 
 ```bash
-litgpt download EleutherAI/pythia-14m
+litgpt download EleutherAI/pythia-160m
 ```
 
 Next, assume we have a custom dataset stored in text files similar to the *Pretrain on custom data* above. We can further pretrain the Pythia model via the `--initial_checkpoint_dir` setting as follows:
