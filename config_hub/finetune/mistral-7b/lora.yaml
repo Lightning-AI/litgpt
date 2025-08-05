@@ -1,8 +1,8 @@
 # The path to the base model's checkpoint directory to load for finetuning. (type: <class 'Path'>, default: checkpoints/stabilityai/stablelm-base-alpha-3b)
-checkpoint_dir: checkpoints/mistralai/Mistral-7B-v0.1
+checkpoint_dir: /kaggle/temp/mistral/mistralai/Mistral-7B-Instruct-v0.3
 
 # Directory in which to save checkpoints and logs. (type: <class 'Path'>, default: out/lora)
-out_dir: out/finetune/lora-mistral-7b
+out_dir: /kaggle/temp/out/finetune/lora-Mistral-7B-Instruct-v0.3-echo
 
 # The precision to use for finetuning. Possible choices: "bf16-true", "bf16-mixed", "32-true". (type: Optional[str], default: null)
 precision: bf16-true
@@ -11,8 +11,7 @@ precision: bf16-true
 quantize:
 
 # How many devices/GPUs to use. (type: Union[int, str], default: 1)
-devices: 1
-
+devices: 2
 # How many nodes to use. (type: int, default: 1)
 num_nodes: 1
 
@@ -45,10 +44,12 @@ lora_head: false
 
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
-  class_path: litgpt.data.Alpaca2k
+  class_path: litgpt.data.JSON
   init_args:
-    mask_prompt: false
+    json_path: /echo-data-v2/echo_combined_ft_data.json
+    val_split_fraction: 0.05
     prompt_style: alpaca
+    mask_prompt: false
     ignore_index: -100
     seed: 42
     num_workers: 4
