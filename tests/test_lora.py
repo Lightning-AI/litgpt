@@ -1070,13 +1070,12 @@ def test_load_from_full_model_state_dict():
     # get the full state dict (simulating a checkpoint)
     full_state_dict = {}
     for name, param in reference_model.named_parameters():
-        # Include ALL parameters, not just trainable ones
-        # Convert LoRA parameter names to match what would be in a checkpoint
-        if "lora_" in name:
-            # For LoRA parameters, convert the name format
-            checkpoint_name = name.replace(".linear.weight", ".weight")
+        # Convert ALL parameters to checkpoint format (what load_from_full_model_state_dict expects)
+        if "norm" not in name and "wte" not in name and "ln_f" not in name:
+            # For linear layers, remove .linear from the name to simulate checkpoint format
+            checkpoint_name = name.replace(".linear.weight", ".weight").replace(".linear.bias", ".bias")
         else:
-            # For base model parameters, keep the original name
+            # For norm, embedding, and layer norm layers, keep the original name
             checkpoint_name = name
         full_state_dict[checkpoint_name] = param.detach().clone()
 
