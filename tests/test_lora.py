@@ -1135,7 +1135,7 @@ def test_load_from_full_model_state_dict():
             # With cpu_offload, parameters might be on CPU
             assert param.device.type in ["cpu", "cuda"], f"Parameter {name} should be on CPU or CUDA device"
 
-    # test with strict=True 
+    # test with strict=True
     model_strict = LoRAGPT(config)
     mark_only_lora_as_trainable(model_strict)
     model_strict = parallelize_fn(model_strict, device_mesh, activation_checkpointing=False)
