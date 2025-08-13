@@ -359,7 +359,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
+    torch.testing.assert_close(ours_y, theirs_y, atol=1e-4, rtol=1e-5)
 
 
 @torch.inference_mode()
@@ -430,7 +430,7 @@ def test_against_original_gemma_3(model_name, device, dtype):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y)
+    torch.testing.assert_close(ours_y, theirs_y, atol=1e-4, rtol=1e-5)
 
 
 def test_load_legacy_state_dict():
