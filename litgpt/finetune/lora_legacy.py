@@ -11,7 +11,7 @@ from typing import Dict, List, Literal, Optional, Tuple, Union
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.fabric.strategies import ModelParallelStrategy
+from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities import ThroughputMonitor
 from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import ConcatDataset, DataLoader
@@ -20,7 +20,7 @@ from torchmetrics import RunningMean
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
-from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
+from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
@@ -70,7 +70,6 @@ def setup(
         lr_warmup_steps=100,
         epochs=5,
         max_seq_length=None,
-        max_time=None,
     ),
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
@@ -154,10 +153,13 @@ def setup(
                 "Quantization is currently not supported for multi-GPU training. Please set devices=1 and num_nodes=1"
                 " when using the --quantize flag."
             )
-        strategy = ModelParallelStrategy(
-            parallelize_fn=parallelize_fn,
-            data_parallel_size=devices * num_nodes,
-            tensor_parallel_size=1,
+
+        strategy = FSDPStrategy(
+            auto_wrap_policy={torch.nn.Linear},
+            activation_checkpointing_policy={Block},
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
         )
     else:
         strategy = "auto"
@@ -174,9 +176,7 @@ def setup(
     if torch.cuda.is_available() and devices > 1:
         check_nvlink_connectivity(fabric)
 
-    fabric.launch(
-        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes, precision
-    )
+    fabric.launch(main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes)
 
 
 def main(
@@ -191,7 +191,6 @@ def main(
     eval: EvalArgs,
     optimizer: Union[str, Dict],
     num_nodes: int = 1,
-    precision: Optional[str] = None,
 ) -> None:
     validate_args(train, eval)
 
@@ -232,6 +231,7 @@ def main(
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
 
+    # strict=False because missing keys due to LoRA weights not contained in state dict
     load_checkpoint(fabric, model, checkpoint_path, strict=False)
 
     train_time = time.perf_counter()
@@ -266,19 +266,12 @@ def main(
     save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
-
-    fabric.barrier()
     if fabric.global_rank == 0:
         # Copy checkpoint files from original checkpoint dir
         copy_config_files(checkpoint_dir, save_path.parent)
         save_hyperparameters(setup, save_path.parent)
         save_prompt_style(data.prompt_style, save_path.parent)
-        merge_lora(
-            checkpoint_dir=save_path.parent,
-            pretrained_checkpoint_dir=checkpoint_dir,
-            precision=precision,
-        )
-    fabric.barrier()
+        merge_lora(checkpoint_dir=save_path.parent)
 
 
 def fit(
@@ -325,8 +318,6 @@ def fit(
     total_lengths = 0
     total_t0 = time.perf_counter()
 
-    max_time = train.max_time or float("inf")
-
     token_counts = {
         "raw_tokens": torch.tensor(0, device=fabric.device, dtype=torch.long),
         "raw_tokens_plus_prompt_template": torch.tensor(0, device=fabric.device, dtype=torch.long),
@@ -338,12 +329,6 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         if train_iterator.epoch >= train.epochs:
-            generate_example(fabric, model, tokenizer, eval, data)
-            fabric.print(f"Number of epochs {train.epochs} reached, stopping training...")
-            break
-        if iter_t0 - total_t0 > max_time:
-            generate_example(fabric, model, tokenizer, eval, data)
-            fabric.print(f"Max time ({max_time / 60.0:.2f}m) reached, stopping training...")
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
 
@@ -514,45 +499,9 @@ def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
     return longest_seq_length, longest_seq_ix
 
 
-def parallelize_fn(model, device_mesh, activation_checkpointing=True):
-    from torch.distributed._composable.fsdp.fully_shard import fully_shard
-    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper, checkpoint_wrapper
-
-    if activation_checkpointing:
-        model.transformer.h = torch.nn.ModuleList(
-            [checkpoint_wrapper(el, preserve_rng_state=False) for el in model.transformer.h]
-        )
-
-    dp_mesh = device_mesh["data_parallel"]
-
-    for m in reversed(list(model.modules())):
-        if (
-            (isinstance(m, torch.nn.Linear) and m.weight.requires_grad)
-            or isinstance(m, CheckpointWrapper)
-            or isinstance(m, Block)
-        ):
-            fully_shard(m, mesh=dp_mesh)
-
-    fully_shard(model, mesh=dp_mesh)
-
-    return model
-
-
 def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Path) -> None:
-    cpu_state_dict = {}
-    sharded_sd = model.state_dict()
-    for param_name, param in sharded_sd.items():
-        if "lora_" not in param_name:
-            continue
-        if param.is_cpu:
-            param = param.to(fabric.device)
-        if hasattr(param, "_local_tensor"):
-            param = param.full_tensor()
-        if fabric.is_global_zero:
-            cpu_state_dict[param_name] = param.cpu()
-        fabric.barrier()
-    if fabric.is_global_zero:
-        torch.save({"model": cpu_state_dict}, file_path)
+    fabric.print(f"Saving LoRA weights to {str(file_path)!r}")
+    fabric.save(file_path, {"model": model}, filter={"model": lora_filter})
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
