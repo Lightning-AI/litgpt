@@ -26,11 +26,10 @@ classifiers = [
 ]
 dependencies = [
   # download models:
-  "huggingface-hub>=0.23.5",
+  "huggingface-hub>=0.23.5,<0.33",
   "jsonargparse[signatures]>=4.30.1,<=4.32.1; python_version<='3.9'", # 4.33 does not seem to be compatible with Python 3.9
   "jsonargparse[signatures]>=4.37; python_version>'3.9'",             # required to work with python3.12+
   "lightning>=2.5",
-  "numpy<2",                                                          # for older Torch versions
   "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
@@ -49,10 +48,10 @@ optional-dependencies.extra = [
   # quantization:
   "bitsandbytes>=0.45.2,<0.45.5; sys_platform=='linux' or sys_platform=='win32'",
   # litgpt.evaluate:
-  "datasets>=2.18",
+  "datasets>=2.18,<4",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
-  "litdata==0.2.49",
+  "litdata==0.2.51",
   # litgpt.deploy:
   "litserve>0.2",
   "lm-eval>=0.4.2",
