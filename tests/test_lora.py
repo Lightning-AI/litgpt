@@ -1127,7 +1127,8 @@ def test_load_from_full_model_state_dict():
                     diff = torch.abs(param.detach() - expected_value)
                     max_diff = torch.max(diff)
                     return max_diff < atol
-                except:
+                except Exception as e:
+                    print(f"Warning: Could not verify parameter values for {param_name}: {e}")
                     print(f"Skipping value verification for {param_name} due to FSDP limitations")
                     return True  # Assume success if we can't verify
             return True
