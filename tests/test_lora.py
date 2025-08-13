@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 import torch
+from torch.distributed.device_mesh import init_device_mesh
 import yaml
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
@@ -985,7 +986,11 @@ def test_parallelize_fn():
     mark_only_lora_as_trainable(model)
 
     # create device mesh for data parallel
-    device_mesh = {"data_parallel": fabric.device_mesh}
+    device_mesh = init_device_mesh(
+        device_type=fabric.device.type,
+        mesh_shape=(2, 1),
+        mesh_dim_names=("data_parallel", "tensor_parallel"),
+    )
 
     # test with activation checkpointing enabled (default)
     parallelized_model = parallelize_fn(model, device_mesh, activation_checkpointing=True)
@@ -1085,7 +1090,11 @@ def test_load_from_full_model_state_dict():
     mark_only_lora_as_trainable(model)
 
     # set up device mesh for distributed model
-    device_mesh = {"data_parallel": fabric.device_mesh}
+    device_mesh = init_device_mesh(
+        device_type=fabric.device.type,
+        mesh_shape=(2, 1),
+        mesh_dim_names=("data_parallel", "tensor_parallel"),
+    )
     model = parallelize_fn(model, device_mesh, activation_checkpointing=False)
     model = fabric.setup_module(model)
 
