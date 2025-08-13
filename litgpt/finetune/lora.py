@@ -552,7 +552,7 @@ def save_lora_checkpoint(fabric: L.Fabric, model: torch.nn.Module, file_path: Pa
             cpu_state_dict[param_name] = param.cpu()
         fabric.barrier()
     if fabric.is_global_zero:
-        torch.save(cpu_state_dict, file_path)
+        torch.save({"model": cpu_state_dict}, file_path)
 
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
