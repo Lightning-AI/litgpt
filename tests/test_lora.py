@@ -1105,12 +1105,14 @@ def test_load_from_full_model_state_dict():
         """Safely check if parameters are close, handling FSDP/fake tensor issues"""
         try:
             # Check if this is a sharded parameter that needs special handling
-            if hasattr(param, '_local_tensor'):
+            if hasattr(param, "_local_tensor"):
                 # For FSDP sharded parameters, use the local tensor
                 local_param = param._local_tensor
-                local_expected = expected_value._local_tensor if hasattr(expected_value, '_local_tensor') else expected_value
+                local_expected = (
+                    expected_value._local_tensor if hasattr(expected_value, "_local_tensor") else expected_value
+                )
                 return torch.allclose(local_param.detach(), local_expected, atol=atol)
-            elif hasattr(param, 'full_tensor'):
+            elif hasattr(param, "full_tensor"):
                 # For FSDP parameters, get the full tensor
                 with torch.no_grad():
                     full_param = param.full_tensor()
@@ -1121,7 +1123,7 @@ def test_load_from_full_model_state_dict():
         except Exception as e:
             print(f"Warning: Could not verify parameter values for {param_name}: {e}")
             # For FSDP parameters, try alternative verification
-            if hasattr(param, 'data') and param.data.numel() > 0:
+            if hasattr(param, "data") and param.data.numel() > 0:
                 try:
                     # Simple element-wise check
                     diff = torch.abs(param.detach() - expected_value)
