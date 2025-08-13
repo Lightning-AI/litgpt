@@ -9,12 +9,12 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from torch.distributed.device_mesh import init_device_mesh
 import yaml
 from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
+from torch.distributed.device_mesh import init_device_mesh
 from torch.nn import functional as F
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
 from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
