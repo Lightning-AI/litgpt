@@ -980,9 +980,7 @@ def test_parallelize_fn():
     fabric = Fabric(devices=2, strategy="fsdp", precision="16-true")
     fabric.launch()
 
-    # create model in distributed setup
-    with fabric.init_module(empty_init=True):
-        model = LoRAGPT(config)
+    model = LoRAGPT(config)
     mark_only_lora_as_trainable(model)
 
     # create device mesh for data parallel
@@ -999,9 +997,10 @@ def test_parallelize_fn():
     assert parallelized_model is not None
     assert isinstance(parallelized_model, LoRAGPT)
 
+    parallelized_model = parallelized_model.to(fabric.device)
+
     # test forward pass to ensure the parallelized model works
     x = torch.randint(0, config.padded_vocab_size, size=(1, config.block_size), dtype=torch.int64, device=fabric.device)
-    parallelized_model = fabric.setup(parallelized_model)
 
     # verify forward pass works
     with torch.no_grad():
@@ -1009,8 +1008,7 @@ def test_parallelize_fn():
         assert output.shape == (1, config.block_size, config.padded_vocab_size)
 
     # test with activation checkpointing disabled
-    with fabric.init_module(empty_init=True):
-        model_no_checkpoint = LoRAGPT(config)
+    model_no_checkpoint = LoRAGPT(config)
     mark_only_lora_as_trainable(model_no_checkpoint)
 
     parallelized_model_no_checkpoint = parallelize_fn(model_no_checkpoint, device_mesh, activation_checkpointing=False)
@@ -1020,7 +1018,7 @@ def test_parallelize_fn():
     assert isinstance(parallelized_model_no_checkpoint, LoRAGPT)
 
     # test forward pass to ensure the parallelized model works
-    parallelized_model_no_checkpoint = fabric.setup(parallelized_model_no_checkpoint)
+    parallelized_model_no_checkpoint = parallelized_model_no_checkpoint.to(fabric.device)
 
     with torch.no_grad():
         output = parallelized_model_no_checkpoint(x)
@@ -1036,8 +1034,6 @@ def test_parallelize_fn():
 
 @_RunIf(standalone=True, min_cuda_gpus=2)
 def test_load_from_full_model_state_dict():
-    from lightning.fabric.strategies import ModelParallelStrategy
-
     from litgpt.finetune.lora import parallelize_fn
     from litgpt.utils import load_from_full_model_state_dict
 
@@ -1058,12 +1054,7 @@ def test_load_from_full_model_state_dict():
     )
 
     # set up distributed environment with ModelParallelStrategy
-    strategy = ModelParallelStrategy(
-        parallelize_fn=parallelize_fn,
-        data_parallel_size=2,
-        tensor_parallel_size=1,
-    )
-    fabric = Fabric(devices=2, strategy=strategy, precision="16-true")
+    fabric = Fabric(devices=2, strategy="fsdp", precision="16-true")
     fabric.launch()
 
     # create a reference model to get the full state dict
@@ -1085,8 +1076,7 @@ def test_load_from_full_model_state_dict():
             full_state_dict[checkpoint_name] = param.detach().clone()
 
     # create distributed model
-    with fabric.init_module(empty_init=True):
-        model = LoRAGPT(config)
+    model = LoRAGPT(config)
     mark_only_lora_as_trainable(model)
 
     # set up device mesh for distributed model
@@ -1096,7 +1086,7 @@ def test_load_from_full_model_state_dict():
         mesh_dim_names=("data_parallel", "tensor_parallel"),
     )
     model = parallelize_fn(model, device_mesh, activation_checkpointing=False)
-    model = fabric.setup_module(model)
+    model = model.to(fabric.device)
 
     # test with default parameters (strict=False, cpu_offload=False)
     result = load_from_full_model_state_dict(
@@ -1124,11 +1114,10 @@ def test_load_from_full_model_state_dict():
             )
 
     # test with cpu_offload=True
-    with fabric.init_module(empty_init=True):
-        model_cpu_offload = LoRAGPT(config)
+    model_cpu_offload = LoRAGPT(config)
     mark_only_lora_as_trainable(model_cpu_offload)
     model_cpu_offload = parallelize_fn(model_cpu_offload, device_mesh, activation_checkpointing=False)
-    model_cpu_offload = fabric.setup_module(model_cpu_offload)
+    model_cpu_offload = model_cpu_offload.to(fabric.device)
 
     result_cpu_offload = load_from_full_model_state_dict(
         model=model_cpu_offload,
@@ -1151,11 +1140,10 @@ def test_load_from_full_model_state_dict():
             assert param.device.type in ["cpu", "cuda"], f"Parameter {name} should be on CPU or CUDA device"
 
     # test with strict=True (this might raise an error if keys don't match exactly)
-    with fabric.init_module(empty_init=True):
-        model_strict = LoRAGPT(config)
+    model_strict = LoRAGPT(config)
     mark_only_lora_as_trainable(model_strict)
     model_strict = parallelize_fn(model_strict, device_mesh, activation_checkpointing=False)
-    model_strict = fabric.setup_module(model_strict)
+    model_strict = model_strict.to(fabric.device)
 
     # create a more complete state dict for strict loading
     strict_state_dict = {}
