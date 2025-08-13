@@ -1021,8 +1021,8 @@ def test_parallelize_fn():
         assert output.shape == (1, config.block_size, config.padded_vocab_size)
 
     # verify that all parameters are properly distributed (not on meta device)
-    for module in parallelized_model.modules():
-        for param_name, param in module.named_parameters():
+    for mod in parallelized_model.modules():
+        for param_name, param in mod.named_parameters():
             if param.requires_grad:  # Only check trainable parameters (LoRA parameters)
                 assert not param.is_meta, f"Parameter `{param_name}` should not be on meta device"
                 assert param.device.type == "cuda", f"Parameter `{param_name}` should be on CUDA device"
