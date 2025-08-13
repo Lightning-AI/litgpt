@@ -1192,10 +1192,10 @@ def test_load_from_full_model_state_dict():
             # For LoRA parameters, map the parameter name to checkpoint format and set custom value
             checkpoint_name = name.replace(".linear.weight", ".weight")
             strict_state_dict[checkpoint_name] = torch.full_like(param, 0.2)
-        elif not "lora_" in name:
+        elif "lora_" not in name:
             # For base model parameters, use existing values
             strict_state_dict[name] = param.detach().clone()
-    
+
     result_strict = load_from_full_model_state_dict(
         model=model_strict,
         full_sd=strict_state_dict,
