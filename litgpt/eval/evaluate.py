@@ -37,7 +37,7 @@ def convert_and_evaluate(
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
     access_token: Optional[str] = None,
-confirm_run_unsafe_code: bool = False,
+    confirm_run_unsafe_code: bool = False,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
