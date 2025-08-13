@@ -418,11 +418,15 @@ def load_from_full_model_state_dict(
 
     meta_sharded_sd = model.state_dict()
     sharded_sd = {}
+    print(meta_sharded_sd.keys())
     for param_name, full_tensor in full_sd.items():
         if "norm" not in param_name and "wte" not in param_name and "ln_f" not in param_name:
             param_name = param_name.replace(".weight", ".linear.weight")
+            param_name = param_name.replace(".bias", ".linear.bias")
         else:
             param_name = param_name
+
+        print(param_name)
 
         sharded_meta_param = meta_sharded_sd.get(param_name)
         full_tensor = full_tensor.to(sharded_meta_param.dtype).to(device)
