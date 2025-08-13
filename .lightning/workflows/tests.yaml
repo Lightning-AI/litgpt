@@ -5,7 +5,8 @@ trigger:
     branches: ["main"]
 
 image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
-machine: "L4_X_4"
+machine: "L4_X_2"
+interruptible: "true"
 timeout: "45" # minutes
 parametrize:
   matrix:
