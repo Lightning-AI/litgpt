@@ -1070,10 +1070,15 @@ def test_load_from_full_model_state_dict():
     # get the full state dict (simulating a checkpoint)
     full_state_dict = {}
     for name, param in reference_model.named_parameters():
-        if param.requires_grad:
-            # Convert LoRA parameter names to match what would be in a checkpoint
+        # Include ALL parameters, not just trainable ones
+        # Convert LoRA parameter names to match what would be in a checkpoint
+        if "lora_" in name:
+            # For LoRA parameters, convert the name format
             checkpoint_name = name.replace(".linear.weight", ".weight")
-            full_state_dict[checkpoint_name] = param.detach().clone()
+        else:
+            # For base model parameters, keep the original name
+            checkpoint_name = name
+        full_state_dict[checkpoint_name] = param.detach().clone()
 
     # create distributed model
     model = LoRAGPT(config)
@@ -1182,11 +1187,15 @@ def test_load_from_full_model_state_dict():
     # create a more complete state dict for strict loading
     strict_state_dict = {}
     for name, param in model_strict.named_parameters():
-        if param.requires_grad:
-            # map the parameter name to what would be in a checkpoint
+        # Include ALL parameters for strict loading
+        if "lora_" in name and param.requires_grad:
+            # For LoRA parameters, map the parameter name to checkpoint format and set custom value
             checkpoint_name = name.replace(".linear.weight", ".weight")
             strict_state_dict[checkpoint_name] = torch.full_like(param, 0.2)
-
+        elif not "lora_" in name:
+            # For base model parameters, use existing values
+            strict_state_dict[name] = param.detach().clone()
+    
     result_strict = load_from_full_model_state_dict(
         model=model_strict,
         full_sd=strict_state_dict,
