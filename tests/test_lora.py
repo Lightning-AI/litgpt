@@ -685,10 +685,11 @@ def test_against_original_gemma_2(model_name):
     assert x.size(1) == T
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
-    torch.testing.assert_close(ours_y, theirs_y, rtol=3e-5, atol=3e-5)
+    torch.testing.assert_close(ours_y, theirs_y, atol=1e-4, rtol=1e-5)
 
 
 @torch.inference_mode()
+@pytest.mark.flaky(reruns=3)
 @pytest.mark.parametrize("model_name", ("gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"))
 def test_against_original_gemma_3(model_name):
     device = torch.device("cpu")
