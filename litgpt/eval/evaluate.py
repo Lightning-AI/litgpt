@@ -37,6 +37,7 @@ def convert_and_evaluate(
     seed: int = 1234,
     save_filepath: Optional[Path] = None,
     access_token: Optional[str] = None,
+confirm_run_unsafe_code: bool = False,
 ) -> None:
     """Evaluate a model with the LM Evaluation Harness.
 
@@ -56,6 +57,8 @@ def convert_and_evaluate(
         save_filepath: The file where the results will be saved.
             Saves to `out_dir/results.json` by default.
         access_token: Optional API token to access models with restrictions.
+        confirm_run_unsafe_code: Set to `True` to confirm that you have read the
+            warning and understand the risks of running unsafe code.
     """
     if tasks is None:
         from lm_eval.tasks import TaskManager
@@ -119,5 +122,6 @@ def convert_and_evaluate(
         random_seed=seed,
         numpy_random_seed=seed,
         torch_random_seed=seed,
+        confirm_run_unsafe_code=confirm_run_unsafe_code,
     )
     prepare_results(results, save_filepath)

@@ -61,6 +61,7 @@ def test_evaluate_script(tmp_path):
             limit=5,
             tasks="logiqa",
             batch_size=1,  # Valid case
+            confirm_run_unsafe_code=True,
         )
     stdout = stdout.getvalue()
     assert (tmp_path / "out_dir" / "results.json").is_file()
