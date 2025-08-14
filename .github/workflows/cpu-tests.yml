@@ -119,7 +119,7 @@ jobs:
           python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U --upgrade-strategy greedy
+          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
           pip list
 
       - name: Run tests
