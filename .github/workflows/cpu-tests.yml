@@ -114,8 +114,8 @@ jobs:
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
         run: |
-          uv pip install 'lightning-utilities[cli]>=0.15.1'
-          uv run python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+          pip install 'lightning-utilities[cli]>=0.15.1'
+          python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
       - name: Install dependencies
         run: |
           pip install '.[extra,compiler,test]' -U
