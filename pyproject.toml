@@ -33,7 +33,7 @@ dependencies = [
   "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
-  "tokenizers>=0.15.2",
+  "tokenizers>=0.21",
   "torch>=2.5",
   # convert_hf_checkpoint
   "tqdm>4.66",
