@@ -26,17 +26,17 @@ classifiers = [
 ]
 dependencies = [
   # download models:
-  "huggingface-hub>=0.23.5,<0.33",
-  "jsonargparse[signatures]>=4.30.1,<=4.32.1; python_version<='3.9'", # 4.33 does not seem to be compatible with Python 3.9
-  "jsonargparse[signatures]>=4.37; python_version>'3.9'",             # required to work with python3.12+
+  "huggingface-hub>=0.30,<0.33",
+  "jsonargparse[signatures]>=4.31,<=4.32.1; python_version<'3.10'", # 4.33 does not seem to be compatible with Python 3.9
+  "jsonargparse[signatures]>=4.37; python_version>'3.9'",           # required to work with python3.12+
   "lightning>=2.5",
   "psutil==7",
   "safetensors>=0.4.3",
   # tokenization in most models:
-  "tokenizers>=0.15.2",
-  "torch>=2.5",
+  "tokenizers>=0.21",
+  "torch>=2.6",
   # convert_hf_checkpoint
-  "tqdm>=4.66",
+  "tqdm>4.66",
 ]
 
 optional-dependencies.compiler = [
