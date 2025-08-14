@@ -46,7 +46,7 @@ optional-dependencies.compiler = [
 optional-dependencies.extra = [
   "bitsandbytes>=0.42,<0.43; sys_platform=='darwin'",
   # quantization:
-  "bitsandbytes>=0.45.2,<0.46.1; sys_platform=='linux' or sys_platform=='win32'",
+  "bitsandbytes>=0.45.2,<0.48; sys_platform=='linux' or sys_platform=='win32'",
   # litgpt.evaluate:
   "datasets>=2.18,<4",
   # download:
