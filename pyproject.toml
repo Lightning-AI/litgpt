@@ -36,7 +36,7 @@ dependencies = [
   "tokenizers>=0.15.2",
   "torch>=2.5",
   # convert_hf_checkpoint
-  "tqdm>=4.66",
+  "tqdm>4.66",
 ]
 
 optional-dependencies.compiler = [
