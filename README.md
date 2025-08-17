@@ -677,6 +677,9 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
+# Resoureces
+🌟 [God Tier Prompts](https://www.godtierprompts.com) - A community driven leaderboard where the best prompts rise to the top.
+
 # Tutorials
 
 🚀 [Get started](tutorials/0_to_litgpt.md)</br>
