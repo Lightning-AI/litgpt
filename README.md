@@ -677,7 +677,7 @@ We welcome all individual contributors, regardless of their level of experience 
 
 &nbsp;
 
-# Resoureces
+# Resources
 🌟 [God Tier Prompts](https://www.godtierprompts.com) - A community driven leaderboard where the best prompts rise to the top.
 
 # Tutorials
