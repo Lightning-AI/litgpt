@@ -13,12 +13,17 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
-from lightning_utilities.core.imports import RequirementCache
 from safetensors.torch import load_file as load_safetensors
 from tqdm import tqdm
 
 from litgpt.config import Config
-from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load, save_config
+from litgpt.utils import (
+    _TRANSFORMERS_GREATER_EQUAL_4_52,
+    extend_checkpoint_dir,
+    incremental_save,
+    lazy_load,
+    save_config,
+)
 
 
 def copy_weights_gpt_neox(
@@ -286,8 +291,6 @@ def copy_weights_gemma_2(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
-
-_TRANSFORMERS_GREATER_EQUAL_4_52 = RequirementCache("transformers>=4.52.0")
 
 GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "language_model.model"
 
