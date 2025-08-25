@@ -2859,6 +2859,81 @@ qwen_3_moe = [
 ]
 configs.extend(qwen_3_moe)
 
+qwen_3_2507_thinking = [
+    # https://huggingface.co/Qwen/Qwen3-235B-A22B-Thinking-2507/blob/main/config.json
+    dict(
+        name="Qwen3-235B-A22B-Thinking-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B-Thinking-2507"),
+        block_size=262144,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=94,
+        n_head=64,
+        n_embd=4096,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=12288,
+        moe_intermediate_size=1536,
+        norm_eps=1e-6,
+        rope_base=5000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-30B-A3B-Thinking-2507/blob/main/config.json
+    dict(
+        name="Qwen3-30B-A3B-Thinking-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B-Thinking-2507"),
+        block_size=262144,
+        head_size=128,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=48,
+        n_head=32,
+        n_embd=2048,
+        n_query_groups=4,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=6144,
+        moe_intermediate_size=768,
+        norm_eps=1e-6,
+        rope_base=10000000,
+        norm_qk=True,
+        n_expert=128,
+        n_expert_per_token=8,
+    ),
+    # https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507/blob/main/config.json
+    dict(
+        name="Qwen3-4B-Thinking-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-4B-Thinking-2507"),
+        block_size=262144,
+        vocab_size=151643,
+        padded_vocab_size=151936,
+        n_layer=36,
+        n_head=32,
+        n_embd=2560,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=9728,
+        norm_eps=1e-6,
+        rope_base=5000000,
+        head_size=128,
+        norm_qk=True,
+    ),
+]
+configs.extend(qwen_3_2507_thinking)
 
 #############
 # Salamandra
