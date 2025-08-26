@@ -148,11 +148,6 @@ def test_unsloth_gpt():
     )
     with device:
         model = GPT(config)
-        # Clone rope cache tensors outside the JIT function to avoid variable overwriting
-        if hasattr(model, "cos"):
-            model.cos = model.cos.clone()
-        if hasattr(model, "sin"):
-            model.sin = model.sin.clone()
         input_ids = torch.randint(1, 10, (2, 3))
         targets = torch.randint(0, 10, (2, 3))
 
