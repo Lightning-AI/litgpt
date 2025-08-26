@@ -24,6 +24,8 @@ from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.utils import (
+    _TORCH_EQUAL_2_7,
+    _TORCH_EQUAL_2_8,
     CycleIterator,
     capture_hparams,
     check_nvlink_connectivity,
@@ -238,9 +240,9 @@ def main(
 
     # work around PyTorch issue https://github.com/pytorch/pytorch/issues/152162
     # which does not like the lazy initialization to be called in dynamo.
-    # Happens with PyTorch 2.7.
+    # TODO: Happens with PyTorch 2.7+
     if (
-        torch.__version__.startswith("2.7.")
+        (_TORCH_EQUAL_2_7 or _TORCH_EQUAL_2_8)
         and (model._forward_module.__class__.__name__ == "OptimizedModule")
         and (model._forward_module._orig_mod.__class__.__name__ == "FullyShardedDataParallel")
     ):

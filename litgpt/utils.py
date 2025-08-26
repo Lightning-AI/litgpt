@@ -29,7 +29,7 @@ from lightning.fabric.strategies import FSDPStrategy, ModelParallelStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
 from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
-from lightning_utilities.core.imports import module_available
+from lightning_utilities.core.imports import RequirementCache, module_available
 from packaging import version
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
@@ -37,8 +37,19 @@ from typing_extensions import Self
 if TYPE_CHECKING:
     from litgpt import GPT, Config
 
+_TORCH_EQUAL_2_7 = RequirementCache("torch>=2.7.0,<2.8")
+_TORCH_EQUAL_2_8 = RequirementCache("torch>=2.8.0,<2.9")
+_REQUESTS_AVAILABLE = RequirementCache("requests")
 _THUNDER_AVAILABLE = module_available("thunder")
 _TRITON_AVAILABLE = module_available("triton")
+_BITANDBYTES_AVAILABLE = module_available("bitsandbytes")
+_BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0 = RequirementCache("bitsandbytes != 0.42.0")
+_LITDATA_AVAILABLE = RequirementCache("litdata")
+_LITSERVE_AVAILABLE = RequirementCache("litserve")
+_JINJA2_AVAILABLE = RequirementCache("jinja2")
+_TRANSFORMERS_GREATER_EQUAL_4_52 = RequirementCache("transformers>=4.52.0")
+_SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
+_HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
 def init_out_dir(out_dir: Path) -> Path:

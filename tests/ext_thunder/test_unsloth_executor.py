@@ -122,7 +122,6 @@ def test_unsloth_swiglu():
 @_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_gpt():
     import thunder
-    from thunder.core.transforms import grad
 
     from extensions.thunder.unsloth.executor import unsloth_ex
 
@@ -165,9 +164,12 @@ def test_unsloth_gpt():
     assert "unsloth_swiglu" in fwd_str
     assert "unsloth_swiglu_backward" in bwd_str
 
-    cfn_grad = grad(cfn)
-    _ = cfn_grad(model, input_ids, targets)
-    bwd = thunder.last_traces(cfn_grad)
+    # Compute gradients via PyTorch autograd to exercise the backward path
+    params = list(model.parameters())
+    _ = torch.autograd.grad(loss, params, allow_unused=True)
+
+    # Inspect the recorded backward trace from the compiled forward
+    bwd = thunder.last_backward_traces(cfn)
     bwd_str = bwd[-1].python()
     assert "unsloth_cross_entropy_backward" in bwd_str
     assert "unsloth_apply_rope_backward" in bwd_str
