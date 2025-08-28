@@ -354,9 +354,7 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 )
 def test_lora_qkv_linear_compare_conv1d(head_size, n_head, enable_lora):
     C = 12
-    layer = LoRAQKVLinear(
-        C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora
-    )
+    layer = LoRAQKVLinear(C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
     x = torch.randn((1, 1, C))
     a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
     b = layer.lora_B.data.unsqueeze(-1)

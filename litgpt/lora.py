@@ -238,9 +238,7 @@ class LoRAQKVLinear(LoRALinear):
         if r > 0 and any(enable_lora):
             self.lora_A = nn.Parameter(torch.empty((r * sum(enable_lora), in_features)))  # (4, 128)
             # qkv_shapes will be used to split a tensor with weights correctly
-            self.qkv_shapes = [
-                s for s, e in zip(self._all_qkv_shapes, enable_lora) if e
-            ]
+            self.qkv_shapes = [s for s, e in zip(self._all_qkv_shapes, enable_lora) if e]
             self.lora_B = nn.Parameter(torch.empty(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
