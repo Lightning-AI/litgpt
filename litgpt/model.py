@@ -272,7 +272,11 @@ class Block(nn.Module):
             )
 
         self.norm_1 = nn.Identity() if not config.norm_1 else config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx) if not config.latent_attention else MultiheadLatentAttention(config, block_idx)
+        self.attn = (
+            CausalSelfAttention(config, block_idx)
+            if not config.latent_attention
+            else MultiheadLatentAttention(config, block_idx)
+        )
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -548,6 +552,7 @@ class CausalSelfAttention(nn.Module):
 
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
+
 class MultiheadLatentAttention(nn.Module):
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__()
@@ -557,9 +562,7 @@ class MultiheadLatentAttention(nn.Module):
         self.q_b_proj = nn.Linear(config.q_lora_rank, config.n_head * config.qk_head_dim, bias=config.bias)
 
         self.kv_a_proj_with_mqa = nn.Linear(
-            config.n_embd,
-            config.kv_lora_rank + config.qk_rope_head_dim,
-            bias=config.attn_bias
+            config.n_embd, config.kv_lora_rank + config.qk_rope_head_dim, bias=config.attn_bias
         )
         self.kv_a_norm = RMSNorm(config.kv_lora_rank)
         self.kv_b_proj = nn.Linear(
@@ -617,23 +620,22 @@ class MultiheadLatentAttention(nn.Module):
         q = q.transpose(1, 2)  # (B, n_head, T, qk_head_dim)
         q_pass, q_rot = torch.split(q, [self.config.qk_nope_head_dim, self.config.qk_rope_head_dim], dim=-1)
 
-        compressed_kv = self.kv_a_proj_with_mqa(x) # (B, T, kv_lora_rank + qk_rope_head_dim)
+        compressed_kv = self.kv_a_proj_with_mqa(x)  # (B, T, kv_lora_rank + qk_rope_head_dim)
         k_pass, k_rot = torch.split(compressed_kv, [self.config.kv_lora_rank, self.config.qk_rope_head_dim], dim=-1)
 
-        k_pass = self.kv_b_proj(self.kv_a_norm(k_pass)) # (B, T, n_head * (qk_nope_head_dim + v_head_dim))
-        k_pass = k_pass.view(B, T, -1, self.config.qk_nope_head_dim + self.config.v_head_dim) # (B, T, n_head, qk_nope_head_dim + v_head_dim)
-        k_pass = k_pass.transpose(1, 2) # (B, n_head, T, qk_nope_head_dim + v_head_dim)
+        k_pass = self.kv_b_proj(self.kv_a_norm(k_pass))  # (B, T, n_head * (qk_nope_head_dim + v_head_dim))
+        k_pass = k_pass.view(
+            B, T, -1, self.config.qk_nope_head_dim + self.config.v_head_dim
+        )  # (B, T, n_head, qk_nope_head_dim + v_head_dim)
+        k_pass = k_pass.transpose(1, 2)  # (B, n_head, T, qk_nope_head_dim + v_head_dim)
 
         k_pass, v = torch.split(k_pass, [self.config.qk_nope_head_dim, self.config.v_head_dim], dim=-1)
-        k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim) # (B, 1, T, qk_rope_head_dim)
-
-
-
+        k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
         q_roped = apply_rope(q_rot, cos, sin)
         k_roped = apply_rope(k_rot, cos, sin)
-        k_roped = k_roped.expand(*k_pass.shape[:-1], -1) # (B, n_head, T, qk_rope_head_dim)
+        k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
 
         q = torch.cat((q_pass, q_roped), dim=-1)
         k = torch.cat((k_pass, k_roped), dim=-1)
@@ -702,13 +704,9 @@ class MultiheadLatentAttention(nn.Module):
         k_shape = (batch_size, self.config.n_head, max_seq_length, self.config.qk_head_dim)
 
         if rope_cache_length is not None:
-            print(
-                "Warning: `rope_cache_length` has no effect on MultiheadLatentAttention!"
-            )
+            print("Warning: `rope_cache_length` has no effect on MultiheadLatentAttention!")
         if self.config.rotary_percentage != 1.0:
-            print(
-                "Warning: `rotary_percentage` has no effect on MultiheadLatentAttention!"
-            )
+            print("Warning: `rotary_percentage` has no effect on MultiheadLatentAttention!")
 
         return KVCache(k_shape, v_shape, device=device, dtype=dtype)
 

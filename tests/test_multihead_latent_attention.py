@@ -3,7 +3,7 @@
 import pytest
 import torch
 
-from litgpt import Config, GPT
+from litgpt import GPT, Config
 from litgpt.model import MultiheadLatentAttention
 
 
@@ -26,17 +26,17 @@ def test_multihead_latent_attention_forward(batch_size, seq_len, device):
             "v_head_dim": 16,
         },
     )
-    
+
     mla = MultiheadLatentAttention(config, block_idx=0).to(device)
-    
+
     # Create input tensor
     x = torch.randn(batch_size, seq_len, config.n_embd, device=device)
     cos = torch.randn(1, seq_len, config.qk_rope_head_dim, device=device)
     sin = torch.randn(1, seq_len, config.qk_rope_head_dim, device=device)
-    
+
     # Forward pass
     output = mla(x, cos, sin)
-    
+
     # Check output shape
     assert output.shape == (batch_size, seq_len, config.n_embd)
     assert output.dtype == x.dtype
@@ -59,17 +59,12 @@ def test_multihead_latent_attention_kv_cache():
             "v_head_dim": 16,
         },
     )
-    
+
     mla = MultiheadLatentAttention(config, block_idx=0)
-    
+
     # Build KV cache
-    kv_cache = mla.build_kv_cache(
-        batch_size=2,
-        max_seq_length=32,
-        device=torch.device("cpu"),
-        dtype=torch.float32
-    )
-    
+    kv_cache = mla.build_kv_cache(batch_size=2, max_seq_length=32, device=torch.device("cpu"), dtype=torch.float32)
+
     # Check cache shapes
     assert kv_cache.k.shape == (2, config.n_head, 32, config.qk_head_dim)
     assert kv_cache.v.shape == (2, config.n_head, 32, config.v_head_dim)
@@ -91,22 +86,22 @@ def test_multihead_latent_attention_with_mask():
             "v_head_dim": 16,
         },
     )
-    
+
     mla = MultiheadLatentAttention(config, block_idx=0)
-    
+
     batch_size, seq_len = 1, 8
     x = torch.randn(batch_size, seq_len, config.n_embd)
     cos = torch.randn(1, seq_len, config.qk_rope_head_dim)
     sin = torch.randn(1, seq_len, config.qk_rope_head_dim)
-    
+
     # Create causal mask
     mask = torch.ones(seq_len, seq_len, dtype=x.dtype).triu(diagonal=1)
     mask.masked_fill_(mask.bool(), float("-inf"))
     mask = mask.view(1, 1, seq_len, seq_len)
-    
+
     # Forward pass with mask
     output = mla(x, cos, sin, mask=mask)
-    
+
     assert output.shape == (batch_size, seq_len, config.n_embd)
 
 
@@ -128,17 +123,17 @@ def test_multihead_latent_attention_integration():
             "v_head_dim": 16,
         },
     )
-    
+
     model = GPT(config)
-    
+
     batch_size, seq_len = 2, 8
     input_ids = torch.randint(0, config.padded_vocab_size, (batch_size, seq_len))
-    
+
     # Forward pass through full model
     output = model(input_ids)
-    
+
     # Check output shape
     assert output.shape == (batch_size, seq_len, config.padded_vocab_size)
-    
+
     # Verify the attention layer is MLA
     assert isinstance(model.transformer.h[0].attn, MultiheadLatentAttention)

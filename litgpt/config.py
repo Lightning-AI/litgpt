@@ -140,7 +140,13 @@ class Config:
             self.qk_rope_head_dim = self.latent_attention.get("qk_rope_head_dim")
             self.qk_nope_head_dim = self.latent_attention.get("qk_nope_head_dim")
             self.v_head_dim = self.latent_attention.get("v_head_dim")
-            assert (self.q_lora_rank and self.kv_lora_rank and self.qk_rope_head_dim and self.qk_nope_head_dim and self.v_head_dim) is not None
+            assert (
+                self.q_lora_rank
+                and self.kv_lora_rank
+                and self.qk_rope_head_dim
+                and self.qk_nope_head_dim
+                and self.v_head_dim
+            ) is not None
             assert self.n_head == self.n_query_groups, "Latent attention does not support MQA/GQA"
             self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
             self.rope_n_elem = self.qk_rope_head_dim
