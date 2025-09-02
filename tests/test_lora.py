@@ -521,9 +521,8 @@ def test_lora_compile():
     assert explanation.graph_break_count == 0
 
     model = LoRAGPT(model.config)
-    model.set_kv_cache(2)
-    input_pos = torch.arange(model.config.block_size)
-    explanation = torch._dynamo.explain(model)(x, input_pos)
+    model.set_kv_caches(2)
+    explanation = torch._dynamo.explain(model)(x, input_pos=0)
     assert isinstance(explanation, debugging.ExplainOutput)
     assert explanation.graph_count == 1
     assert explanation.graph_break_count == 0
