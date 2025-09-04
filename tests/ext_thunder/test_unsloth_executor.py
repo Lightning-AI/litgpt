@@ -10,7 +10,6 @@ from litgpt.utils import _RunIf, chunked_cross_entropy
 @pytest.mark.parametrize("reduction", ["none", "mean"])
 def test_unsloth_cross_entropy(reduction):
     import thunder
-    from thunder.core.transforms import grad
 
     from extensions.thunder.unsloth.executor import unsloth_ex
 
@@ -33,22 +32,19 @@ def test_unsloth_cross_entropy(reduction):
     expected = foo(logits, labels)
     torch.testing.assert_close(actual, expected)
 
-    cfoo_grad = grad(cfoo)
-    actual = cfoo_grad(logits, labels)[0]
-    trace_str = str(thunder.last_traces(cfoo_grad)[-1])
+    (actual_grad,) = torch.autograd.grad(actual.sum(), logits)
+    trace_str = str(thunder.last_backward_traces(cfoo)[-1])
     assert "unsloth_cross_entropy_backward" in trace_str
     out = foo(logits, labels)
     assert logits.grad is None
-    out.sum().backward()
-    expected = logits.grad
-    torch.testing.assert_close(actual, expected)
+    (expected_grad,) = torch.autograd.grad(out.sum(), logits)
+    torch.testing.assert_close(actual_grad, expected_grad)
 
 
 @pytest.mark.skip(reason="out of date")
 @_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_rope():
     import thunder
-    from thunder.core.transforms import grad
 
     from extensions.thunder.unsloth.executor import unsloth_ex
 
@@ -71,21 +67,14 @@ def test_unsloth_rope():
     expected = foo(q, cos, sin)
     torch.testing.assert_close(actual, expected)
 
-    cfoo_grad = grad(cfoo)
-    actual = cfoo_grad(q, cos, sin)[0]
-    trace_str = str(thunder.last_traces(cfoo_grad)[-1])
-    assert "unsloth_apply_rope_backward" in trace_str
-    out = foo(q, cos, sin)
-    assert q.grad is None
-    out.sum().backward()
-    expected = q.grad
-    torch.testing.assert_close(actual, expected)
+    (actual_grad,) = torch.autograd.grad(actual.sum(), q)
+    (expected_grad,) = torch.autograd.grad(expected.sum(), q)
+    torch.testing.assert_close(actual_grad, expected_grad)
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
 def test_unsloth_swiglu():
     import thunder
-    from thunder.core.transforms import grad
 
     from extensions.thunder.unsloth.executor import ThunderLLaMAMLP, unsloth_ex
     from litgpt import Config
@@ -108,15 +97,9 @@ def test_unsloth_swiglu():
     expected = mlp(x)
     torch.testing.assert_close(actual, expected)
 
-    cmlp_grad = grad(cmlp)
-    actual = cmlp_grad(x)[0]
-    trace_str = str(thunder.last_traces(cmlp_grad)[-1])
-    assert "unsloth_swiglu_backward" in trace_str
-    out = mlp(x)
-    assert x.grad is None
-    out.sum().backward()
-    expected = x.grad
-    torch.testing.assert_close(actual, expected)
+    (actual_grad,) = torch.autograd.grad(actual.sum(), x)
+    (expected_grad,) = torch.autograd.grad(expected.sum(), x)
+    torch.testing.assert_close(actual_grad, expected_grad)
 
 
 @_RunIf(min_cuda_gpus=1, thunder=True)
@@ -162,15 +145,4 @@ def test_unsloth_gpt():
     assert "unsloth_apply_rope" in fwd_str
     assert "unsloth_apply_rope_backward" in bwd_str
     assert "unsloth_swiglu" in fwd_str
-    assert "unsloth_swiglu_backward" in bwd_str
-
-    # Compute gradients via PyTorch autograd to exercise the backward path
-    params = list(model.parameters())
-    _ = torch.autograd.grad(loss, params, allow_unused=True)
-
-    # Inspect the recorded backward trace from the compiled forward
-    bwd = thunder.last_backward_traces(cfn)
-    bwd_str = bwd[-1].python()
-    assert "unsloth_cross_entropy_backward" in bwd_str
-    assert "unsloth_apply_rope_backward" in bwd_str
     assert "unsloth_swiglu_backward" in bwd_str
