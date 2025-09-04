@@ -17,6 +17,7 @@ parametrize:
 env:
   SKIP_WITH_CI: "1" # skip single tests with CI
   NCCL_DEBUG: "INFO"
+  CUBLAS_WORKSPACE_CONFIG: ":4096:8"
   NCCL_IGNORE_DISABLED_P2P: "1"
   TORCH_VERSION: "2.7.1"
   RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
