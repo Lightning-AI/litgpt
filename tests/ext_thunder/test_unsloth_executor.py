@@ -32,12 +32,12 @@ def test_unsloth_cross_entropy(reduction):
     expected = foo(logits, labels)
     torch.testing.assert_close(actual, expected)
 
-    actual_grad, = torch.autograd.grad(actual.sum(), logits)
+    (actual_grad,) = torch.autograd.grad(actual.sum(), logits)
     trace_str = str(thunder.last_backward_traces(cfoo)[-1])
     assert "unsloth_cross_entropy_backward" in trace_str
     out = foo(logits, labels)
     assert logits.grad is None
-    expected_grad, = torch.autograd.grad(out.sum(), logits)
+    (expected_grad,) = torch.autograd.grad(out.sum(), logits)
     torch.testing.assert_close(actual_grad, expected_grad)
 
 
@@ -67,8 +67,8 @@ def test_unsloth_rope():
     expected = foo(q, cos, sin)
     torch.testing.assert_close(actual, expected)
 
-    actual_grad, = torch.autograd.grad(actual.sum(), q)
-    expected_grad, = torch.autograd.grad(expected.sum(), q)
+    (actual_grad,) = torch.autograd.grad(actual.sum(), q)
+    (expected_grad,) = torch.autograd.grad(expected.sum(), q)
     torch.testing.assert_close(actual_grad, expected_grad)
 
 
@@ -97,8 +97,8 @@ def test_unsloth_swiglu():
     expected = mlp(x)
     torch.testing.assert_close(actual, expected)
 
-    actual_grad, = torch.autograd.grad(actual.sum(), x)
-    expected_grad, = torch.autograd.grad(expected.sum(), x)
+    (actual_grad,) = torch.autograd.grad(actual.sum(), x)
+    (expected_grad,) = torch.autograd.grad(expected.sum(), x)
     torch.testing.assert_close(actual_grad, expected_grad)
 
 
