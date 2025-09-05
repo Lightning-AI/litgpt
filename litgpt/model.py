@@ -597,22 +597,6 @@ class MultiheadLatentAttention(nn.Module):
         # - nh_(q,k,v) | number of heads for query, key and value
         # - n_query_groups = nh_k = nh_v | number of query groups sharing key and value heads
         # alternative notation: num_kv_groups = n_query_groups
-        # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐             ┌───┐
-        # │ v ││ v ││ v ││ v │     │ v │    │ v │             │ v │
-        # └───┘└───┘└───┘└───┘     └───┘    └───┘             └───┘
-        #   │    │    │    │         │        │                 │
-        # ┌───┐┌───┐┌───┐┌───┐     ┌───┐    ┌───┐             ┌───┐
-        # │ k ││ k ││ k ││ k │     │ k │    │ k │             │ k │
-        # └───┘└───┘└───┘└───┘     └───┘    └───┘             └───┘
-        #   │    │    │    │      ┌──┴──┐  ┌──┴──┐      ┌────┬──┴─┬────┐
-        # ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐  ┌───┐┌───┐┌───┐┌───┐
-        # │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │  │ q ││ q ││ q ││ q │
-        # └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘  └───┘└───┘└───┘└───┘
-        # ◀──────────────────▶  ◀──────────────────▶  ◀──────────────────▶
-        #         MHA                    GQA                   MQA
-        #   n_query_groups=4       n_query_groups=2      n_query_groups=1
-        #
-        # credit https://arxiv.org/pdf/2305.13245.pdf
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
 
         q = self.q_b_proj(self.q_a_norm(self.q_a_proj(x)))  # (B, T, n_head * qk_head_dim)
