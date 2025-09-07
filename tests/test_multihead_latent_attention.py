@@ -6,8 +6,7 @@ import torch
 from litgpt import Config
 from litgpt.model import MultiheadLatentAttention
 
-from .utils import DeepseekV3Attention, DeepseekV3Config, sync_weights
-
+from transformers.models.deepseek_v3 import DeepseekV3ForCausalLM, DeepseekV3Config
 
 @torch.inference_mode()
 @pytest.mark.parametrize("batch_size", (1, 2))
@@ -130,6 +129,9 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
     )
 
     config_hf = DeepseekV3Config(
+        padded_vocab_size=10000,
+        num_hidden_layers=1,
+        vocab_size=10000,
         hidden_size=64,
         num_attention_heads=4,
         num_key_value_heads=4,
@@ -138,10 +140,12 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
         qk_rope_head_dim=8,
         qk_nope_head_dim=8,
         v_head_dim=16,
+        rope_interleave=False,
     )
 
     mla_litgpt = MultiheadLatentAttention(config_litgpt, block_idx=0).to(device)
-    mla_hf = DeepseekV3Attention(config_hf, layer_idx=0).to(device)
+    model_hf = DeepseekV3ForCausalLM(config_hf).to(device)
+    mla_hf = model_hf.model.layers[0].self_attn
 
     mla_litgpt.eval()
     mla_hf.eval()
@@ -152,20 +156,8 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
 
     # Prepare RoPE sin/cos tables
     rope_head_dim = config_litgpt.latent_attention["qk_rope_head_dim"]
-    t = torch.arange(seq_len, device=device)
-    # Create frequency bands - using rope_head_dim//2 since we work with pairs
-    freqs = 1.0 / (10000.0 ** (torch.arange(0, rope_head_dim, 2, device=device).float() / rope_head_dim))
-    # Create position embeddings for each position in sequence
-    position_ids = t.unsqueeze(0).expand(batch_size, -1)  # [batch_size, seq_len]
-    # Compute frequencies for each position
-    inv_freq_expanded = freqs[None, :, None].float().expand(batch_size, -1, 1)  # [batch_size, rope_head_dim//2, 1]
-    position_ids_expanded = position_ids[:, None, :].float()  # [batch_size, 1, seq_len]
-    # Calculate freqs and create embeddings
-    freqs_emb = (inv_freq_expanded @ position_ids_expanded).transpose(1, 2)  # [batch_size, seq_len, rope_head_dim//2]
-    emb = torch.cat((freqs_emb, freqs_emb), dim=-1)  # [batch_size, seq_len, rope_head_dim]
-    # Get cos and sin
-    cos = emb.cos().to(hidden_states.dtype)  # [batch_size, seq_len, rope_head_dim]
-    sin = emb.sin().to(hidden_states.dtype)  # [batch_size, seq_len, rope_head_dim]
+    cos = torch.randn(batch_size, seq_len, rope_head_dim, device=device, dtype=hidden_states.dtype)
+    sin = torch.randn(batch_size, seq_len, rope_head_dim, device=device, dtype=hidden_states.dtype)
 
     causal_mask = torch.triu(
         torch.full((seq_len, seq_len), float("-inf"), device=device, dtype=hidden_states.dtype), diagonal=1
@@ -174,6 +166,20 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
 
     # Run forward passes
     output_litgpt = mla_litgpt(hidden_states, cos, sin)
-    output_hf = mla_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
+    output_hf = mla_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)[0]
 
     assert torch.allclose(output_litgpt, output_hf, atol=1e-5)
+
+
+def sync_weights(litgpt_model, hf_model):
+    """Copies weights from lit-gpt model to HF model."""
+    print("Synchronizing weights...")
+    with torch.no_grad():
+        hf_model.q_a_proj.weight.copy_(litgpt_model.q_a_proj.weight)
+        hf_model.q_a_layernorm.weight.copy_(litgpt_model.q_a_norm.weight)
+        hf_model.q_b_proj.weight.copy_(litgpt_model.q_b_proj.weight)
+        hf_model.kv_a_proj_with_mqa.weight.copy_(litgpt_model.kv_a_proj_with_mqa.weight)
+        hf_model.kv_a_layernorm.weight.copy_(litgpt_model.kv_a_norm.weight)
+        hf_model.kv_b_proj.weight.copy_(litgpt_model.kv_b_proj.weight)
+        hf_model.o_proj.weight.copy_(litgpt_model.proj.weight)
+    print("Synchronization complete.")
