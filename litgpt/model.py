@@ -608,9 +608,7 @@ class MultiheadLatentAttention(nn.Module):
         k_pass, k_rot = torch.split(compressed_kv, [self.config.kv_lora_rank, self.config.qk_rope_head_dim], dim=-1)
 
         k_pass = self.kv_b_proj(self.kv_a_norm(k_pass))
-        k_pass = k_pass.view(
-            B, T, self.config.n_query_groups, -1
-        )
+        k_pass = k_pass.view(B, T, self.config.n_query_groups, -1)
         k_pass = k_pass.transpose(1, 2)
 
         k_pass, v = torch.split(k_pass, [self.config.qk_nope_head_dim, self.config.v_head_dim], dim=-1)

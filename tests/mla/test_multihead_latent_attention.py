@@ -3,9 +3,11 @@
 import pytest
 import torch
 
-from litgpt import GPT, Config
+from litgpt import Config
 from litgpt.model import MultiheadLatentAttention
+
 from .utils import DeepseekV3Attention, DeepseekV3Config, sync_weights
+
 
 @torch.inference_mode()
 @pytest.mark.parametrize("batch_size", (1, 2))
@@ -166,8 +168,7 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
     sin = emb.sin().to(hidden_states.dtype)  # [batch_size, seq_len, rope_head_dim]
 
     causal_mask = torch.triu(
-        torch.full((seq_len, seq_len), float('-inf'), device=device, dtype=hidden_states.dtype),
-        diagonal=1
+        torch.full((seq_len, seq_len), float("-inf"), device=device, dtype=hidden_states.dtype), diagonal=1
     )
     attention_mask = causal_mask.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, -1, -1)
 

@@ -1,46 +1,49 @@
 import math
-from typing import Callable, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import nn
-from litgpt.model import MultiheadLatentAttention
 
+from litgpt.model import MultiheadLatentAttention
 
 # This script contains the DeepseekV3Attention module and its dependencies
 # extracted into a self-contained file for standalone use.
 
+
 class DeepseekV3Config:
     """Simplified configuration class for DeepseekV3Attention."""
+
     def __init__(self, **kwargs):
         # Attention-specific parameters
         self.hidden_size = kwargs.get("hidden_size", 1024)
         self.num_attention_heads = kwargs.get("num_attention_heads", 16)
         self.num_key_value_heads = kwargs.get("num_key_value_heads", 16)
         self.head_dim = self.hidden_size // self.num_attention_heads
-        
+
         # LoRA and special head dimensions
-        self.q_lora_rank = kwargs.get("q_lora_rank", None) # Set to None for standard projection
+        self.q_lora_rank = kwargs.get("q_lora_rank", None)  # Set to None for standard projection
         self.kv_lora_rank = kwargs.get("kv_lora_rank", 64)
         self.qk_rope_head_dim = kwargs.get("qk_rope_head_dim", 64)
         self.v_head_dim = kwargs.get("v_head_dim", 128)
         self.qk_nope_head_dim = kwargs.get("qk_nope_head_dim", self.head_dim - self.qk_rope_head_dim)
         self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
-        
+
         # Other settings
         self.attention_bias = kwargs.get("attention_bias", False)
         self.attention_dropout = kwargs.get("attention_dropout", 0.0)
         self.rms_norm_eps = kwargs.get("rms_norm_eps", 1e-6)
-        
+
         # RoPE (Rotary Position Embedding) parameters
         self.rope_theta = kwargs.get("rope_theta", 10000.0)
         self.rope_scaling = kwargs.get("rope_scaling", None)
         self.rope_interleave = kwargs.get("rope_interleave", False)
         self.max_position_embeddings = kwargs.get("max_position_embeddings", 4096)
-        self._attn_implementation = "eager" # Use the eager implementation for simplicity
+        self._attn_implementation = "eager"  # Use the eager implementation for simplicity
+
 
 class DeepseekV3RMSNorm(nn.Module):
     """Root Mean Square Layer Normalization."""
+
     def __init__(self, hidden_size, eps=1e-6):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -53,11 +56,13 @@ class DeepseekV3RMSNorm(nn.Module):
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
 
+
 def rotate_half(x):
     """Rotates half the hidden dimensions of the input."""
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
     return torch.cat((-x2, x1), dim=-1)
+
 
 def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
     """Applies Rotary Position Embedding."""
@@ -67,14 +72,15 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
 
+
 def apply_rotary_pos_emb_interleave(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
     """Applies Interleaved Rotary Position Embedding."""
     cos = cos.unsqueeze(unsqueeze_dim)
     sin = sin.unsqueeze(unsqueeze_dim)
-    
+
     b, h, s, d = q.shape
     q = q.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
-    
+
     b, h, s, d = k.shape
     k = k.view(b, h, s, d // 2, 2).transpose(4, 3).reshape(b, h, s, d)
 
@@ -82,20 +88,23 @@ def apply_rotary_pos_emb_interleave(q, k, cos, sin, position_ids=None, unsqueeze
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
 
+
 def yarn_get_mscale(scale=1, mscale=1):
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0
 
+
 class DeepseekV3RotaryEmbedding(nn.Module):
     """Computes rotary position embeddings for query and key tensors."""
+
     def __init__(self, config: DeepseekV3Config, device=None):
         super().__init__()
         self.dim = config.qk_rope_head_dim
         self.max_position_embeddings = config.max_position_embeddings
         self.base = config.rope_theta
         self.attention_scaling = 1.0
-        
+
         inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2, dtype=torch.int64).float().to(device) / self.dim))
         self.register_buffer("inv_freq", inv_freq, persistent=False)
         self.max_seq_len_cached = 0
@@ -113,7 +122,8 @@ class DeepseekV3RotaryEmbedding(nn.Module):
             sin = emb.sin() * self.attention_scaling
 
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
-        
+
+
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     """Repeats key-value heads to match the number of query heads in GQA."""
     batch, num_key_value_heads, slen, head_dim = hidden_states.shape
@@ -121,6 +131,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
         return hidden_states
     hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+
 
 def eager_attention_forward(
     query: torch.Tensor,
@@ -138,7 +149,7 @@ def eager_attention_forward(
     value_states = repeat_kv(value, num_key_value_groups)
 
     attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
-    
+
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
 
@@ -201,7 +212,7 @@ class DeepseekV3Attention(nn.Module):
             if mscale_all_dim:
                 mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
                 self.scaling = self.scaling * mscale * mscale
-    
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -209,7 +220,7 @@ class DeepseekV3Attention(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         batch_size, seq_length, _ = hidden_states.shape
-        
+
         # Shapes for reshaping tensors
         query_shape = (batch_size, seq_length, self.num_heads, self.qk_head_dim)
         # Note: num_key_value_heads is used for K/V projections
@@ -220,7 +231,7 @@ class DeepseekV3Attention(nn.Module):
             q_states = self.q_proj(hidden_states)
         else:
             q_states = self.q_b_proj(self.q_a_layernorm(self.q_a_proj(hidden_states)))
-        
+
         q_states = q_states.view(query_shape).transpose(1, 2)
         q_pass, q_rot = torch.split(q_states, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
 
@@ -238,7 +249,7 @@ class DeepseekV3Attention(nn.Module):
             q_rot, k_rot = apply_rotary_pos_emb_interleave(q_rot, k_rot, cos, sin)
         else:
             q_rot, k_rot = apply_rotary_pos_emb(q_rot, k_rot, cos, sin)
-        
+
         k_rot = k_rot.expand(*k_pass.shape[:-1], -1)
 
         # 3. Concatenate RoPE-applied and non-RoPE parts
@@ -254,13 +265,13 @@ class DeepseekV3Attention(nn.Module):
             num_key_value_groups=self.num_key_value_groups,
             scaling=self.scaling,
             dropout=self.attention_dropout,
-            training=self.training
+            training=self.training,
         )
-        
+
         # 5. Reshape and final projection
         attn_output = attn_output.reshape(batch_size, seq_length, -1).contiguous()
         attn_output = self.o_proj(attn_output)
-        
+
         return attn_output
 
 
