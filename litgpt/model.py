@@ -558,16 +558,16 @@ class MultiheadLatentAttention(nn.Module):
         super().__init__()
 
         self.q_a_proj = nn.Linear(config.n_embd, config.q_lora_rank, bias=config.attn_bias)
-        self.q_a_norm = RMSNorm(config.q_lora_rank)
+        self.q_a_norm = RMSNorm(config.q_lora_rank, eps=config.norm_eps)
         self.q_b_proj = nn.Linear(config.q_lora_rank, config.n_head * config.qk_head_dim, bias=config.bias)
 
         self.kv_a_proj_with_mqa = nn.Linear(
             config.n_embd, config.kv_lora_rank + config.qk_rope_head_dim, bias=config.attn_bias
         )
-        self.kv_a_norm = RMSNorm(config.kv_lora_rank)
+        self.kv_a_norm = RMSNorm(config.kv_lora_rank, eps=config.norm_eps)
         self.kv_b_proj = nn.Linear(
             config.kv_lora_rank,
-            config.n_head * (config.qk_nope_head_dim + config.v_head_dim),
+            config.n_query_groups * (config.qk_nope_head_dim + config.v_head_dim),
             bias=config.bias,
         )
 
@@ -607,11 +607,11 @@ class MultiheadLatentAttention(nn.Module):
         compressed_kv = self.kv_a_proj_with_mqa(x)  # (B, T, kv_lora_rank + qk_rope_head_dim)
         k_pass, k_rot = torch.split(compressed_kv, [self.config.kv_lora_rank, self.config.qk_rope_head_dim], dim=-1)
 
-        k_pass = self.kv_b_proj(self.kv_a_norm(k_pass))  # (B, T, n_head * (qk_nope_head_dim + v_head_dim))
+        k_pass = self.kv_b_proj(self.kv_a_norm(k_pass))
         k_pass = k_pass.view(
-            B, T, -1, self.config.qk_nope_head_dim + self.config.v_head_dim
-        )  # (B, T, n_head, qk_nope_head_dim + v_head_dim)
-        k_pass = k_pass.transpose(1, 2)  # (B, n_head, T, qk_nope_head_dim + v_head_dim)
+            B, T, self.config.n_query_groups, -1
+        )
+        k_pass = k_pass.transpose(1, 2)
 
         k_pass, v = torch.split(k_pass, [self.config.qk_nope_head_dim, self.config.v_head_dim], dim=-1)
         k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
