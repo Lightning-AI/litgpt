@@ -2,11 +2,11 @@
 
 import pytest
 import torch
+from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
 from litgpt import Config
 from litgpt.model import MultiheadLatentAttention
 
-from transformers.models.deepseek_v3 import DeepseekV3ForCausalLM, DeepseekV3Config
 
 @torch.inference_mode()
 @pytest.mark.parametrize("batch_size", (1, 2))
