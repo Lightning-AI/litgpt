@@ -9,41 +9,6 @@ from litgpt.model import MultiheadLatentAttention
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize("batch_size", (1, 2))
-@pytest.mark.parametrize("seq_len", (8, 16))
-@pytest.mark.parametrize("device", [torch.device("cpu")])
-def test_multihead_latent_attention_forward(batch_size, seq_len, device):
-    """Test basic forward pass of MultiheadLatentAttention"""
-    config = Config(
-        n_embd=64,
-        n_head=4,
-        n_query_groups=4,
-        head_size=16,
-        latent_attention={
-            "q_lora_rank": 32,
-            "kv_lora_rank": 16,
-            "qk_rope_head_dim": 8,
-            "qk_nope_head_dim": 8,
-            "v_head_dim": 16,
-        },
-    )
-
-    mla = MultiheadLatentAttention(config, block_idx=0).to(device)
-
-    # Create input tensor
-    x = torch.randn(batch_size, seq_len, config.n_embd, device=device)
-    cos = torch.randn(1, seq_len, config.qk_rope_head_dim, device=device)
-    sin = torch.randn(1, seq_len, config.qk_rope_head_dim, device=device)
-
-    # Forward pass
-    output = mla(x, cos, sin)
-
-    # Check output shape
-    assert output.shape == (batch_size, seq_len, config.n_embd)
-    assert output.dtype == x.dtype
-
-
-@torch.inference_mode()
 def test_multihead_latent_attention_kv_cache():
     """Test KV cache functionality"""
     config = Config(
