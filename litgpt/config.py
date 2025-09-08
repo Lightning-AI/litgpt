@@ -2877,11 +2877,11 @@ qwen_3_moe = [
 ]
 configs.extend(qwen_3_moe)
 
-qwen_3_2507_thinking = [
+qwen_3_2507_thinking_instruct = [
     # https://huggingface.co/Qwen/Qwen3-235B-A22B-Thinking-2507/blob/main/config.json
     dict(
-        name="Qwen3-235B-A22B-Thinking-2507",
-        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B-Thinking-2507"),
+        name="Qwen3-235B-A22B-{}-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-235B-A22B-{}-2507"),
         block_size=262144,
         head_size=128,
         vocab_size=151643,
@@ -2905,8 +2905,8 @@ qwen_3_2507_thinking = [
     ),
     # https://huggingface.co/Qwen/Qwen3-30B-A3B-Thinking-2507/blob/main/config.json
     dict(
-        name="Qwen3-30B-A3B-Thinking-2507",
-        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B-Thinking-2507"),
+        name="Qwen3-30B-A3B-{}-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-30B-A3B-{}-2507"),
         block_size=262144,
         head_size=128,
         vocab_size=151643,
@@ -2930,8 +2930,8 @@ qwen_3_2507_thinking = [
     ),
     # https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507/blob/main/config.json
     dict(
-        name="Qwen3-4B-Thinking-2507",
-        hf_config=dict(org="Qwen", name="Qwen3-4B-Thinking-2507"),
+        name="Qwen3-4B-{}-2507",
+        hf_config=dict(org="Qwen", name="Qwen3-4B-{}-2507"),
         block_size=262144,
         vocab_size=151643,
         padded_vocab_size=151936,
@@ -2951,7 +2951,13 @@ qwen_3_2507_thinking = [
         norm_qk=True,
     ),
 ]
-configs.extend(qwen_3_2507_thinking)
+
+for c in qwen_3_2507_thinking_instruct:
+    for kind in ("Thinking", "Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
 #############
 # Salamandra
