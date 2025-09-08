@@ -48,8 +48,8 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | Qwen2.5 Math | 1.5B, 7B, 72B | Alibaba Group | [An, Yang et al. 2024](https://arxiv.org/abs/2409.12122)                                          |
 | QwQ | 32B | Alibaba Group | [Qwen Team 2025](https://qwenlm.github.io/blog/qwq-32b/)                                                                         |
 | QwQ-Preview | 32B | Alibaba Group | [Qwen Team 2024](https://qwenlm.github.io/blog/qwq-32b-preview/)                                                                         |
-| Qwen3 | 0.6B, 1.7B, 4B{Hybrid, Thinking-2507}, 8B, 14B, 32B | Alibaba Group | [Qwen Team 2025](https://arxiv.org/abs/2505.09388/)                                                                         |
-| Qwen3 MoE | 30B{Hybrid, Thinking-2507}, 235B{Hybrid, Thinking-2507} | Alibaba Group | [Qwen Team 2025](https://arxiv.org/abs/2505.09388/)                                                                         |
+| Qwen3 | 0.6B, 1.7B, 4B{Hybrid, Thinking-2507, Instruct-2507}, 8B, 14B, 32B | Alibaba Group | [Qwen Team 2025](https://arxiv.org/abs/2505.09388/)                                                                         |
+| Qwen3 MoE | 30B{Hybrid, Thinking-2507, Instruct-2507}, 235B{Hybrid, Thinking-2507, Instruct-2507} | Alibaba Group | [Qwen Team 2025](https://arxiv.org/abs/2505.09388/)                                                                         |
 | R1 Distll Llama | 8B, 70B | DeepSeek AI | [DeepSeek AI 2025](https://github.com/deepseek-ai/DeepSeek-R1/blob/main/DeepSeek_R1.pdf)                                                                         |
 | RedPajama-INCITE | 3B, 7B | Together | [Together 2023](https://together.ai/blog/redpajama-models-v1)                                                                 |
 | SmolLM2 | 135M, 360M, 1.7B | Hugging Face | [Hugging Face 2024](https://github.com/huggingface/smollm)                                                               |
@@ -237,6 +237,26 @@ Qwen/Qwen2.5-Math-7B
 Qwen/Qwen2.5-Math-7B-Instruct
 Qwen/Qwen2.5-Math-72B
 Qwen/Qwen2.5-Math-72B-Instruct
+Qwen/Qwen3-0.6B
+Qwen/Qwen3-0.6B-Base
+Qwen/Qwen3-1.7B
+Qwen/Qwen3-1.7B-Base
+Qwen/Qwen3-4B
+Qwen/Qwen3-4B-Base
+Qwen/Qwen3-8B
+Qwen/Qwen3-8B-Base
+Qwen/Qwen3-14B
+Qwen/Qwen3-14B-Base
+Qwen/Qwen3-32B
+Qwen/Qwen3-30B-A3B
+Qwen/Qwen3-30B-A3B-Base
+Qwen/Qwen3-235B-A22B
+Qwen/Qwen3-4B-Thinking-2507
+Qwen/Qwen3-4B-Instruct-2507
+Qwen/Qwen3-30B-A3B-Thinking-2507
+Qwen/Qwen3-30B-A3B-Instruct-2507
+Qwen/Qwen3-235B-A22B-Thinking-2507
+Qwen/Qwen3-235B-A22B-Instruct-2507
 Qwen/QwQ-32B
 Qwen/QwQ-32B-Preview
 stabilityai/FreeWilly2

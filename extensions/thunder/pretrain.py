@@ -23,7 +23,7 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
-from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP, MultiheadLatentAttention
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -461,7 +461,7 @@ def initialize_weights(fabric: L.Fabric, model: GPT, n_layer: int, n_embd: int) 
 
     # need a separate loop because `mod.proj` below is a `nn.Linear` too
     for mod in model.modules():
-        if isinstance(mod, (LLaMAMLP, CausalSelfAttention)):
+        if isinstance(mod, (LLaMAMLP, CausalSelfAttention, MultiheadLatentAttention)):
             mod.proj.reset_parameters = partial(init_weights, mod.proj, std=(1 / math.sqrt(n_embd) / n_layer))
 
     if not isinstance(fabric.strategy, FSDPStrategy):
