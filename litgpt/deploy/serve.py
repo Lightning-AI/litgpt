@@ -6,13 +6,10 @@ from pprint import pprint
 from typing import Any, Dict, Literal, Optional
 
 import torch
-from lightning_utilities.core.imports import RequirementCache
 
 from litgpt.api import LLM
-from litgpt.utils import auto_download_checkpoint
+from litgpt.utils import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE, auto_download_checkpoint
 
-_LITSERVE_AVAILABLE = RequirementCache("litserve")
-_JINJA2_AVAILABLE = RequirementCache("jinja2")
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
     from litserve.specs.openai import ChatCompletionRequest, OpenAISpec

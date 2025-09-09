@@ -45,7 +45,7 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -94,7 +94,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache-dependency-path: pyproject.toml
@@ -119,7 +119,7 @@ jobs:
           python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U
+          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
           pip list
 
       - name: Run tests

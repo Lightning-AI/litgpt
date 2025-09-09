@@ -6,13 +6,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from lightning_utilities.core.imports import RequirementCache
-
 from litgpt.config import configs
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-
-_SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
-_HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
+from litgpt.utils import _HF_TRANSFER_AVAILABLE, _SAFETENSORS_AVAILABLE
 
 
 def download_from_hub(

@@ -10,12 +10,12 @@ from typing import Literal, Optional
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
 from litgpt.generate.base import generate
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.utils import (
+    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -82,7 +82,7 @@ def main(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        if RequirementCache("bitsandbytes != 0.42.0"):
+        if _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0:
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )

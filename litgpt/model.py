@@ -272,7 +272,11 @@ class Block(nn.Module):
             )
 
         self.norm_1 = nn.Identity() if not config.norm_1 else config.norm_class(config.n_embd, eps=config.norm_eps)
-        self.attn = CausalSelfAttention(config, block_idx)
+        self.attn = (
+            CausalSelfAttention(config, block_idx)
+            if not config.latent_attention
+            else MultiheadLatentAttention(config, block_idx)
+        )
         self.post_attention_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_attention_norm else nn.Identity()
         )
@@ -547,6 +551,146 @@ class CausalSelfAttention(nn.Module):
                 state_dict[current_key] = qkv_reassemble(state_dict.pop(legacy_key), self.config)
 
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+
+class MultiheadLatentAttention(nn.Module):
+    def __init__(self, config: Config, block_idx: int) -> None:
+        super().__init__()
+
+        self.q_a_proj = nn.Linear(config.n_embd, config.q_lora_rank, bias=config.attn_bias)
+        self.q_a_norm = RMSNorm(config.q_lora_rank, eps=config.norm_eps)
+        self.q_b_proj = nn.Linear(config.q_lora_rank, config.n_head * config.qk_head_dim, bias=config.bias)
+
+        self.kv_a_proj_with_mqa = nn.Linear(
+            config.n_embd, config.kv_lora_rank + config.qk_rope_head_dim, bias=config.attn_bias
+        )
+        self.kv_a_norm = RMSNorm(config.kv_lora_rank, eps=config.norm_eps)
+        self.kv_b_proj = nn.Linear(
+            config.kv_lora_rank,
+            config.n_query_groups * (config.qk_nope_head_dim + config.v_head_dim),
+            bias=config.bias,
+        )
+
+        # output projection
+        self.proj = nn.Linear(config.n_head * config.v_head_dim, config.n_embd, bias=config.bias)
+        # disabled by default
+        self.kv_cache: Optional[KVCache] = None
+
+        self.config = config
+        self.block_idx = block_idx
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        cos: torch.Tensor,
+        sin: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+        input_pos: Optional[torch.Tensor] = None,
+        input_pos_maxp1: Optional[int] = None,
+    ) -> torch.Tensor:
+        # Notation:
+        # - B          | batch size
+        # - T          | time-step (sequence length)
+        # - C          | model's embeddings size (n_embd)
+        # - C*         | attentions's embeddings size
+        # - hs         | head size
+        # - nh_(q,k,v) | number of heads for query, key and value
+        # - n_query_groups = nh_k = nh_v | number of query groups sharing key and value heads
+        # alternative notation: num_kv_groups = n_query_groups
+        B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+
+        q = self.q_b_proj(self.q_a_norm(self.q_a_proj(x)))  # (B, T, n_head * qk_head_dim)
+        q = q.view(B, T, -1, self.config.qk_head_dim)  # (B, T, n_head, qk_head_dim)
+        q = q.transpose(1, 2)  # (B, n_head, T, qk_head_dim)
+        q_pass, q_rot = torch.split(q, [self.config.qk_nope_head_dim, self.config.qk_rope_head_dim], dim=-1)
+
+        compressed_kv = self.kv_a_proj_with_mqa(x)  # (B, T, kv_lora_rank + qk_rope_head_dim)
+        k_pass, k_rot = torch.split(compressed_kv, [self.config.kv_lora_rank, self.config.qk_rope_head_dim], dim=-1)
+
+        k_pass = self.kv_b_proj(self.kv_a_norm(k_pass))
+        k_pass = k_pass.view(B, T, self.config.n_query_groups, -1)
+        k_pass = k_pass.transpose(1, 2)
+
+        k_pass, v = torch.split(k_pass, [self.config.qk_nope_head_dim, self.config.v_head_dim], dim=-1)
+        k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
+
+        # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
+        q_roped = apply_rope(q_rot, cos, sin)
+        k_roped = apply_rope(k_rot, cos, sin)
+        k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
+
+        q = torch.cat((q_pass, q_roped), dim=-1)
+        k = torch.cat((k_pass, k_roped), dim=-1)
+
+        # Apply kv-cache during inference.
+        if input_pos is not None:
+            if not isinstance(self.kv_cache, KVCache):
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            k, v = self.kv_cache(input_pos, k, v)
+            if input_pos_maxp1 is not None:
+                # Subselect along sequence dimension
+                k = k[..., :input_pos_maxp1, :]
+                v = v[..., :input_pos_maxp1, :]
+            # k, v: (B, nh_k, input_pos_maxp1, hs)
+            # If input_pos_maxp1 is None -> max_seq_length
+
+        # Grouped queries: balance the number of heads across all three matrices.
+        # NOTE: flash attention requires it in training mode.
+        # Multi-query: this step can be skipped since there is only 1 head, allowing us to use broadcasting.
+        if self.config.n_query_groups != self.config.n_head and (input_pos is None or self.config.n_query_groups != 1):
+            q_per_kv = self.config.n_head // self.config.n_query_groups
+            k = k.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
+            v = v.repeat_interleave(q_per_kv, dim=1)  # (B, nh_q, T, hs)
+
+        # Efficient attention using Flash Attention CUDA kernels.
+        # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
+        # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
+        y = self.scaled_dot_product_attention(q, k, v, mask)
+
+        # Re-assemble all head outputs side by side.
+        y = y.reshape(B, T, self.config.n_head * self.config.v_head_dim)
+
+        # Output projection.
+        return self.proj(y)  # (B, T, C)
+
+    def scaled_dot_product_attention(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.qk_head_dim)
+
+        # with softcapping we cannot use SDPA
+        if self.config.attention_logit_softcapping is not None:
+            scores = q @ k.mT * scale
+            scores = do_softcapping(scores, self.config.attention_logit_softcapping)
+            if mask is None:
+                mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
+                mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            scores = scores + mask
+            scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
+            y = scores @ v
+        else:
+            y = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+            )
+        return y.transpose(1, 2)
+
+    def build_kv_cache(
+        self,
+        batch_size: int,
+        max_seq_length: int,
+        rope_cache_length: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> "KVCache":
+        v_shape = (batch_size, self.config.n_head, max_seq_length, self.config.v_head_dim)
+        k_shape = (batch_size, self.config.n_head, max_seq_length, self.config.qk_head_dim)
+
+        if rope_cache_length is not None:
+            print("Warning: `rope_cache_length` has no effect on MultiheadLatentAttention!")
+        if self.config.rotary_percentage != 1.0:
+            print("Warning: `rotary_percentage` has no effect on MultiheadLatentAttention!")
+
+        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
 
 
 class GptNeoxMLP(nn.Module):

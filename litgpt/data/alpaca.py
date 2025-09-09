@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Optional, Union
 
 import torch
-from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import DataLoader, random_split
 
 from litgpt.data.base import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
+from litgpt.utils import _REQUESTS_AVAILABLE
 
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 
@@ -115,9 +115,8 @@ def download_if_missing(file_path: Path, file_url: str, mode: str = "w", stream:
     """Downloads the raw json data file and saves it in the given destination."""
     if file_path.exists() and file_path.stat().st_size > 0:
         return
-    requests_available = RequirementCache("requests")
-    if not requests_available:
-        raise ModuleNotFoundError(str(requests_available))
+    if not _REQUESTS_AVAILABLE:
+        raise ModuleNotFoundError(str(_REQUESTS_AVAILABLE))
     import requests
 
     response = requests.get(file_url, stream=stream)
