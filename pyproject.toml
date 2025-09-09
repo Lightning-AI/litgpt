@@ -8,7 +8,7 @@ requires = [
 
 [project]
 name = "litgpt"
-version = "0.5.10"
+version = "0.5.11"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 readme = "README.md"
 license = { file = "LICENSE" }
