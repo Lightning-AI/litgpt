@@ -15,7 +15,6 @@ import torch._dynamo.config
 import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.utilities import rank_zero_only
-from lightning_utilities.core.imports import RequirementCache
 
 import litgpt.generate.base as generate_base
 from litgpt.config import Config
@@ -23,6 +22,7 @@ from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMo
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -158,7 +158,7 @@ def main(
             raise NotImplementedError  # untested
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        if RequirementCache("bitsandbytes != 0.42.0"):
+        if _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0:
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )

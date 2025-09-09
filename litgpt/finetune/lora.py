@@ -13,7 +13,6 @@ import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import ModelParallelStrategy
 from lightning.fabric.utilities import ThroughputMonitor
-from lightning_utilities.core.imports import RequirementCache
 from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
@@ -25,6 +24,7 @@ from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     CycleIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
@@ -140,7 +140,7 @@ def setup(
     if quantize is not None and quantize.startswith("bnb."):
         if "mixed" in precision:
             raise ValueError("Quantization and mixed precision is not supported.")
-        if RequirementCache("bitsandbytes != 0.42.0"):
+        if _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0:
             warnings.warn(
                 "LitGPT only supports bitsandbytes v0.42.0. This may result in errors when using quantization."
             )
