@@ -208,7 +208,7 @@ def test_serve_with_openai_spec(tmp_path):
     try:
         # Test server health
         response = requests.get("http://127.0.0.1:8000/health")
-        assert response.status_code == 200, f"Server health check failed with status code {response.status_code}"
+        assert response.status_code == 200, f"Server health check failed with status code {response.status_code}: {response.text}"
         assert response.text == "ok", "Server did not respond as expected."
 
         # Test non-streaming chat completion
