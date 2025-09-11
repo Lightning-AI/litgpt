@@ -58,7 +58,7 @@ pip install 'litgpt[extra]'
 
 Load and use any of the [20+ LLMs](#choose-from-20-llms):
 ```python
-from litgpt import LLM
+from litgpt.api import LLM
 
 llm = LLM.load("microsoft/phi-2")
 text = llm.generate("Fix the spelling: Every fall, the family goes to the mountains.")
