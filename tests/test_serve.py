@@ -222,7 +222,7 @@ def test_serve_with_openai_spec(tmp_path):
             },
         )
         assert response.status_code == 200, (
-            f"Non-streaming chat completion failed with status code {response.status_code}"
+            f"Non-streaming chat completion failed with status code {response.status_code}: {response.text}"
         )
         response_json = response.json()
         assert "choices" in response_json, "Response JSON does not contain 'choices'."
