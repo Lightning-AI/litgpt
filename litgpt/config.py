@@ -86,7 +86,14 @@ class Config:
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     n_expert: int = 0
+    n_shared_expert: Optional[int] = None
+    n_expert_groups: Optional[int] = None
+    n_topk_groups: Optional[int] = None
+    n_topk_scores_per_group: Optional[int] = None
     n_expert_per_token: int = 0
+    first_k_dense_replace: Optional[int] = None
+    routed_scaling_factor: float = 1.0
+    norm_topk_prob: bool = False
     # GPT before/after blocks
     scale_embeddings: bool = False
     lm_head_bias: bool = False
@@ -150,6 +157,14 @@ class Config:
             assert self.n_head == self.n_query_groups, "Latent attention does not support MQA/GQA"
             self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
             self.rope_n_elem = self.qk_rope_head_dim
+        if self.first_k_dense_replace is not None:
+            assert self.mlp_class_name == "LLaMAMoE"
+        if self.n_expert_groups is not None:
+            assert self.n_expert % self.n_expert_groups == 0 and self.n_expert_groups > 1
+            assert self.n_topk_groups is not None
+            experts_per_group = self.n_expert // self.n_expert_groups
+            assert self.n_topk_scores_per_group is not None and self.n_topk_scores_per_group <= experts_per_group
+
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:

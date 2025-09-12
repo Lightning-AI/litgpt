@@ -73,7 +73,9 @@ class GPT(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
-        if isinstance(module, nn.Linear):
+        if isinstance(module, GroupedTopkRouter):
+            torch.nn.init.normal_(module.weight.data, mean=0.0, std=0.02)
+        elif isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -286,6 +288,8 @@ class Block(nn.Module):
             else (None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
         )
         self.mlp = config.mlp_class(config)
+        if config.first_k_dense_replace is not None and block_idx < config.first_k_dense_replace:
+            self.mlp = LLaMAMLP(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -734,10 +738,12 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False) if not config.n_expert_groups else GroupedTopkRouter(config)
         self.experts = nn.ModuleList(
             LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert)
         )
+        if config.n_shared_expert:
+            self.shared_experts = LLaMAMLP(config, intermediate_size=config.moe_intermediate_size * config.n_shared_expert)
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -746,17 +752,70 @@ class LLaMAMoE(nn.Module):
         See also figure 1 in https://arxiv.org/abs/2211.15841
         """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        residual_x = x.clone()
         x = x.view(-1, C)  # (B*T, C)
-        router = self.gate(x)  # (B*T, n_expert)
-        probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
-        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        if not self.config.n_expert_groups:
+            router = self.gate(x)  # (B*T, n_expert)
+            probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+            probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        else:
+            probs, indices = self.gate(x)
+        if self.config.routed_scaling_factor != 1.0:
+            probs = probs * self.config.routed_scaling_factor
         masks = indices.unsqueeze(-1) == torch.arange(self.config.n_expert, device=x.device)
         masks = masks.permute(2, 0, 1)  # (n_expert, B*T, n_expert_per_token)
         y = torch.zeros_like(x)  # (B*T, C)
         for mask, expert in zip(masks, self.experts):
             token_idx, expert_idx = torch.where(mask)
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
-        return y.view(B, T, C)
+        
+        y = y.view(B, T, C)
+        if self.config.n_shared_expert:
+            y = y + self.shared_experts(residual_x)
+        return y
+
+
+class GroupedTopkRouter(nn.Module):
+    """ 
+    Derived from: https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py.
+    DeepseekV3TopkRouter class.
+    """
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.config = config
+        self.weight = nn.Parameter(torch.empty(config.n_expert, config.n_embd))
+        self.register_buffer("e_score_correction_bias", torch.zeros(config.n_expert))
+
+    @torch.no_grad()
+    def get_topk_indices(self, scores: torch.Tensor) -> torch.Tensor:
+        scores_for_choice = scores.view(-1, self.config.n_expert) + self.e_score_correction_bias.unsqueeze(0)
+        group_scores = (
+            scores_for_choice.view(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .topk(self.config.n_topk_scores_per_group, dim=-1)[0] # Top k scores for each group
+            .sum(dim=-1)
+        )
+
+        group_idx = torch.topk(group_scores, k=self.config.n_topk_groups, dim=-1, sorted=False)[1]
+        group_mask = torch.zeros_like(group_scores)
+        group_mask.scatter_(1, group_idx, 1)
+        score_mask = (
+            group_mask.unsqueeze(-1)
+            .expand(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .reshape(-1, self.config.n_expert)
+        )
+        scores_for_choice = scores_for_choice.masked_fill(~score_mask.bool(), 0.0)
+        topk_indices = torch.topk(scores_for_choice, k=self.config.n_expert_per_token, dim=-1, sorted=False)[1]
+        return topk_indices
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        router_logits = F.linear(x.type(torch.float32), self.weight.type(torch.float32))
+        scores = router_logits.sigmoid()
+        topk_indices = self.get_topk_indices(scores)
+        topk_weights = scores.gather(1, topk_indices)
+        if self.config.norm_topk_prob:
+            denominator = topk_weights.sum(dim=-1, keepdim=True) + 1e-20
+            topk_weights /= denominator
+        return topk_weights, topk_indices
 
 
 def build_rope_cache(
