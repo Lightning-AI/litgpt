@@ -7,6 +7,7 @@ from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausa
 from litgpt import Config
 from litgpt.model import GPT, LLaMAMLP
 
+
 @torch.inference_mode()
 @pytest.mark.parametrize("batch_size", (1, 2))
 @pytest.mark.parametrize("seq_len", (8, 16))
@@ -35,7 +36,7 @@ def test_deepseek_moe_litgpt_vs_hf(batch_size, seq_len, device):
         n_expert_per_token=2,
         n_expert_groups=4,
         n_topk_groups=2,
-        n_topk_scores_per_group=2, # Note: Deepseek hardcodes this to `2`
+        n_topk_scores_per_group=2,  # Note: Deepseek hardcodes this to `2`
         first_k_dense_replace=1,
         routed_scaling_factor=2.5,
         norm_topk_prob=True,
@@ -71,7 +72,7 @@ def test_deepseek_moe_litgpt_vs_hf(batch_size, seq_len, device):
     model_litgpt.apply(model_litgpt._init_weights)
 
     mlp_litgpt = model_litgpt.transformer.h[0].mlp
-    assert isinstance(mlp_litgpt, LLaMAMLP) # Test first_k_dense_replace (k=1)
+    assert isinstance(mlp_litgpt, LLaMAMLP)  # Test first_k_dense_replace (k=1)
 
     moe_litgpt = model_litgpt.transformer.h[1].mlp
     model_hf = DeepseekV3ForCausalLM(config_hf).to(device)
@@ -94,10 +95,10 @@ def sync_weights(litgpt_model, hf_model):
     print("Synchronizing MoE weights...")
 
     with torch.no_grad():
-        if hasattr(litgpt_model, 'gate'):
-            if hasattr(litgpt_model.gate, 'weight'):
+        if hasattr(litgpt_model, "gate"):
+            if hasattr(litgpt_model.gate, "weight"):
                 hf_model.gate.weight.copy_(litgpt_model.gate.weight)
-            if hasattr(litgpt_model.gate, 'e_score_correction_bias'):
+            if hasattr(litgpt_model.gate, "e_score_correction_bias"):
                 hf_model.gate.e_score_correction_bias.copy_(litgpt_model.gate.e_score_correction_bias)
 
         for i, (litgpt_expert, hf_expert) in enumerate(zip(litgpt_model.experts, hf_model.experts)):
@@ -105,9 +106,9 @@ def sync_weights(litgpt_model, hf_model):
             hf_expert.up_proj.weight.copy_(litgpt_expert.fc_2.weight)
             hf_expert.down_proj.weight.copy_(litgpt_expert.proj.weight)
 
-        if hasattr(litgpt_model, 'shared_experts') and hasattr(hf_model, 'shared_experts'):
-              hf_model.shared_experts.gate_proj.weight.copy_(litgpt_model.shared_experts.fc_1.weight)
-              hf_model.shared_experts.up_proj.weight.copy_(litgpt_model.shared_experts.fc_2.weight)
-              hf_model.shared_experts.down_proj.weight.copy_(litgpt_model.shared_experts.proj.weight)
+        if hasattr(litgpt_model, "shared_experts") and hasattr(hf_model, "shared_experts"):
+            hf_model.shared_experts.gate_proj.weight.copy_(litgpt_model.shared_experts.fc_1.weight)
+            hf_model.shared_experts.up_proj.weight.copy_(litgpt_model.shared_experts.fc_2.weight)
+            hf_model.shared_experts.down_proj.weight.copy_(litgpt_model.shared_experts.proj.weight)
 
     print("MoE weight synchronization complete.")

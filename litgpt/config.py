@@ -165,7 +165,6 @@ class Config:
             experts_per_group = self.n_expert // self.n_expert_groups
             assert self.n_topk_scores_per_group is not None and self.n_topk_scores_per_group <= experts_per_group
 
-
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
         if name not in name_to_config:

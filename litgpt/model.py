@@ -738,12 +738,18 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False) if not config.n_expert_groups else GroupedTopkRouter(config)
+        self.gate = (
+            nn.Linear(config.n_embd, config.n_expert, bias=False)
+            if not config.n_expert_groups
+            else GroupedTopkRouter(config)
+        )
         self.experts = nn.ModuleList(
             LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert)
         )
         if config.n_shared_expert:
-            self.shared_experts = LLaMAMLP(config, intermediate_size=config.moe_intermediate_size * config.n_shared_expert)
+            self.shared_experts = LLaMAMLP(
+                config, intermediate_size=config.moe_intermediate_size * config.n_shared_expert
+            )
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -768,7 +774,7 @@ class LLaMAMoE(nn.Module):
         for mask, expert in zip(masks, self.experts):
             token_idx, expert_idx = torch.where(mask)
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
-        
+
         y = y.view(B, T, C)
         if self.config.n_shared_expert:
             y = y + self.shared_experts(residual_x)
@@ -776,10 +782,11 @@ class LLaMAMoE(nn.Module):
 
 
 class GroupedTopkRouter(nn.Module):
-    """ 
+    """
     Derived from: https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py.
     DeepseekV3TopkRouter class.
     """
+
     def __init__(self, config: Config) -> None:
         super().__init__()
         self.config = config
@@ -791,7 +798,7 @@ class GroupedTopkRouter(nn.Module):
         scores_for_choice = scores.view(-1, self.config.n_expert) + self.e_score_correction_bias.unsqueeze(0)
         group_scores = (
             scores_for_choice.view(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
-            .topk(self.config.n_topk_scores_per_group, dim=-1)[0] # Top k scores for each group
+            .topk(self.config.n_topk_scores_per_group, dim=-1)[0]  # Top k scores for each group
             .sum(dim=-1)
         )
 
