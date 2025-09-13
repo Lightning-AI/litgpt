@@ -13,7 +13,7 @@ from litgpt.model import GPT, LLaMAMLP
 @pytest.mark.parametrize("seq_len", (8, 16))
 @pytest.mark.parametrize("device", [torch.device("cpu")])
 def test_deepseek_moe_litgpt_vs_hf(batch_size, seq_len, device):
-    """Test MLA litgpt vs hf"""
+    """Test MOE litgpt vs hf"""
     config_litgpt = Config(
         padded_vocab_size=10000,
         n_layer=2,
