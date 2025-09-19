@@ -43,7 +43,9 @@ run: |
   python -c "import torch ; gpus = torch.cuda.device_count() ; assert gpus >= 2, f'GPU: {gpus}'"
   python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '$TORCH_VERSION', f'PyTorch: installed {ver} but expected $TORCH_VERSION'"
 
-  pytest -v --durations=100 tests/
+  pytest -v --durations=100 tests/ --ignore=tests/test_serve.py
+  pytest -v --durations=100 tests/test_serve.py
+
 
   wget https://raw.githubusercontent.com/Lightning-AI/utilities/main/scripts/run_standalone_tests.sh
   PL_RUN_STANDALONE_TESTS=1 bash run_standalone_tests.sh "tests"
