@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
   # download models:
-  "huggingface-hub>=0.30,<0.35",
+  "huggingface-hub>=0.30,<0.36",
   "jsonargparse[signatures]>=4.31,<=4.32.1; python_version<'3.10'", # 4.33 does not seem to be compatible with Python 3.9
   "jsonargparse[signatures]>=4.37; python_version>'3.9'",           # required to work with python3.12+
   "lightning>=2.5",
