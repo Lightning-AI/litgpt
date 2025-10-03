@@ -25,9 +25,9 @@ defaults:
 
 env:
   HF_HOME: ${{ github.workspace }}/.cache-HF # Define HF_HOME for caching
-  TRANSFORMERS_CACHE: .cache-HF/transformers	  HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.cache-HF/hub
-  DATASETS_CACHE: .cache-HF/datasets	  TRANSFORMERS_CACHE: ${{ github.workspace }}/.cache-HF/transformers
-  HF_DATASETS_CACHE: .cache-HF/datasets	  DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
+  HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.cache-HF/hub
+  TRANSFORMERS_CACHE: ${{ github.workspace }}/.cache-HF/transformers
+  DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
   HF_DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
 
 jobs:
