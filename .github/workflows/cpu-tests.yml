@@ -3,7 +3,7 @@ name: CPU tests
 on:
   push:
     branches: [main]
-  pull_request_target:
+  pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, labeled, synchronize]
   pull_request: {} # todo
@@ -122,15 +122,32 @@ jobs:
           pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
           pip list
 
+      - name: Show cache before tests
+        run: |
+          pip install -q py-tree
+          echo "=== Cache contents BEFORE running tests ==="
+          if [ -d ".cache-HF" ]; then
+            python -m py_tree -d 1 .cache-HF
+          else
+            echo "No .cache-HF directory found"
+          fi
+          echo "=== End cache contents BEFORE tests ==="
+
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100 --ignore=tests/test_tokenizer.py
 
-      - name: Show cache
+      - name: Show cache after tests
         run: |
           pip install -q py-tree
-          python -m py_tree -d 1 .cache-HF
+          echo "=== Cache contents AFTER running tests ==="
+          if [ -d ".cache-HF" ]; then
+            python -m py_tree -d 1 .cache-HF
+          else
+            echo "No .cache-HF directory found"
+          fi
+          echo "=== End cache contents AFTER tests ==="
 
   testing-guardian:
     runs-on: ubuntu-latest
