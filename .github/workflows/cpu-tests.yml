@@ -27,10 +27,11 @@ defaults:
     shell: bash
 
 env:
-  HF_HOME: .cache-HF # Define HF_HOME for caching
-  TRANSFORMERS_CACHE: .cache-HF/transformers
-  DATASETS_CACHE: .cache-HF/datasets
-  HF_DATASETS_CACHE: .cache-HF/datasets
+  HF_HOME: ${{ github.workspace }}/.cache-HF # Define HF_HOME for caching
+  HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.cache-HF/hub
+  TRANSFORMERS_CACHE: ${{ github.workspace }}/.cache-HF/transformers
+  DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
+  HF_DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
 
 jobs:
   testing-imports:
@@ -106,7 +107,7 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
           restore-keys: |
             hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
             hf-cache_${{ runner.os }}-
