@@ -27,11 +27,10 @@ defaults:
     shell: bash
 
 env:
-  HF_HOME: ${{ github.workspace }}/.cache-HF # Define HF_HOME for caching
-  HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.cache-HF/hub
-  TRANSFORMERS_CACHE: ${{ github.workspace }}/.cache-HF/transformers
-  DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
-  HF_DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
+  HF_HOME: .cache-HF # Define HF_HOME for caching
+  TRANSFORMERS_CACHE: .cache-HF/transformers
+  DATASETS_CACHE: .cache-HF/datasets
+  HF_DATASETS_CACHE: .cache-HF/datasets
 
 jobs:
   testing-imports:
@@ -46,7 +45,7 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -95,7 +94,7 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache-dependency-path: pyproject.toml
@@ -123,22 +122,14 @@ jobs:
           pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
           pip list
 
-      - name: Show cache before tests
-        run: |
-          pip install -q py-tree
-          echo "=== Cache contents before tests ==="
-          python -m py_tree -d 1 .cache-HF
-
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
-      - name: Show cache after tests
-        if: always()
+      - name: Show cache
         run: |
           pip install -q py-tree
-          echo "=== Cache contents after tests ==="
           python -m py_tree -d 1 .cache-HF
 
   testing-guardian:
