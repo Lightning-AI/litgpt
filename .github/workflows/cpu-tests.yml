@@ -123,14 +123,22 @@ jobs:
           pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
           pip list
 
+      - name: Show cache before tests
+        run: |
+          pip install -q py-tree
+          echo "=== Cache contents before tests ==="
+          python -m py_tree -d 1 .cache-HF
+
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
-      - name: Show cache
+      - name: Show cache after tests
+        if: always()
         run: |
           pip install -q py-tree
+          echo "=== Cache contents after tests ==="
           python -m py_tree -d 1 .cache-HF
 
   testing-guardian:
