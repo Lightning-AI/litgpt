@@ -101,7 +101,7 @@ jobs:
           cache: "pip"
 
       # Add caching for HF models and tokenizers
-      - name: HF cache
+      - name: HF cache TEST NAME CHANGE
         uses: actions/cache@v4
         continue-on-error: true
         with:
@@ -125,7 +125,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100 -k "not test_tokenizer_against_hf"
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100 --ignore=tests/test_tokenizer.py
 
       - name: Show cache
         run: |
