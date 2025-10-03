@@ -3,9 +3,6 @@ name: CPU tests
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, labeled, synchronize]
   pull_request: {} # todo
   workflow_dispatch: {}
 
