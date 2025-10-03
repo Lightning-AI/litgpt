@@ -133,7 +133,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100 --ignore=tests/test_tokenizer.py
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache after tests
         run: |
