@@ -104,7 +104,7 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
             hf-cache_${{ runner.os }}-
