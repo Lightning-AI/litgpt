@@ -2,7 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, pwgardipee/fix-ci]
   pull_request: {} # todo
   workflow_dispatch: {}
 
