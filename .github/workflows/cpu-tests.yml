@@ -2,10 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, labeled, synchronize]
+    branches: [main, pwgardipee/fix-ci]
   pull_request: {} # todo
   workflow_dispatch: {}
 
@@ -27,10 +24,11 @@ defaults:
     shell: bash
 
 env:
-  HF_HOME: .cache-HF # Define HF_HOME for caching
-  TRANSFORMERS_CACHE: .cache-HF/transformers
-  DATASETS_CACHE: .cache-HF/datasets
-  HF_DATASETS_CACHE: .cache-HF/datasets
+  HF_HOME: ${{ github.workspace }}/.cache-HF # Define HF_HOME for caching
+  HUGGINGFACE_HUB_CACHE: ${{ github.workspace }}/.cache-HF/hub
+  TRANSFORMERS_CACHE: ${{ github.workspace }}/.cache-HF/transformers
+  DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
+  HF_DATASETS_CACHE: ${{ github.workspace }}/.cache-HF/datasets
 
 jobs:
   testing-imports:
@@ -45,7 +43,7 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -94,19 +92,19 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache-dependency-path: pyproject.toml
           cache: "pip"
 
       # Add caching for HF models and tokenizers
-      - name: HF cache
+      - name: HF cache TEST NAME CHANGE
         uses: actions/cache@v4
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
             hf-cache_${{ runner.os }}-
@@ -120,17 +118,36 @@ jobs:
       - name: Install dependencies
         run: |
           pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
+          pip install hf_transfer
           pip list
+
+      - name: Show cache before tests
+        run: |
+          pip install -q py-tree
+          echo "=== Cache contents BEFORE running tests ==="
+          if [ -d ".cache-HF" ]; then
+            python -m py_tree -d 1 .cache-HF
+          else
+            echo "No .cache-HF directory found"
+          fi
+          echo "=== End cache contents BEFORE tests ==="
 
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
-      - name: Show cache
+      - name: Show cache after tests
         run: |
           pip install -q py-tree
-          python -m py_tree -d 1 .cache-HF
+          echo "=== Cache contents AFTER running tests ==="
+          if [ -d ".cache-HF" ]; then
+            python -m py_tree -d 1 .cache-HF
+          else
+            echo "No .cache-HF directory found"
+          fi
+          echo "=== End cache contents AFTER tests ==="
 
   testing-guardian:
     runs-on: ubuntu-latest
