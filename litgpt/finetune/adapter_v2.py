@@ -330,6 +330,9 @@ def fit(
             logits = model(input_ids, lm_head_chunk_size=128)
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
+            # Remove empty chunks (can happen when last chunk has size 1)
+            if logits[-1].size(1) == 0:
+                logits = logits[:-1]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
             fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
