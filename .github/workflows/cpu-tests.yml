@@ -118,6 +118,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
+          pip install hf_transfer
           pip list
 
       - name: Show cache before tests
@@ -134,6 +135,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache after tests
