@@ -14,7 +14,12 @@ import yaml
 from lightning import Fabric
 
 from litgpt import Config
-from litgpt.generate.sequentially import layer_to_device, replace_device, sequential
+from litgpt.generate.sequentially import (
+    layer_to_device,
+    replace_device,
+    sequential,
+    chunk_sizes,
+)
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
@@ -28,8 +33,8 @@ from .utils import find_forward_hooks
         (6, 1, {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0}),
         (6, 2, {0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1}),
         (6, 3, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
-        (6, 4, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
-        (6, 5, {0: 0, 1: 0, 2: 1, 3: 1, 4: 2, 5: 2}),
+        (6, 4, {0: 0, 1: 1, 2: 2, 3: 2, 4: 3, 5: 3}),
+        (6, 5, {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 4}),
         (6, 6, {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}),
     ],
 )
@@ -37,8 +42,8 @@ def test_layer_to_device(n_layer, devices, expected):
     with torch.device("meta"):
         model = GPT.from_name("pythia-14m", n_layer=n_layer)
 
-    max_layers_per_device = math.ceil(n_layer / devices)
-    actual = layer_to_device(model, Block, chunk_size=max_layers_per_device)
+    c_sizes = chunk_sizes(n_layer, devices)
+    actual = layer_to_device(model, Block, chunk_sizes=c_sizes)
     expected = {f"transformer.h.{i}": v for i, v in expected.items()}
     assert actual == expected
 
