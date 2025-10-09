@@ -9,10 +9,10 @@ import pytest
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
-from transformers.utils import cached_file
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
+import litmodels
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
@@ -20,19 +20,26 @@ from litgpt import PromptStyle, Tokenizer
 def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
-    repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("PEYTON_TEST_HF_TOKEN"))
+    lightning_repo_id = f"lightning-ai/ci/{config.hf_config['name']}"
+
+    model_path = litmodels.download_model(
+        lightning_repo_id,
+        download_dir=f"./local-models/{lightning_repo_id}",
+    )
+    
+    theirs = AutoTokenizer.from_pretrained(f"./local-models/{lightning_repo_id}", use_fast=True)
 
     # create a checkpoint directory that points to the HF files
     hf_files = {}
+    src_dir = f"./local-models/{lightning_repo_id}"
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-        try:  # download the HF tokenizer config
-            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename, token=os.getenv("PEYTON_TEST_HF_TOKEN"))
-            hf_files[filename] = str(hf_file)
-        except Exception as ex:
-            warnings.warn(str(ex), RuntimeWarning)
+        file_path = os.path.join(src_dir, filename)
+        if os.path.isfile(file_path):
+            hf_files[filename] = file_path
+        else:
+            warnings.warn(f"{file_path} not found", RuntimeWarning)
     if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
-        raise ConnectionError("Unable to download any tokenizer files from HF")
+        raise ConnectionError("Unable to find any tokenizer files in the local model directory")
 
     # we need to rename the dir to match the model name in testing as well
     # since we use to it determine the model in tokenizer.py
