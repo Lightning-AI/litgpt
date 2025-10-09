@@ -642,258 +642,258 @@ configs.extend(open_LLaMA)
 ###############
 # Meta LLaMA 2
 ###############
-# llama_2 = [
-#     # https://huggingface.co/meta-llama/Llama-2-7b-hf/blob/main/config.json
-#     dict(
-#         name="Llama-2-7b{}-hf",
-#         hf_config=dict(org="meta-llama", name="Llama-2-7b{}-hf"),
-#         vocab_size=32000,
-#         padding_multiple=64,
-#         n_layer=32,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=11008,
-#     ),
-#     # https://huggingface.co/meta-llama/Llama-2-13b-hf/blob/main/config.json
-#     dict(
-#         name="Llama-2-13b{}-hf",
-#         hf_config=dict(org="meta-llama", name="Llama-2-13b{}-hf"),
-#         vocab_size=32000,
-#         padding_multiple=64,
-#         n_layer=40,
-#         n_head=40,
-#         n_embd=5120,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=13824,
-#     ),
-#     # https://huggingface.co/meta-llama/Llama-2-70b-hf/blob/main/config.json
-#     dict(
-#         name="Llama-2-70b{}-hf",
-#         hf_config=dict(org="meta-llama", name="Llama-2-70b{}-hf"),
-#         vocab_size=32000,
-#         padding_multiple=64,
-#         n_layer=80,
-#         n_head=64,
-#         n_embd=8192,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=28672,
-#     ),
-# ]
-# for c in llama_2:
-#     for kind in ("", "-chat"):
-#         copy = deepcopy(c)
-#         copy["name"] = c["name"].format(kind)
-#         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
-#         configs.append(copy)
+llama_2 = [
+    # https://huggingface.co/meta-llama/Llama-2-7b-hf/blob/main/config.json
+    dict(
+        name="Llama-2-7b{}-hf",
+        hf_config=dict(org="meta-llama", name="Llama-2-7b{}-hf"),
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=32,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=11008,
+    ),
+    # https://huggingface.co/meta-llama/Llama-2-13b-hf/blob/main/config.json
+    dict(
+        name="Llama-2-13b{}-hf",
+        hf_config=dict(org="meta-llama", name="Llama-2-13b{}-hf"),
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=40,
+        n_head=40,
+        n_embd=5120,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=13824,
+    ),
+    # https://huggingface.co/meta-llama/Llama-2-70b-hf/blob/main/config.json
+    dict(
+        name="Llama-2-70b{}-hf",
+        hf_config=dict(org="meta-llama", name="Llama-2-70b{}-hf"),
+        vocab_size=32000,
+        padding_multiple=64,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+    ),
+]
+for c in llama_2:
+    for kind in ("", "-chat"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
 
-# ###############
-# # Meta LLaMA 3
-# ###############
-# llama_3 = [
-#     # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
-#     dict(
-#         name="Llama-3-8B{}",
-#         hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
-#         block_size=8192,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=32,
-#         n_head=32,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=14336,
-#         rope_base=500000,
-#     ),
-#     # https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json
-#     dict(
-#         name="Llama-3.1-8B{}",
-#         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-8B{}"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=32,
-#         n_head=32,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=14336,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-#     # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
-#     dict(
-#         name="Llama-3-70B{}",
-#         hf_config=dict(org="meta-llama", name="Meta-Llama-3-70B{}"),
-#         block_size=8192,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=80,
-#         n_head=64,
-#         n_embd=8192,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=28672,
-#         rope_base=500000,
-#     ),
-#     # https://huggingface.co/meta-llama/Meta-Llama-3.1-70B/blob/main/config.json
-#     dict(
-#         name="Llama-3.1-70B{}",
-#         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-70B{}"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=80,
-#         n_head=64,
-#         n_embd=8192,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=28672,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-#     # https://huggingface.co/meta-llama/Meta-Llama-3.1-405B/blob/main/config.json
-#     dict(
-#         name="Llama-3.1-405B{}",
-#         hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-405B{}"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=126,
-#         n_head=128,
-#         n_embd=16384,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=53248,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-#     # https://huggingface.co/meta-llama/Llama-3.2-1B/blob/main/config.json
-#     dict(
-#         name="Llama-3.2-1B{}",
-#         hf_config=dict(org="meta-llama", name="Llama-3.2-1B{}"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=16,
-#         n_embd=2048,
-#         n_head=32,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=8192,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-#     # https://huggingface.co/meta-llama/Llama-3.2-3B/blob/main/config.json
-#     dict(
-#         name="Llama-3.2-3B{}",
-#         hf_config=dict(org="meta-llama", name="Llama-3.2-3B{}"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=28,
-#         n_embd=3072,
-#         n_head=24,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=8192,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-#     # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
-#     dict(
-#         name="Llama-3.3-70B-Instruct",
-#         hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=80,
-#         n_head=64,
-#         n_embd=8192,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=28672,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-# ]
-# for c in llama_3:
-#     if c["name"] == "Llama-3.3-70B-Instruct":
-#         configs.append(c)
-#         continue
-#     for kind in ("", "-Instruct"):
-#         copy = deepcopy(c)
-#         copy["name"] = c["name"].format(kind)
-#         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
-#         configs.append(copy)
+###############
+# Meta LLaMA 3
+###############
+llama_3 = [
+    # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
+    dict(
+        name="Llama-3-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
+        block_size=8192,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-8B/blob/main/config.json
+    dict(
+        name="Llama-3.1-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-8B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3-70B/blob/main/config.json
+    dict(
+        name="Llama-3-70B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-70B{}"),
+        block_size=8192,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-70B/blob/main/config.json
+    dict(
+        name="Llama-3.1-70B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-70B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+    # https://huggingface.co/meta-llama/Meta-Llama-3.1-405B/blob/main/config.json
+    dict(
+        name="Llama-3.1-405B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3.1-405B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=126,
+        n_head=128,
+        n_embd=16384,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=53248,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+    # https://huggingface.co/meta-llama/Llama-3.2-1B/blob/main/config.json
+    dict(
+        name="Llama-3.2-1B{}",
+        hf_config=dict(org="meta-llama", name="Llama-3.2-1B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=16,
+        n_embd=2048,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+        rope_base=500000,
+        rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+    # https://huggingface.co/meta-llama/Llama-3.2-3B/blob/main/config.json
+    dict(
+        name="Llama-3.2-3B{}",
+        hf_config=dict(org="meta-llama", name="Llama-3.2-3B{}"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=28,
+        n_embd=3072,
+        n_head=24,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=8192,
+        rope_base=500000,
+        rope_adjustments=dict(factor=32.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+    # https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct/blob/main/config.json
+    dict(
+        name="Llama-3.3-70B-Instruct",
+        hf_config=dict(org="meta-llama", name="Llama-3.3-70B-Instruct"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+]
+for c in llama_3:
+    if c["name"] == "Llama-3.3-70B-Instruct":
+        configs.append(c)
+        continue
+    for kind in ("", "-Instruct"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
 
-# #########################
-# # NVIDIA Llama Nemotron
-# #########################
-# configs.append(
-#     dict(
-#         name="Llama-3.1-Nemotron-70B-Instruct-HF",
-#         hf_config=dict(org="nvidia", name="Llama-3.1-Nemotron-70B-Instruct-HF"),
-#         block_size=131072,
-#         vocab_size=128000,
-#         padded_vocab_size=128256,
-#         n_layer=80,
-#         n_head=64,
-#         n_embd=8192,
-#         n_query_groups=8,
-#         rotary_percentage=1.0,
-#         parallel_residual=False,
-#         bias=False,
-#         norm_class_name="RMSNorm",
-#         mlp_class_name="LLaMAMLP",
-#         intermediate_size=28672,
-#         rope_base=500000,
-#         rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
-#     ),
-# )
+#########################
+# NVIDIA Llama Nemotron
+#########################
+configs.append(
+    dict(
+        name="Llama-3.1-Nemotron-70B-Instruct-HF",
+        hf_config=dict(org="nvidia", name="Llama-3.1-Nemotron-70B-Instruct-HF"),
+        block_size=131072,
+        vocab_size=128000,
+        padded_vocab_size=128256,
+        n_layer=80,
+        n_head=64,
+        n_embd=8192,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=28672,
+        rope_base=500000,
+        rope_adjustments=dict(factor=8.0, low_freq_factor=1.0, high_freq_factor=4.0, original_max_seq_len=8192),
+    ),
+)
 
 #################
 # Allen AI OLMo

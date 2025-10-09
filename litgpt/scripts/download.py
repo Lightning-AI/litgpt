@@ -13,7 +13,7 @@ from litgpt.utils import _HF_TRANSFER_AVAILABLE, _SAFETENSORS_AVAILABLE
 
 def download_from_hub(
     repo_id: str,
-    access_token: Optional[str] = os.getenv("HF_TOKEN"),
+    access_token: Optional[str] = os.getenv("PEYTON_TEST_HF_TOKEN"),
     tokenizer_only: bool = False,
     convert_checkpoint: bool = True,
     dtype: Optional[str] = None,
