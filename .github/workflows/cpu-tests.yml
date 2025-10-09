@@ -125,6 +125,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          PEYTON_TEST_HF_TOKEN: ${{ secrets.PEYTON_TEST_HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache

@@ -21,7 +21,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
+    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("PEYTON_TEST_HF_TOKEN"))
 
     # create a checkpoint directory that points to the HF files
     hf_files = {}
