@@ -28,6 +28,7 @@ defaults:
 
 env:
   HF_HOME: .cache-HF # Define HF_HOME for caching
+  HF_HUB_CACHE: .cache-HF/hub # Define HF_HUB_CACHE for huggingface_hub
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
@@ -106,10 +107,9 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+          key: hf-cache_${{ runner.os }}
           restore-keys: |
-            hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
-            hf-cache_${{ runner.os }}-
+            hf-cache_${{ runner.os }}
             hf-cache_
 
       - name: Set min. dependencies
