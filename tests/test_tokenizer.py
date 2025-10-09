@@ -27,7 +27,7 @@ def test_tokenizer_against_hf(config, tmp_path):
     hf_files = {}
     for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
         try:  # download the HF tokenizer config
-            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename)
+            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename, token=os.getenv("PEYTON_TEST_HF_TOKEN"))
             hf_files[filename] = str(hf_file)
         except Exception as ex:
             warnings.warn(str(ex), RuntimeWarning)
