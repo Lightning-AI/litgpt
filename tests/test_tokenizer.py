@@ -5,6 +5,7 @@ import warnings
 from types import SimpleNamespace
 from unittest import mock
 
+import litmodels
 import pytest
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
@@ -12,7 +13,6 @@ from transformers import AutoTokenizer
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
-import litmodels
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
@@ -26,7 +26,7 @@ def test_tokenizer_against_hf(config, tmp_path):
         lightning_repo_id,
         download_dir=f"./local-models/{lightning_repo_id}",
     )
-    
+
     theirs = AutoTokenizer.from_pretrained(f"./local-models/{lightning_repo_id}", use_fast=True)
 
     # create a checkpoint directory that points to the HF files
