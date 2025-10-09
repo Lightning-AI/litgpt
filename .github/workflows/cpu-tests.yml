@@ -2,10 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, labeled, synchronize]
+    branches: [main, pwgardipee/fix-ci-2]
   pull_request: {} # todo
   workflow_dispatch: {}
 
