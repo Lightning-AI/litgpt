@@ -54,6 +54,7 @@ optional-dependencies.extra = [
   "litdata==0.2.51",
   # litgpt.deploy:
   "litserve>0.2",
+  "litmodels>=0.1.8",
   "lm-eval>=0.4.2,!=0.4.9.1",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
