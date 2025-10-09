@@ -135,8 +135,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_HUB_ENABLE_HF_TRANSFER: 1
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100 -s
 
       - name: Show cache after tests
         run: |

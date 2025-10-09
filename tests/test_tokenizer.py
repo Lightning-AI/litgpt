@@ -20,6 +20,8 @@ from litgpt import PromptStyle, Tokenizer
 def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
+    print("HF TOKEN", os.getenv("HF_TOKEN"))
+
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
     theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
