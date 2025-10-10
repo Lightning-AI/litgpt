@@ -97,6 +97,9 @@ jobs:
           cache-dependency-path: pyproject.toml
           cache: "pip"
 
+      - name: Debug with SSH
+        uses: mxschmitt/action-tmate@v3
+
       # Add caching for HF models and tokenizers
       - name: HF cache
         uses: actions/cache@v4
