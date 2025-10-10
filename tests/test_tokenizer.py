@@ -23,8 +23,9 @@ def test_tokenizer_against_hf(config, tmp_path):
     lightning_repo_id = f"lightning-ai/ci/{config.hf_config['name']}"
 
     model_path = litmodels.download_model(
-        lightning_repo_id,
+        name=lightning_repo_id,
         download_dir=f"./local-models/{lightning_repo_id}",
+        progress_bar=False,
     )
 
     theirs = AutoTokenizer.from_pretrained(f"./local-models/{lightning_repo_id}", use_fast=True)
