@@ -21,14 +21,18 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     lightning_repo_id = f"lightning-ai/ci/{config.hf_config['name']}"
+    print(f"DEBUG: Starting download for {lightning_repo_id}")
 
     model_path = litmodels.download_model(
         name=lightning_repo_id,
         download_dir=f"./local-models/{lightning_repo_id}",
         progress_bar=False,
     )
+    print(f"DEBUG: Download completed for {lightning_repo_id}")
 
+    print(f"DEBUG: Loading AutoTokenizer for {lightning_repo_id}")
     theirs = AutoTokenizer.from_pretrained(f"./local-models/{lightning_repo_id}", use_fast=True)
+    print(f"DEBUG: AutoTokenizer loaded for {lightning_repo_id}")
 
     # create a checkpoint directory that points to the HF files
     hf_files = {}
