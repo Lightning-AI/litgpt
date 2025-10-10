@@ -99,6 +99,8 @@ jobs:
 
       - name: Debug with SSH
         uses: mxschmitt/action-tmate@v3
+        with:
+          detached: true
 
       # Add caching for HF models and tokenizers
       - name: HF cache
