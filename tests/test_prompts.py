@@ -57,7 +57,7 @@ def test_prompt_style_from_config():
         "stablelm-tuned-alpha-3b",
         "stablelm-tuned-alpha-7b",
         "stablelm-zephyr-3b",
-        # "stablecode-instruct-alpha-3b",
+        "stablecode-instruct-alpha-3b",
         "falcon-7b-instruct",
         "falcon-40b-instruct",
         "Llama-2-7b-chat-hf",

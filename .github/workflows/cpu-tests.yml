@@ -104,9 +104,10 @@ jobs:
         continue-on-error: true
         with:
           path: .cache-HF
-          key: hf-cache_${{ runner.os }}
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
           restore-keys: |
-            hf-cache_${{ runner.os }}
+            hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+            hf-cache_${{ runner.os }}-
             hf-cache_
 
       - name: Set min. dependencies
@@ -122,10 +123,8 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          PEYTON_TEST_HF_TOKEN: ${{ secrets.PEYTON_TEST_HF_TOKEN }}
           LIGHTNING_USER_ID: ${{ secrets.LIGHTNING_USER_ID }}
           LIGHTNING_API_KEY: ${{ secrets.LIGHTNING_API_KEY }}
-          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: pytest -v litgpt/ tests/test_tokenizer.py::test_tokenizer_against_hf --timeout=180 --durations=100
 
       - name: Show cache
