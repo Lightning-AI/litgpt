@@ -1,18 +1,13 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-import os
-import shutil
-import warnings
 from types import SimpleNamespace
 from unittest import mock
 
-import litmodels
 import pytest
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
-from transformers import AutoTokenizer
 
 import litgpt.config as config_module
-from litgpt import PromptStyle, Tokenizer
+from litgpt import Tokenizer
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
