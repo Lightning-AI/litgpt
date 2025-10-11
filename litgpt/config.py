@@ -222,7 +222,7 @@ class Config:
 ########################
 configs = [
     # https://huggingface.co/stabilityai/stablelm-base-alpha-3b/blob/main/config.json
-    # dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
+    dict(name="stablelm-base-alpha-3b", hf_config=dict(org="stabilityai", name="stablelm-base-alpha-3b")),
     #     # https://huggingface.co/stabilityai/stablelm-base-alpha-7b/blob/main/config.json
     #     dict(
     #         name="stablelm-base-alpha-7b",
