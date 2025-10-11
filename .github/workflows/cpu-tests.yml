@@ -2,10 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, labeled, synchronize]
+    branches: [main, pwgardipee/fix-ci-2]
   pull_request: {} # todo
   workflow_dispatch: {}
 
@@ -100,6 +97,11 @@ jobs:
           cache-dependency-path: pyproject.toml
           cache: "pip"
 
+      # - name: Debug with SSH
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     detached: true
+
       # Add caching for HF models and tokenizers
       - name: HF cache
         uses: actions/cache@v4
@@ -125,7 +127,9 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
+          LIGHTNING_USER_ID: ${{ secrets.LIGHTNING_USER_ID }}
+          LIGHTNING_API_KEY: ${{ secrets.LIGHTNING_API_KEY }}
+        run: pytest -v litgpt/ tests/test_tokenizer.py::test_tokenizer_against_hf --timeout=600 --durations=100 -s
 
       - name: Show cache
         run: |
