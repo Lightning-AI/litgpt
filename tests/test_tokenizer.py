@@ -1,7 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import os
 from types import SimpleNamespace
 from unittest import mock
 
+import litmodels
 import pytest
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
@@ -18,12 +20,17 @@ def test_tokenizer_against_hf(config, tmp_path):
     lightning_repo_id = f"lightning-ai/ci/{config.hf_config['name']}"
     print(f"DEBUG: Starting download for {lightning_repo_id}")
 
-    # model_path = litmodels.download_model(
-    #     name=lightning_repo_id,
-    #     download_dir=f"./local-models/{lightning_repo_id}",
-    #     progress_bar=False,
-    # )
-    # print(f"DEBUG: Download completed for {lightning_repo_id}")
+    # Ensure local-models directory exists
+    local_models_dir = "./local-models"
+    os.makedirs(local_models_dir, exist_ok=True)
+    print(f"DEBUG: Created/verified local-models directory: {local_models_dir}")
+
+    model_path = litmodels.download_model(
+        name=lightning_repo_id,
+        download_dir=f"./local-models/{lightning_repo_id}",
+        progress_bar=False,
+    )
+    print(f"DEBUG: Download completed for {lightning_repo_id}")
 
     # print(f"DEBUG: Loading AutoTokenizer for {lightning_repo_id}")
     # theirs = AutoTokenizer.from_pretrained(f"./local-models/{lightning_repo_id}", use_fast=True)
