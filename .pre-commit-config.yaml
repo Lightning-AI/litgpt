@@ -62,8 +62,8 @@ repos:
   #        - mdformat-black
   #        - mdformat_frontmatter
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
+  - repo: https://github.com/JoC0de/pre-commit-prettier
+    rev: v3.6.2
     hooks:
       - id: prettier
         files: \.(json|yml|yaml|toml)
