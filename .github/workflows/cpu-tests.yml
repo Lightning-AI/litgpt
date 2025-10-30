@@ -2,7 +2,7 @@ name: CPU tests
 
 on:
   push:
-    branches: [main, fix/tests_config_hub]
+    branches: [main, bhimrazy:fix/tests_config_hub]
   # pull_request_target:
   #   branches: [main]
   #   types: [opened, reopened, ready_for_review, labeled, synchronize]
