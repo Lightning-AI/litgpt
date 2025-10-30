@@ -2,10 +2,10 @@ name: CPU tests
 
 on:
   push:
-    branches: [main]
-  pull_request_target:
-    branches: [main]
-    types: [opened, reopened, ready_for_review, labeled, synchronize]
+    branches: [main, fix/tests_config_hub]
+  # pull_request_target:
+  #   branches: [main]
+  #   types: [opened, reopened, ready_for_review, labeled, synchronize]
   pull_request: {} # todo
   workflow_dispatch: {}
 
@@ -128,7 +128,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install -e '.[extra,compiler,test]'
+          uv pip install -e '.[extra,compiler,test]' --upgrade
           uv pip list
 
       - name: Run tests
