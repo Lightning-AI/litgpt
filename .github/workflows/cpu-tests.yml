@@ -45,14 +45,18 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+
+      - name: Install uv and setup python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
         with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
       - name: Install minimal dependencies
         run: |
-          pip install . -U
-          pip list
+          uv pip install . -U
+          uv pip list
 
       - name: Testing package imports
         # make sure all modules are still importable with only the minimal dependencies available
@@ -64,6 +68,9 @@ jobs:
           )
           echo "$modules"
           python -c "$modules"
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   pytester:
     # skip PR trigger if secrets are not shared as for all forked PRs
@@ -94,11 +101,12 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@v6
+      - name: Install uv and setup python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
         with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
-          cache-dependency-path: pyproject.toml
-          cache: "pip"
+          enable-cache: true
 
       # Add caching for HF models and tokenizers
       - name: HF cache
@@ -115,22 +123,26 @@ jobs:
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
         run: |
-          pip install 'lightning-utilities[cli]>=0.15.1'
-          python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+          uv pip install 'lightning-utilities[cli]>=0.15.1'
+          uv run python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
-          pip list
+          uv pip install -e '.[extra,compiler,test]'
+          uv pip list
 
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
+        run: uv run pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
         run: |
-          pip install -q py-tree
-          python -m py_tree -d 1 .cache-HF
+          uv pip install -q py-tree
+          uv run python -m py_tree -d 1 .cache-HF
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   testing-guardian:
     runs-on: ubuntu-latest
