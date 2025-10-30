@@ -4,7 +4,7 @@ trigger:
   pull_request:
     branches: ["main"]
 
-image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
+image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.8.0-dev"
 machine: "L4_X_2"
 interruptible: "true"
 timeout: "45" # minutes
@@ -19,7 +19,7 @@ env:
   NCCL_DEBUG: "INFO"
   CUBLAS_WORKSPACE_CONFIG: ":4096:8"
   NCCL_IGNORE_DISABLED_P2P: "1"
-  TORCH_VERSION: "2.7.1"
+  TORCH_VERSION: "2.8.0"
   RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
 
 run: |
