@@ -124,7 +124,7 @@ jobs:
 
       - name: Run tests
         env:
-          HF_TOKEN: "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" # todo: revert this ${{ secrets.HF_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
