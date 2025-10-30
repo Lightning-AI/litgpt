@@ -4,7 +4,7 @@ trigger:
   pull_request:
     branches: ["main"]
 
-image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.7.1-dev"
+image: "pytorchlightning/lightning-thunder:ubuntu24.04-cuda12.6.3-cudnn-fe1.10.0-py3.10-pt_2.8.0-dev"
 machine: "L4_X_2"
 interruptible: "true"
 timeout: "45" # minutes
@@ -16,10 +16,13 @@ parametrize:
 
 env:
   SKIP_WITH_CI: "1" # skip single tests with CI
+  SKIP_WITH_GPT_CI: "1"
   NCCL_DEBUG: "INFO"
+  TORCHDYNAMO_VERBOSE: "1"
+  TORCHDYNAMO_INLINE_INBUILT_NN_MODULES: "0"
   CUBLAS_WORKSPACE_CONFIG: ":4096:8"
   NCCL_IGNORE_DISABLED_P2P: "1"
-  TORCH_VERSION: "2.7.1"
+  TORCH_VERSION: "2.8.0"
   RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
 
 run: |
@@ -30,7 +33,7 @@ run: |
   pip list
   set -ex
 
-  pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
+  pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U --upgrade-strategy eager
 
   if [ "${dependency}" == "compiler" ]; then
     pip uninstall -y torchvision torchaudio
@@ -41,7 +44,7 @@ run: |
 
   pip list
   python -c "import torch ; gpus = torch.cuda.device_count() ; assert gpus >= 2, f'GPU: {gpus}'"
-  python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '$TORCH_VERSION', f'PyTorch: installed {ver} but expected $TORCH_VERSION'"
+  python -c "from torch import __version__ as ver ; assert str(ver).split('+')[0] == '${TORCH_VERSION}', f'PyTorch: installed {ver} but expected ${TORCH_VERSION}'"
 
   pytest -v --durations=100
 
