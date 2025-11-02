@@ -45,18 +45,14 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-
-      - name: Install uv and setup python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-python@v6
         with:
-          activate-environment: true
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
 
       - name: Install minimal dependencies
         run: |
-          uv pip install . -U
-          uv pip list
+          pip install . -U
+          pip list
 
       - name: Testing package imports
         # make sure all modules are still importable with only the minimal dependencies available
@@ -69,17 +65,14 @@ jobs:
           echo "$modules"
           python -c "$modules"
 
-      - name: Minimize uv cache
-        run: uv cache prune --ci
-
   pytester:
     # skip PR trigger if secrets are not shared as for all forked PRs
-    # if: |
-    #   github.event_name != 'pull_request' ||
-    #   (
-    #     github.event_name == 'pull_request' &&
-    #     contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-    #   )
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event_name == 'pull_request' &&
+        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
+      )
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -101,12 +94,11 @@ jobs:
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Install uv and setup python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-python@v6
         with:
-          activate-environment: true
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
+          cache-dependency-path: pyproject.toml
+          cache: "pip"
 
       # Add caching for HF models and tokenizers
       - name: HF cache
@@ -123,26 +115,22 @@ jobs:
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
         run: |
-          uv pip install 'lightning-utilities[cli]>=0.15.1'
-          uv run python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
-
+          pip install 'lightning-utilities[cli]>=0.15.1'
+          python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
       - name: Install dependencies
         run: |
-          uv pip install -e '.[extra,compiler,test]' --upgrade
-          uv pip list
+          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
+          pip list
 
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: uv run pytest -v litgpt/ tests/ --timeout=180 --durations=100
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
         run: |
-          uv pip install -q py-tree
-          uv run python -m py_tree -d 1 .cache-HF
-
-      - name: Minimize uv cache
-        run: uv cache prune --ci
+          pip install -q py-tree
+          python -m py_tree -d 1 .cache-HF
 
   testing-guardian:
     runs-on: ubuntu-latest
