@@ -453,7 +453,7 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
-            
+
             if self.apply_sliding_window_attention:
                 actual_kv_len = k.size(2)
                 if mask is not None and mask.size(-1) != actual_kv_len:
@@ -499,7 +499,7 @@ class CausalSelfAttention(nn.Module):
                     window_start = max(0, i - self.config.sliding_window_size)
                     if window_start > 0:
                         sliding_window_bias[:, :, i, :window_start] = float("-inf")
-                
+
                 mask = mask + sliding_window_bias
 
         # Efficient attention using Flash Attention CUDA kernels.
@@ -542,14 +542,14 @@ class CausalSelfAttention(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> "KVCache":
-        #FIX: For sliding window layers, limit cache to window size
+        # FIX: For sliding window layers, limit cache to window size
         if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
             effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
         else:
             effective_cache_size = max_seq_length
-        
+
         v_shape = (batch_size, self.config.n_query_groups, effective_cache_size, self.config.head_size)
-        
+
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
                 raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
@@ -561,15 +561,15 @@ class CausalSelfAttention(nn.Module):
                 effective_cache_size,  # Changed from max_seq_length
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        
+
         # Pass sliding window info to KVCache
         return KVCache(
-            k_shape, 
-            v_shape, 
-            device=device, 
+            k_shape,
+            v_shape,
+            device=device,
             dtype=dtype,
             is_sliding_window=self.apply_sliding_window_attention,
-            sliding_window_size=self.config.sliding_window_size if self.apply_sliding_window_attention else None
+            sliding_window_size=self.config.sliding_window_size if self.apply_sliding_window_attention else None,
         )
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
@@ -1021,16 +1021,16 @@ class KVCache(nn.Module):
             cache_positions = input_pos % self.max_cache_len
             k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
-            
+
             max_pos = input_pos.max().item()
             if max_pos < self.max_cache_len:
-                k = k[:, :, :max_pos + 1, :]
-                v = v[:, :, :max_pos + 1, :]
+                k = k[:, :, : max_pos + 1, :]
+                v = v[:, :, : max_pos + 1, :]
         else:
             # Standard KV cache (global attention)
             k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
-        
+
         return k, v
 
     def reset_parameters(self) -> None:
