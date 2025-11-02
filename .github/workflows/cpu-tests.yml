@@ -68,13 +68,14 @@ jobs:
 
   pytester:
     # skip PR trigger if secrets are not shared as for all forked PRs
-    if: |
-      github.event_name != 'pull_request' ||
-      (
-        github.event_name == 'pull_request' &&
-        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-      )
+    # if: |
+    #   github.event_name != 'pull_request' ||
+    #   (
+    #     github.event_name == 'pull_request' &&
+    #     contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
+    #   )
     runs-on: ${{ matrix.os }}
+    if: github.event_name != 'pull_request_target'
     strategy:
       fail-fast: false
       matrix:
@@ -89,12 +90,12 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
-      #   if: github.event_name != 'pull_request_target'
-      # - name: Checkout for `pull_request_target`
-      #   uses: actions/checkout@v5
-      #   if: github.event_name == 'pull_request_target'
-      #   with:
-      #     ref: ${{ github.event.pull_request.head.sha }}
+        if: github.event_name != 'pull_request_target'
+      - name: Checkout for `pull_request_target`
+        uses: actions/checkout@v5
+        if: github.event_name == 'pull_request_target'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
