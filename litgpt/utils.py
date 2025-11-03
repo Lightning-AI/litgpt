@@ -917,23 +917,14 @@ def _RunIf(thunder: bool = False, **kwargs):
 
 
 def kill_process_tree(pid: int):
-    """Kill a process and all its child processes given the parent PID."""
+    """
+    Kill a process and all its child processes given the parent PID.
+    """
     try:
         parent = psutil.Process(pid)
-        processes = parent.children(recursive=True) + [parent]
-
-        # Graceful termination first
-        for proc in processes:
-            proc.terminate()
-
-        # Wait up to 3 seconds, then force kill remaining
-        _, alive = psutil.wait_procs(processes, timeout=3)
-        for proc in alive:
-            proc.kill()
-
-        # Final wait for cleanup
-        if alive:
-            psutil.wait_procs(alive, timeout=2)
-
-    except (psutil.NoSuchProcess, Exception):
-        pass  # Process already gone or cleanup failed
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        parent.kill()
+    except psutil.NoSuchProcess:
+        pass  # Process already exited
