@@ -35,6 +35,7 @@ def _wait_and_check_response(waiting: int = 30):
 
 
 # todo: try to resolve this issue
+@pytest.mark.flaky(reruns=2, reruns_delay=30)
 @pytest.mark.xfail(condition=platform.system() == "Darwin", reason="it passes locally but having some issues on CI")
 def test_simple(tmp_path):
     seed_everything(123)
