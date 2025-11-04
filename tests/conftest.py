@@ -67,6 +67,14 @@ def destroy_process_group():
         torch.distributed.destroy_process_group()
 
 
+@pytest.fixture
+def turn_off_tf32_and_set_seed(monkeypatch):
+    monkeypatch.setenv("NVIDIA_TF32_OVERRIDE", "0")
+    torch.manual_seed(42)
+    yield
+    torch.seed()
+
+
 class MockTokenizer:
     """A dummy tokenizer that encodes each character as its ASCII code."""
 
