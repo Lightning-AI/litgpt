@@ -34,7 +34,7 @@ dependencies = [
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.21",
-  "torch>=2.6",
+  "torch>=2.7",
   # convert_hf_checkpoint
   "tqdm>4.66",
 ]
