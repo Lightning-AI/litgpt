@@ -31,6 +31,7 @@ env:
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
+  TORCH_URL: "https://download.pytorch.org/whl/cpu/"
 
 jobs:
   testing-imports:
@@ -51,7 +52,7 @@ jobs:
 
       - name: Install minimal dependencies
         run: |
-          pip install . -U
+          pip install . -U --extra-index-url="${TORCH_URL}"
           pip list
 
       - name: Testing package imports
@@ -119,7 +120,7 @@ jobs:
           python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager
+          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager --extra-index-url="${TORCH_URL}"
           pip list
 
       - name: Run tests
