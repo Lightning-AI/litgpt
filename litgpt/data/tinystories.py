@@ -46,7 +46,7 @@ class TinyStories(DataModule):
         self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well
 
     def prepare_data(self) -> None:
-        from litdata import optimize
+        from litdata import TokensLoader, optimize
 
         download(self.data_path)
 
@@ -65,6 +65,7 @@ class TinyStories(DataModule):
                 output_dir=str(self.data_path_train),
                 num_workers=num_workers,
                 chunk_bytes="200MB",
+                item_loader=TokensLoader(),
             )
         if not Path(self.data_path_val).is_dir():
             validate_tokenizer(self.tokenizer)
@@ -74,6 +75,7 @@ class TinyStories(DataModule):
                 output_dir=str(self.data_path_val),
                 num_workers=1,  # there's only 1 file
                 chunk_bytes="200MB",
+                item_loader=TokensLoader(),
             )
 
     def train_dataloader(self) -> DataLoader:
