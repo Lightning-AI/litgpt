@@ -16,6 +16,7 @@ from litgpt import PromptStyle, Tokenizer
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
+@pytest.mark.flaky(reruns=3, reruns_delay=120)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
 def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
@@ -34,14 +35,17 @@ def test_tokenizer_against_hf(config, tmp_path):
     if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
         raise ConnectionError("Unable to download any tokenizer files from HF")
 
-    # we need to rename the dir to match the model name in testing as well
-    # since we use to it determine the model in tokenizer.py
-    tmp_path = tmp_path.rename(tmp_path.parent / config.hf_config["name"])
+    # Create a clean, model-specific subdirectory for this test run.
+    # This avoids errors if previous runs or retries left files behind, ensuring the directory is always ready for fresh downloads and comparisons.
+    model_dir = tmp_path / config.hf_config["name"]
+    if model_dir.exists():
+        shutil.rmtree(model_dir)
+    os.makedirs(model_dir, exist_ok=True)
 
     for filename, hf_file in hf_files.items():
-        shutil.copy(hf_file, str(tmp_path / filename))
+        shutil.copy(hf_file, model_dir / filename)
 
-    ours = Tokenizer(tmp_path)
+    ours = Tokenizer(model_dir)
 
     assert ours.vocab_size == theirs.vocab_size
     if config.name == "Mixtral-8x22B-v0.1":
