@@ -138,8 +138,8 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max
         except KeyboardInterrupt:
             break
 
-        prompt = prompt.lower().strip()
-        if not prompt or prompt in ("!quit", "!exit"):
+        prompt = prompt.strip()
+        if not prompt or prompt.lower() in ("!quit", "!exit"):
             break
 
         process_prompt(
