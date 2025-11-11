@@ -291,7 +291,6 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
-
 def copy_weights_gemma_3(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
     state_dict: Dict[str, torch.Tensor],
@@ -303,13 +302,20 @@ def copy_weights_gemma_3(
     debug_mode: Optional[bool] = False,
     config: Optional[Config] = None,
 ) -> None:
+    GEMMA3_LANGUAGE_MODEL_PREFIX = (
+        "model.language_model"
+        if any(k.startswith("model.language_model") for k in hf_weights)
+        else "language_model.model"
+    )
 
-    GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if any(k.startswith("model.language_model") for k in hf_weights) else "language_model.model"
-
-    GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
+    GEMMA3_VISION_MODEL_PREFIX = (
+        "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
+    )
 
     GEMMA3_MM_PROJECTOR_PREFIX = (
-        "model.multi_modal_projector" if any(k.startswith("model.multi_modal_projector") for k in hf_weights) else "multi_modal_projector"
+        "model.multi_modal_projector"
+        if any(k.startswith("model.multi_modal_projector") for k in hf_weights)
+        else "multi_modal_projector"
     )
 
     weight_map = {
