@@ -18,7 +18,6 @@ from tqdm import tqdm
 
 from litgpt.config import Config
 from litgpt.utils import (
-    _TRANSFORMERS_GREATER_EQUAL_4_52,
     extend_checkpoint_dir,
     incremental_save,
     lazy_load,
@@ -292,14 +291,6 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
-GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "language_model.model"
-
-GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "vision_tower"
-
-GEMMA3_MM_PROJECTOR_PREFIX = (
-    "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
-)
-
 
 def copy_weights_gemma_3(
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
@@ -312,6 +303,15 @@ def copy_weights_gemma_3(
     debug_mode: Optional[bool] = False,
     config: Optional[Config] = None,
 ) -> None:
+
+    GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if any(k.startswith("model.language_model") for k in hf_weights) else "language_model.model"
+
+    GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
+
+    GEMMA3_MM_PROJECTOR_PREFIX = (
+        "model.multi_modal_projector" if any(k.startswith("model.multi_modal_projector") for k in hf_weights) else "multi_modal_projector"
+    )
+
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
         "model.layers.{}.self_attn.q_proj.weight": None,
