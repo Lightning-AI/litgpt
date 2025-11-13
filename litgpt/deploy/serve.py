@@ -8,7 +8,11 @@ from typing import Any, Dict, Literal, Optional
 import torch
 
 from litgpt.api import LLM
-from litgpt.utils import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE, auto_download_checkpoint
+from litgpt.utils import (
+    _JINJA2_AVAILABLE,
+    _LITSERVE_AVAILABLE,
+    auto_download_checkpoint,
+)
 
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
@@ -236,6 +240,7 @@ def run_server(
     openai_spec: bool = False,
     access_token: Optional[str] = None,
     api_path: Optional[str] = "/predict",
+    timeout=30,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -278,6 +283,7 @@ def run_server(
             making it easy to integrate with existing applications that use the OpenAI API.
         access_token: Optional API token to access models with restrictions.
         api_path: The custom API path for the endpoint (e.g., "/my_api/classify").
+        timeout: The per-request timeout for the server.
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
@@ -300,6 +306,7 @@ def run_server(
         accelerator=accelerator,
         devices=1,
         stream=stream,
+        timeout=timeout,
     )
 
     server.run(port=port, generate_client_file=False)
