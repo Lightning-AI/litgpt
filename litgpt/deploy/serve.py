@@ -240,7 +240,7 @@ def run_server(
     openai_spec: bool = False,
     access_token: Optional[str] = None,
     api_path: Optional[str] = "/predict",
-    timeout=30,
+    timeout: int = 30,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -283,7 +283,7 @@ def run_server(
             making it easy to integrate with existing applications that use the OpenAI API.
         access_token: Optional API token to access models with restrictions.
         api_path: The custom API path for the endpoint (e.g., "/my_api/classify").
-        timeout: The per-request timeout for the server.
+        timeout: Request timeout in seconds. Defaults to 30.
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
