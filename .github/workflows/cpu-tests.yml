@@ -85,7 +85,7 @@ jobs:
           - { os: "ubuntu-22.04", python-version: "3.9", requires: "oldest" }
           - { os: "windows-2022", python-version: "3.10", requires: "latest" }
           - { os: "macOS-14", python-version: "3.10", requires: "latest" }
-    timeout-minutes: 60
+    timeout-minutes: 35
     steps:
       - name: Checkout generic
         uses: actions/checkout@v5
