@@ -47,7 +47,6 @@ _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0 = RequirementCache("bitsandbytes != 0.42
 _LITDATA_AVAILABLE = RequirementCache("litdata")
 _LITSERVE_AVAILABLE = RequirementCache("litserve")
 _JINJA2_AVAILABLE = RequirementCache("jinja2")
-_TRANSFORMERS_GREATER_EQUAL_4_52 = RequirementCache("transformers>=4.52.0")
 _SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
 _HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
