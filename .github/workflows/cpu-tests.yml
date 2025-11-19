@@ -139,7 +139,7 @@ jobs:
     needs: [pytester, testing-imports]
     if: |
       (github.event_name == 'pull_request_target' && !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
-      (github.event_name == 'pull_request' && contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association))
+      (github.event_name == 'pull_request' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
     steps:
       - run: echo "${{ needs.pytester.result }}"
       - name: failing...
