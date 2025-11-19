@@ -18,6 +18,7 @@ authors = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -27,7 +28,7 @@ dependencies = [
   # download models:
   "huggingface-hub>=0.30,<0.35",
   "jsonargparse[signatures]>=4.31,<=4.32.1; python_version<'3.10'", # 4.33 does not seem to be compatible with Python 3.9
-  "jsonargparse[signatures]>=4.37,<=4.41; python_version>='3.10'", # required to work with Python >=3.10
+  "jsonargparse[signatures]>=4.37,<=4.41; python_version>='3.10'",  # required to work with Python >=3.10
   "lightning>=2.5",
   "psutil==7",
   "safetensors>=0.4.3",
