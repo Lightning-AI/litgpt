@@ -34,7 +34,6 @@ PARSER_DATA = {
     "chat": chat_fn,
     "finetune": finetune_lora_fn,
     "finetune_lora": finetune_lora_fn,
-    "finetune_lora_legacy": finetune_lora_legacy_fn,
     "finetune_full": finetune_full_fn,
     "finetune_adapter": finetune_adapter_fn,
     "finetune_adapter_v2": finetune_adapter_v2_fn,
