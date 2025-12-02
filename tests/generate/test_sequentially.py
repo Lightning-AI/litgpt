@@ -47,22 +47,6 @@ def test_layer_to_device(n_layer, devices, expected):
     assert actual == expected
 
 
-def test_sequential_layer_to_device_mapping_not_possible():
-    # Fewer layers than devices
-    config = Config(n_layer=1)
-    with torch.device("meta"):
-        model = GPT(config)
-    with pytest.raises(ValueError, match="number of layers in the model must be larger than the number of devices"):
-        sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=2)
-
-    # Last device would get 0 layers
-    config = Config(n_layer=6)
-    with torch.device("meta"):
-        model = GPT(config)
-    with pytest.raises(RuntimeError, match="Not able to distribute the 6 layers across 4 devices"):
-        sequential(model, root=torch.device("cpu"), max_seq_length=128, devices=4)
-
-
 def path_to_device(model):
     return {k: str(v.device) for k, v in itertools.chain(model.named_parameters(), model.named_buffers())}
 

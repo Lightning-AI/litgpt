@@ -11,6 +11,7 @@ def parser_commands() -> List[str]:
         "chat",
         "finetune",
         "finetune_lora",
+        "finetune_lora_legacy",
         "finetune_full",
         "finetune_adapter",
         "finetune_adapter_v2",
