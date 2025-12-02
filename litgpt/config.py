@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, List, Literal, Optional, Type, Union
+from typing import Any, List, Literal, Optional, Type, Union
 
 import yaml
 from typing_extensions import Self

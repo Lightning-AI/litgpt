@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import itertools
-import math
 import subprocess
 import sys
 from dataclasses import asdict
@@ -15,10 +14,10 @@ from lightning import Fabric
 
 from litgpt import Config
 from litgpt.generate.sequentially import (
+    chunk_sizes,
     layer_to_device,
     replace_device,
     sequential,
-    chunk_sizes,
 )
 from litgpt.model import GPT, Block
 from litgpt.scripts.download import download_from_hub

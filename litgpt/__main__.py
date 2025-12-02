@@ -12,7 +12,6 @@ from litgpt.finetune.adapter import setup as finetune_adapter_fn
 from litgpt.finetune.adapter_v2 import setup as finetune_adapter_v2_fn
 from litgpt.finetune.full import setup as finetune_full_fn
 from litgpt.finetune.lora import setup as finetune_lora_fn
-from litgpt.finetune.lora_legacy import setup as finetune_lora_legacy_fn
 from litgpt.generate.adapter import main as generate_adapter_fn
 from litgpt.generate.adapter_v2 import main as generate_adapter_v2_fn
 from litgpt.generate.base import main as generate_base_fn
@@ -29,7 +28,6 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
-
 
 PARSER_DATA = {
     "download": download_fn,
@@ -57,7 +55,9 @@ PARSER_DATA = {
 
 
 def _check_commands():
-    assert set(parser_commands()) == set(PARSER_DATA.keys()), "PARSER_DATA has to be kept in sync with litgpt.parser_config.parser_commands()"
+    assert set(parser_commands()) == set(PARSER_DATA.keys()), (
+        "PARSER_DATA has to be kept in sync with litgpt.parser_config.parser_commands()"
+    )
 
 
 def main() -> None:
