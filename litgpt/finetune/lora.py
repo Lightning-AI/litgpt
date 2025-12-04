@@ -20,6 +20,7 @@ from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
+from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
@@ -40,7 +41,6 @@ from litgpt.utils import (
     load_checkpoint,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
     select_sft_generate_example,
 )
 
