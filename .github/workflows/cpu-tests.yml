@@ -67,22 +67,23 @@ jobs:
           python -c "$modules"
 
   pytester:
-    # skip PR trigger if secrets are not shared as for all forked PRs
+    # Route PRs based on contributor type to avoid duplicate runs:
+    # - Collaborators: use pull_request (tests workflow changes from PR)
+    # - External forks: use pull_request_target (uses trusted workflow from main)
+    # - Always run for push to main and workflow_dispatch
     if: |
-      github.event_name != 'pull_request' ||
-      (
-        github.event_name == 'pull_request' &&
-        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-      )
+      (github.event_name == 'pull_request' && contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
+      (github.event_name == 'pull_request_target' && !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
+      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: ["ubuntu-22.04"]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         requires: ["latest"]
         include:
-          - { os: "ubuntu-22.04", python-version: "3.9", requires: "oldest" }
+          - { os: "ubuntu-22.04", python-version: "3.10", requires: "oldest" }
           - { os: "windows-2022", python-version: "3.10", requires: "latest" }
           - { os: "macOS-14", python-version: "3.10", requires: "latest" }
     timeout-minutes: 35
@@ -137,11 +138,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [pytester, testing-imports]
     if: |
-      github.event_name == 'pull_request_target' ||
-      (
-        github.event_name == 'pull_request' &&
-        contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-      )
+      (github.event_name == 'pull_request_target' && !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
+      (github.event_name == 'pull_request' && contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association))
     steps:
       - run: echo "${{ needs.pytester.result }}"
       - name: failing...
