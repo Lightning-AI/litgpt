@@ -23,6 +23,7 @@ from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     _TORCH_EQUAL_2_7,
     _TORCH_EQUAL_2_8,
@@ -41,7 +42,6 @@ from litgpt.utils import (
     parse_devices,
     reset_parameters,
     save_config,
-    save_hyperparameters,
 )
 
 
