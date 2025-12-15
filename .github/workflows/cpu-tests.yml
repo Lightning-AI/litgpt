@@ -45,7 +45,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout generic
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
@@ -89,10 +89,10 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout generic
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         if: github.event_name != 'pull_request_target'
       - name: Checkout for `pull_request_target`
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -104,7 +104,7 @@ jobs:
 
       # Add caching for HF models and tokenizers
       - name: HF cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         with:
           path: .cache-HF
