@@ -498,7 +498,7 @@ class CausalSelfAttention(nn.Module):
                 sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
                 for i in range(T):
                     window_start = max(0, i - self.config.sliding_window_size + 1)
-                    sliding_window_mask[i, window_start:i+1] = 0.0
+                    sliding_window_mask[i, window_start : i + 1] = 0.0
                 sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
                 mask = sliding_window_mask
 
