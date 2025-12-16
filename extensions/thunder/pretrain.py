@@ -24,6 +24,7 @@ from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP, MultiheadLatentAttention
+from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -37,7 +38,6 @@ from litgpt.utils import (
     parse_devices,
     reset_parameters,
     save_config,
-    save_hyperparameters,
 )
 
 # support running without installing as a package
