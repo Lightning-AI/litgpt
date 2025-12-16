@@ -17,6 +17,7 @@ from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.model import GPT, Block, Config
+from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
@@ -35,7 +36,6 @@ from litgpt.utils import (
     load_checkpoint,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
     select_sft_generate_example,
 )
 

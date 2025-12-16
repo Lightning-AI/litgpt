@@ -17,7 +17,11 @@ class DataModule(LightningDataModule):
 
     @abstractmethod
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self,
+        tokenizer: Optional[Tokenizer] = None,
+        batch_size: int = 1,
+        max_seq_length: Optional[int] = None,
+        **kwargs,
     ) -> None:
         """All settings that can't be determined at the time of instantiation need to be passed through here
         before any dataloaders can be accessed.
