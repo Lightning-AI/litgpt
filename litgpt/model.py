@@ -489,22 +489,18 @@ class CausalSelfAttention(nn.Module):
             │ True True  True  True  │  │ False False True True │  │ False False True  True  │
             └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
-            if input_pos is not None:
-                # FIX: During inference with KV cache, sliding window is handled by cache size
-                # Only need causal mask, which is already applied by default
-                pass
-            else:
+            if input_pos is None:
                 if mask is None:
                     mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
                     mask.masked_fill_(mask.bool(), float("-inf"))
                     mask = mask.view(1, 1, *mask.shape)
-                sliding_window_bias = torch.zeros_like(mask)
-                for i in range(T):
-                    window_start = max(0, i - self.config.sliding_window_size)
-                    if window_start > 0:
-                        sliding_window_bias[:, :, i, :window_start] = float("-inf")
 
-                mask = mask + sliding_window_bias
+                sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
+                for i in range(T):
+                    window_start = max(0, i - self.config.sliding_window_size + 1)
+                    sliding_window_mask[i, window_start:i+1] = 0.0
+                sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
+                mask = sliding_window_mask
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
@@ -546,7 +542,6 @@ class CausalSelfAttention(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> "KVCache":
-        # FIX: For sliding window layers, limit cache to window size
         if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
             effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
         else:
@@ -562,11 +557,10 @@ class CausalSelfAttention(nn.Module):
             k_shape = (
                 batch_size,
                 self.config.n_query_groups,
-                effective_cache_size,  # Changed from max_seq_length
+                effective_cache_size,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
 
-        # Pass sliding window info to KVCache
         return KVCache(
             k_shape,
             v_shape,
@@ -1082,8 +1076,7 @@ class KVCache(nn.Module):
         # update the cache
         bs = k.size(0)
         if self.is_sliding_window:
-            # FIX: Implement circular buffer for sliding window
-            # Map absolute positions to circular buffer indices
+            # Circular buffer for sliding window
             cache_positions = input_pos % self.max_cache_len
             k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
