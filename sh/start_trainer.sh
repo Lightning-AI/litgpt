@@ -1,0 +1,1 @@
+litgpt pretrain --config config_hub/pretrain/pragna.yaml
