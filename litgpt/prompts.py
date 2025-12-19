@@ -441,6 +441,7 @@ prompt_styles: Dict[str, Type[PromptStyle]] = {
     "phi-4-mini": Phi4Mini,
     "phi-4-mini-reasoning": Phi4MiniReasoning,
     "tinyllama": TinyLlama,
+    "pragna-1b": TinyLlama,
     "gemma": Gemma,
     "llama3": Llama3,
     "olmo": OLMo,
@@ -497,6 +498,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
     if re.search("phi-4", model_name):
         return Phi4()
     if re.search(r"tiny-llama.*chat", model_name):
+        return TinyLlama()
+    if re.search(r"pragna-1b", model_name):
         return TinyLlama()
     if re.search(r"(Code)?Gemma.*-it", model_name):
         return Gemma()

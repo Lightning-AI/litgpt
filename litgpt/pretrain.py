@@ -210,7 +210,7 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
+    model.compile()
     model = fabric.setup(model)
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
@@ -346,11 +346,13 @@ def fit(
         iter_t0 = time.perf_counter()
 
         input_ids = train_data[:, 0 : model.max_seq_length].contiguous().long()
-        targets = train_data[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+        targets = train_data[:, 0 : model.max_seq_length].contiguous().long()
+        targets = targets[:, 1:]
 
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
+            logits = logits[:, :-1, :]
             loss = chunked_cross_entropy(logits, targets)
             fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
@@ -436,9 +438,11 @@ def validate(
         if k >= max_iters:
             break
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
-        targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
+        targets = batch[:, 0 : model.max_seq_length].contiguous().long()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets)
+        logits = logits[:, :-1, :]
+        targets = targets[:, 1:]
+        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
         losses.append(loss)
 
     val_loss = torch.stack(losses).mean()

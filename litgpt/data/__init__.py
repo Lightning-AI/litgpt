@@ -15,6 +15,8 @@ from litgpt.data.openwebtext import OpenWebText
 from litgpt.data.text_files import TextFiles
 from litgpt.data.tinyllama import TinyLlama
 from litgpt.data.tinystories import TinyStories
+from litgpt.data.pragna import Pragna
+from litgpt.data.indic_instruct import IndicInstruct
 
 __all__ = [
     "Alpaca",
@@ -34,4 +36,6 @@ __all__ = [
     "TinyStories",
     "MicroLlama",
     "get_sft_collate_fn",
+    "Pragna",
+    "IndicInstruct",
 ]

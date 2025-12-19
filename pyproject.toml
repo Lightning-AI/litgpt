@@ -27,8 +27,12 @@ classifiers = [
 dependencies = [
   # download models:
   "huggingface-hub>=0.30,<0.35",
+  "ipykernel>=7.1.0",
   "jsonargparse[signatures]>=4.37,<=4.41; python_version>='3.10'", # required to work with Python >=3.10
   "lightning>=2.5",
+  "litdata>=0.2.51",
+  "lm-eval>=0.4.9",
+  "pip>=25.3",
   "psutil==7.1.3",
   "safetensors>=0.4.3",
   # tokenization in most models:
@@ -36,6 +40,7 @@ dependencies = [
   "torch>=2.7",
   # convert_hf_checkpoint
   "tqdm>4.66",
+  "wandb>=0.23.1",
 ]
 
 optional-dependencies.compiler = [
