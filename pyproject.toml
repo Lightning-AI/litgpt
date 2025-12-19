@@ -8,7 +8,7 @@ requires = [
 
 [project]
 name = "litgpt"
-version = "0.5.11"
+version = "0.5.12"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -45,7 +45,7 @@ dependencies = [
 
 optional-dependencies.compiler = [
   # compilaton:
-  "lightning-thunder>=0.2.0.dev20250119; python_version>='3.10' and sys_platform=='linux'",
+  "lightning-thunder>=0.2.dev20250119; python_version>='3.10' and sys_platform=='linux'",
 ]
 optional-dependencies.extra = [
   "bitsandbytes>=0.42,<0.43; sys_platform=='darwin'",
