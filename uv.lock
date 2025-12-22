@@ -1386,7 +1386,7 @@ wheels = [
 
 [[package]]
 name = "litgpt"
-version = "0.5.11"
+version = "0.5.12"
 source = { editable = "." }
 dependencies = [
     { name = "huggingface-hub" },
@@ -1447,7 +1447,7 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "jsonargparse", extras = ["signatures"], marker = "python_full_version >= '3.10'", specifier = ">=4.37,<=4.41" },
     { name = "lightning", specifier = ">=2.5" },
-    { name = "lightning-thunder", marker = "python_full_version >= '3.10' and sys_platform == 'linux' and extra == 'compiler'", specifier = ">=0.2.0.dev20250119" },
+    { name = "lightning-thunder", marker = "python_full_version >= '3.10' and sys_platform == 'linux' and extra == 'compiler'", specifier = ">=0.2.dev20250119" },
     { name = "litdata", specifier = ">=0.2.51" },
     { name = "litdata", marker = "extra == 'extra'", specifier = "==0.2.51" },
     { name = "litserve", marker = "extra == 'extra'", specifier = ">0.2" },
