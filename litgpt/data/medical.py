@@ -15,7 +15,7 @@ from litgpt.tokenizer import Tokenizer
 
 
 @dataclass
-class IndicInstruct(DataModule):
+class Medical(DataModule):
     """IndicInstruct data module for supervised finetuning."""
 
     mask_prompt: bool = False
@@ -32,7 +32,7 @@ class IndicInstruct(DataModule):
     """How many DataLoader processes to use for loading."""
     include_multiturn_conversations: bool = True
     """Whether to include multi-turn conversations in the dataset."""
-    repo_id: str = "ai4bharat/indic-instruct-data-v0.1"
+    repo_id: str = "FreedomIntelligence/medical-o1-reasoning-SFT"
     """The Hugging Face dataset repository ID from where to download the data."""
     access_token: Optional[str] = field(repr=False, default=os.getenv("HF_TOKEN"))
     """The Hugging Face API token to use for authentication. Can also be set through the
@@ -59,13 +59,13 @@ class IndicInstruct(DataModule):
     def prepare_data(self) -> None:
         from datasets import load_dataset
 
-        load_dataset(self.repo_id, "anudesh", token=self.access_token)
+        load_dataset(self.repo_id, "en", token=self.access_token)
 
     def setup(self, stage: str = "") -> None:
         from datasets import load_dataset
 
-        dataset = load_dataset(self.repo_id, "anudesh", token=self.access_token)
-        data = format_dataset(dataset["hi"], self.include_multiturn_conversations)
+        dataset = load_dataset(self.repo_id, "en", token=self.access_token)
+        data = format_dataset_qa_cot(dataset["train"])
 
         # Partition the dataset into train and test
         train_data, test_data = random_split(
@@ -112,18 +112,31 @@ class IndicInstruct(DataModule):
         )
 
 
-def format_dataset(dataset_partition: dict, include_multi_turn_conversations: bool) -> List[dict]:
+from typing import List, Dict
+
+def format_dataset_qa_cot(dataset_partition: List[Dict]) -> List[Dict]:
     formatted_ds = []
 
     for entry in dataset_partition:
-        convo = entry["messages"]
-        if include_multi_turn_conversations:
-            for i in range(0, len(convo) - 1, 2):
-                formatted_ds.append({"instruction": convo[i]['content'], "input": "", "output": convo[i + 1]['content']})
-        else:
-            formatted_ds.append({"instruction": convo[0]['content'], "input": "", "output": convo[1]['content']})
+        question = entry["Question"].strip()
+        cot = entry["Complex_CoT"].strip()
+        response = entry["Response"].strip()
+
+        output_text = (
+            "<unused0>"
+            f"{cot}"
+            "<unused1>\n\n"
+            f"{response}"
+        )
+
+        formatted_ds.append({
+            "instruction": question,
+            "input": "",
+            "output": output_text
+        })
 
     return formatted_ds
+
 
 def data_collator(self, batch):
     logger.debug(f"Collating batch of size {len(batch)}")

@@ -17,6 +17,9 @@ from litgpt.data.tinyllama import TinyLlama
 from litgpt.data.tinystories import TinyStories
 from litgpt.data.pragna import Pragna
 from litgpt.data.indic_instruct import IndicInstruct
+from litgpt.data.medical import Medical
+from litgpt.data.multidata import UnifiedSFTDataModule
+from litgpt.data.kissan import KissanAI
 
 __all__ = [
     "Alpaca",
@@ -38,4 +41,7 @@ __all__ = [
     "get_sft_collate_fn",
     "Pragna",
     "IndicInstruct",
+    "Medical",
+    "UnifiedSFTDataModule",
+    "KissanAI"
 ]

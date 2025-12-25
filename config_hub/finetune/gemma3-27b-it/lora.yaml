@@ -46,7 +46,7 @@ lora_head: true
 # Data-related arguments. If not provided, the default is ``litgpt.data.Alpaca``.
 data:
     #/projects/data/datasets/text_data/agri_data/mock_data/sangraha-processed-data-v2
-  class_path: litgpt.data.Alpaca
+  class_path: litgpt.data.UnifiedSFTDataModule
   init_args:
     mask_prompt: false
     val_split_fraction: 0.03847
@@ -73,7 +73,7 @@ train:
   lr_warmup_steps: 200
 
   # Number of epochs to train on (type: Optional[int], default: 5)
-  epochs: 5
+  epochs: 100
 
   # Total number of tokens to train on (type: Optional[int], default: null)
   max_tokens:
@@ -82,7 +82,7 @@ train:
   max_steps:
 
   # Limits the length of samples. Off by default (type: Optional[int], default: null)
-  max_seq_length: 512
+  max_seq_length: 10240
 
   # Whether to tie the embedding weights with the language modeling head weights. (type: Optional[bool], default: null)
   tie_embeddings:
@@ -102,7 +102,7 @@ eval:
   max_new_tokens: 100
 
   # Number of iterations (type: int, default: 100)
-  max_iters: 100
+  max_iters: 200
 
   # Whether to evaluate on the validation set at the beginning of the training
   initial_validation: false
@@ -122,10 +122,10 @@ optimizer:
 
   init_args:
     #   (type: float, default: 0.001)
-    lr: 0.0002
+    lr: 0.00015
 
     #   (type: float, default: 0.01)
-    weight_decay: 0.0
+    weight_decay: 0.1
 
     #   (type: tuple, default: (0.9,0.999))
     betas:
