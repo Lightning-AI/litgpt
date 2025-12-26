@@ -20,6 +20,7 @@ from litgpt.data.indic_instruct import IndicInstruct
 from litgpt.data.medical import Medical
 from litgpt.data.multidata import UnifiedSFTDataModule
 from litgpt.data.kissan import KissanAI
+from litgpt.data.thoughts import ThoughtsAI
 
 __all__ = [
     "Alpaca",
@@ -43,5 +44,6 @@ __all__ = [
     "IndicInstruct",
     "Medical",
     "UnifiedSFTDataModule",
-    "KissanAI"
+    "KissanAI",
+    "ThoughtsAI"
 ]

@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --gres=gpu:8
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=8
 #SBATCH --partition=tts
 #SBATCH --qos=cpu60
-#SBATCH --nodelist=soketlab-node003,soketlab-node003
+#SBATCH --nodelist=soketlab-node004
 #SBATCH --time=1-00:00:00
 #SBATCH --output=logs/%x_%j.out
 #SBATCH --error=logs/%x_%j.err
@@ -28,5 +28,6 @@ module load python/3.10
 # export NCCL_ALGO= "Tree"
 export NCCL_DEBUG=INFO
 
-srun litgpt finetune_lora --config config_hub/finetune/gemma3-27b-it/lora.yaml
+srun litgpt finetune_lora  --config config_hub/finetune/gemma3-27b-it/lora.yaml
 
+ 

@@ -60,7 +60,7 @@ def setup(
     lora_value: bool = True,
     lora_projection: bool = False,
     lora_mlp: bool = False,
-    lora_head: bool = False,
+    lora_head: bool = False,                                             
     data: Optional[DataModule] = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
@@ -349,7 +349,7 @@ def fit(
 
         is_accumulating = iter_num % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids, lm_head_chunk_size=128)
+            logits = model(input_ids, lm_head_chunk_size=256)                                           ############changing the value to 128
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
