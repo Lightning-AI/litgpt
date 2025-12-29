@@ -717,6 +717,78 @@ def copy_weights_qwen_3(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
+def copy_weights_deepseek_v3(
+    config: Config,
+    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
+    state_dict: Dict[str, torch.Tensor],
+    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    saver: Optional[incremental_save] = None,
+    dtype: Optional[torch.dtype] = None,
+    pbar: Optional[tqdm] = None,
+    progress_per_file: Optional[float] = None,
+    debug_mode: Optional[bool] = False,
+) -> None:
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.self_attn.q_a_proj.weight": "transformer.h.{}.attn.q_a_proj.weight",
+        "model.layers.{}.self_attn.q_a_proj.weight_scale_inv": "transformer.h.{}.attn.q_a_proj.weight_scale_inv",
+        "model.layers.{}.self_attn.q_a_layernorm.weight": "transformer.h.{}.attn.q_a_norm.weight",
+        "model.layers.{}.self_attn.q_b_proj.weight": "transformer.h.{}.attn.q_b_proj.weight",
+        "model.layers.{}.self_attn.q_b_proj.weight_scale_inv": "transformer.h.{}.attn.q_b_proj.weight_scale_inv",
+        "model.layers.{}.self_attn.kv_a_proj_with_mqa.weight": "transformer.h.{}.attn.kv_a_proj_with_mqa.weight",
+        "model.layers.{}.self_attn.kv_a_proj_with_mqa.weight_scale_inv": "transformer.h.{}.attn.kv_a_proj_with_mqa.weight_scale_inv",
+        "model.layers.{}.self_attn.kv_a_layernorm.weight": "transformer.h.{}.attn.kv_a_norm.weight",
+        "model.layers.{}.self_attn.kv_b_proj.weight": "transformer.h.{}.attn.kv_b_proj.weight",
+        "model.layers.{}.self_attn.kv_b_proj.weight_scale_inv": "transformer.h.{}.attn.kv_b_proj.weight_scale_inv",
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.o_proj.weight_scale_inv": "transformer.h.{}.attn.proj.weight_scale_inv",
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+    if config.mlp_class_name == "LLaMAMoE":
+        weight_map.update(
+            {
+                "model.layers.{}.mlp.experts.{}.gate_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_1.weight",
+                "model.layers.{}.mlp.experts.{}.gate_proj.weight_scale_inv": "transformer.h.{}.mlp.experts.{}.fc_1.weight_scale_inv",
+                "model.layers.{}.mlp.experts.{}.up_proj.weight": "transformer.h.{}.mlp.experts.{}.fc_2.weight",
+                "model.layers.{}.mlp.experts.{}.up_proj.weight_scale_inv": "transformer.h.{}.mlp.experts.{}.fc_2.weight_scale_inv",
+                "model.layers.{}.mlp.experts.{}.down_proj.weight": "transformer.h.{}.mlp.experts.{}.proj.weight",
+                "model.layers.{}.mlp.experts.{}.down_proj.weight_scale_inv": "transformer.h.{}.mlp.experts.{}.proj.weight_scale_inv",
+                "model.layers.{}.mlp.shared_experts.gate_proj.weight": "transformer.h.{}.mlp.shared_experts.fc_1.weight",
+                "model.layers.{}.mlp.shared_experts.gate_proj.weight_scale_inv": "transformer.h.{}.mlp.shared_experts.fc_1.weight_scale_inv",
+                "model.layers.{}.mlp.shared_experts.up_proj.weight": "transformer.h.{}.mlp.shared_experts.fc_2.weight",
+                "model.layers.{}.mlp.shared_experts.up_proj.weight_scale_inv": "transformer.h.{}.mlp.shared_experts.fc_2.weight_scale_inv",
+                "model.layers.{}.mlp.shared_experts.down_proj.weight": "transformer.h.{}.mlp.shared_experts.proj.weight",
+                "model.layers.{}.mlp.shared_experts.down_proj.weight_scale_inv": "transformer.h.{}.mlp.shared_experts.proj.weight_scale_inv",
+                "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+                "model.layers.{}.mlp.e_score_correction_bias": "transformer.h.{}.mlp.e_score_correction_bias",
+            }
+        )
+    else:
+        raise NotImplementedError
+
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+
+    for from_name, param in hf_weights.items():
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        to_name = weight_map[name_template]
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+        if to_name is None:
+            continue
+        to_name = to_name.format(*ids)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
+
+    if "lm_head.weight" not in state_dict:
+        state_dict["lm_head.weight"] = state_dict["transformer.wte.weight"]
+
 
 def qkv_reassemble(
     param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
@@ -817,6 +889,10 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_3, config, qkv_weights)
+    elif model_name.lower().startswith("deepseek"):
+        # holder to reconstitute the split q, k, v
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_deepseek_v3, config, qkv_weights)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
