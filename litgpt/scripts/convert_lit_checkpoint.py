@@ -516,6 +516,7 @@ def copy_weights_qwen_3(
                 param = saver.store_early(param)
             state_dict[to_name] = param
 
+
 def copy_weights_deepseek_v3(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
@@ -576,6 +577,7 @@ def copy_weights_deepseek_v3(
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param
+
 
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.

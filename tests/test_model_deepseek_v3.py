@@ -1,42 +1,20 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
-from copy import deepcopy
-from functools import partial
-from unittest import mock
 
 import pytest
 import torch
-from lightning import Fabric
-from lightning.fabric.utilities.imports import _IS_WINDOWS
-from lightning.fabric.utilities.init import _materialize_meta_tensors
-from torch._dynamo.backends import debugging
-from torch.backends.cuda import (
-    SDPAParams,
-    SDPBackend,
-    can_use_efficient_attention,
-    can_use_flash_attention,
-    flash_sdp_enabled,
-    math_sdp_enabled,
-    mem_efficient_sdp_enabled,
-)
-from transformers import AutoConfig, AutoModelForCausalLM
-from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 from transformers.integrations.finegrained_fp8 import FP8Linear
+from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
-import litgpt.config as config_module
 from litgpt import GPT, Config
-from litgpt.model import CausalSelfAttention, batched_index_copy_
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_deepseek_v3,
 )
-from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
 
 
 @torch.inference_mode()
-@pytest.mark.parametrize(
-    "model_name", ["DeepSeek-V3"]
-)
+@pytest.mark.parametrize("model_name", ["DeepSeek-V3"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -71,7 +49,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         n_expert_per_token=2,
         n_expert_groups=2,
         n_topk_groups=2,
-        n_topk_scores_per_group=2, # hardcoded in DeepseekV3ForCausalLM
+        n_topk_scores_per_group=2,  # hardcoded in DeepseekV3ForCausalLM
         first_k_dense_replace=1,
         latent_attention=dict(
             q_lora_rank=16,
@@ -125,8 +103,18 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
+
 def patch_deepseek_v3(model: GPT):
-    to_replace = ["attn.q_a_proj", "attn.q_b_proj", "attn.kv_a_proj_with_mqa", "attn.kv_b_proj", "attn.proj", "gate_proj", "up_proj", "down_proj"]
+    to_replace = [
+        "attn.q_a_proj",
+        "attn.q_b_proj",
+        "attn.kv_a_proj_with_mqa",
+        "attn.kv_b_proj",
+        "attn.proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
+    ]
     for name, module in model.named_modules():
         new_module = None
         with torch.device("meta"):

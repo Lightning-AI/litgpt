@@ -717,6 +717,7 @@ def copy_weights_qwen_3(
             if progress_per_file is not None:
                 pbar.update(progress_per_file)
 
+
 def copy_weights_deepseek_v3(
     config: Config,
     qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
