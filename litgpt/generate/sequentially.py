@@ -69,9 +69,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             else:
                 rope_cache_length = model.cos.size(-1)
 
-            submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-                1, max_seq_length, rope_cache_length, target_device
-            )
+            submodule.attn.kv_cache = submodule.attn.build_kv_cache(1, max_seq_length, rope_cache_length, target_device)
     # rebuild odd ends
     with root:
         model.max_seq_length = max_seq_length
