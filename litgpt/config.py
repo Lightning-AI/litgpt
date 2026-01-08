@@ -68,8 +68,13 @@ class Config:
     n_query_groups: Optional[int] = None
     attn_bias: bool = False
     attention_scores_scalar: Optional[int] = None
+    # If `sliding_window_size` is given, sliding window attention with this
+    # size is used in layers where `sliding_window_indices` has a 1. The
+    # default is all 1, so that sliding window attention is used in all
+    # layers. If `len(sliding_window_indices) > n_layer`, we only use the
+    # initial part.
     sliding_window_size: Optional[int] = None
-    sliding_window_indices: Optional[List] = None
+    sliding_window_indices: Optional[List[int]] = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
@@ -86,7 +91,14 @@ class Config:
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     n_expert: int = 0
+    n_shared_expert: Optional[int] = None
+    n_expert_groups: Optional[int] = None
+    n_topk_groups: Optional[int] = None
+    n_topk_scores_per_group: Optional[int] = None
     n_expert_per_token: int = 0
+    first_k_dense_replace: Optional[int] = None
+    routed_scaling_factor: float = 1.0
+    norm_topk_prob: bool = False
     # GPT before/after blocks
     scale_embeddings: bool = False
     lm_head_bias: bool = False
@@ -95,9 +107,12 @@ class Config:
     norm_2: bool = True
     latent_attention: Optional[dict] = None
     # The base period of the RoPE embeddings for local attention.
-    # If not provided, rope_theta will be used for both local and global attention.
+    # If not provided, `rope_base` will be used for both local and global attention.
     rope_local_base_freq: Optional[float] = None
-    rope_indices: Optional[List] = None
+    # If provided, must have `>= n_layer` entries, either 0 or 1. For 0,
+    # `rope_base` is used, for 1 `rope_local_base_freq` is used. If
+    # `len(rope_indices) > n_layer`, we only use the initial part.
+    rope_indices: Optional[List[int]] = None
 
     def __post_init__(self):
         if not self.name:
@@ -128,11 +143,19 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
-        if self.sliding_window_size is not None and self.sliding_window_indices is None:
-            self.sliding_window_indices = [1] * self.n_layer
+        if self.sliding_window_size is not None:
+            self.sliding_window_indices = check_indicator_and_length(
+                self.sliding_window_indices,
+                name="sliding_window_indices",
+                required_length=self.n_layer,
+            )
 
-        if self.rope_local_base_freq is not None and self.rope_indices is None:
-            self.rope_indices = [1] * self.n_layer
+        if self.rope_local_base_freq is not None:
+            self.rope_indices = check_indicator_and_length(
+                self.rope_indices,
+                name="rope_indices",
+                required_length=self.n_layer,
+            )
 
         if self.latent_attention is not None:
             self.q_lora_rank = self.latent_attention.get("q_lora_rank")
@@ -150,6 +173,13 @@ class Config:
             assert self.n_head == self.n_query_groups, "Latent attention does not support MQA/GQA"
             self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
             self.rope_n_elem = self.qk_rope_head_dim
+        if self.first_k_dense_replace is not None:
+            assert self.mlp_class_name == "LLaMAMoE"
+        if self.n_expert_groups is not None:
+            assert self.n_expert % self.n_expert_groups == 0 and self.n_expert_groups > 1
+            assert self.n_topk_groups is not None
+            experts_per_group = self.n_expert // self.n_expert_groups
+            assert self.n_topk_scores_per_group is not None and self.n_topk_scores_per_group <= experts_per_group
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
@@ -216,6 +246,25 @@ class Config:
             return partial(torch.nn.LayerNorm, elementwise_affine=False)
 
         return getattr(torch.nn, self.norm_class_name)
+
+
+def check_indicator_and_length(
+    params: Optional[List[int]],
+    name: str,
+    required_length: int,
+    use_initial_part: bool = True,
+    def_val: int = 1,
+) -> List[int]:
+    if params is None:
+        return [def_val] * required_length
+    if len(params) != required_length:
+        if use_initial_part and len(params) > required_length:
+            params = params[:required_length]
+        else:
+            raise ValueError(f"{name} = {params}, must have length {required_length}")
+    if not set(params).issubset({0, 1}):
+        raise ValueError(f"{name} = {params}, must only contain 0 and 1")
+    return params
 
 
 ########################

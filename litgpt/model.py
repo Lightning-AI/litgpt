@@ -73,7 +73,9 @@ class GPT(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
-        if isinstance(module, nn.Linear):
+        if isinstance(module, GroupedTopkRouter):
+            torch.nn.init.normal_(module.weight.data, mean=0.0, std=0.02)
+        elif isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -286,6 +288,8 @@ class Block(nn.Module):
             else (None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
         )
         self.mlp = config.mlp_class(config)
+        if config.first_k_dense_replace is not None and block_idx < config.first_k_dense_replace:
+            self.mlp = LLaMAMLP(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -453,6 +457,12 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+
+            if self.apply_sliding_window_attention:
+                actual_kv_len = k.size(2)
+                if mask is not None and mask.size(-1) != actual_kv_len:
+                    mask = mask[..., :actual_kv_len]
+
             if input_pos_maxp1 is not None:
                 # Subselect along sequence dimension
                 k = k[..., :input_pos_maxp1, :]
@@ -479,13 +489,18 @@ class CausalSelfAttention(nn.Module):
             │ True True  True  True  │  │ False False True True │  │ False False True  True  │
             └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
-            if mask is None:
-                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), float("-inf"))
-                mask = mask.view(1, 1, *mask.shape)
-            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
-            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
-            mask += sliding_window_bias
+            if input_pos is None:
+                if mask is None:
+                    mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                    mask.masked_fill_(mask.bool(), float("-inf"))
+                    mask = mask.view(1, 1, *mask.shape)
+
+                sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
+                for i in range(T):
+                    window_start = max(0, i - self.config.sliding_window_size + 1)
+                    sliding_window_mask[i, window_start : i + 1] = 0.0
+                sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
+                mask = sliding_window_mask
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
@@ -527,7 +542,13 @@ class CausalSelfAttention(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> "KVCache":
-        v_shape = (batch_size, self.config.n_query_groups, max_seq_length, self.config.head_size)
+        if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
+            effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
+        else:
+            effective_cache_size = max_seq_length
+
+        v_shape = (batch_size, self.config.n_query_groups, effective_cache_size, self.config.head_size)
+
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
                 raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
@@ -536,10 +557,18 @@ class CausalSelfAttention(nn.Module):
             k_shape = (
                 batch_size,
                 self.config.n_query_groups,
-                max_seq_length,
+                effective_cache_size,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+        return KVCache(
+            k_shape,
+            v_shape,
+            device=device,
+            dtype=dtype,
+            is_sliding_window=self.apply_sliding_window_attention,
+            sliding_window_size=self.config.sliding_window_size if self.apply_sliding_window_attention else None,
+        )
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
@@ -734,10 +763,18 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.gate = (
+            nn.Linear(config.n_embd, config.n_expert, bias=False)
+            if not config.n_expert_groups
+            else GroupedTopkRouter(config)
+        )
         self.experts = nn.ModuleList(
             LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert)
         )
+        if config.n_shared_expert:
+            self.shared_experts = LLaMAMLP(
+                config, intermediate_size=config.moe_intermediate_size * config.n_shared_expert
+            )
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -746,17 +783,71 @@ class LLaMAMoE(nn.Module):
         See also figure 1 in https://arxiv.org/abs/2211.15841
         """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        residual_x = x.clone()
         x = x.view(-1, C)  # (B*T, C)
-        router = self.gate(x)  # (B*T, n_expert)
-        probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
-        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        if not self.config.n_expert_groups:
+            router = self.gate(x)  # (B*T, n_expert)
+            probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+            probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        else:
+            probs, indices = self.gate(x)
+        if self.config.routed_scaling_factor != 1.0:
+            probs = probs * self.config.routed_scaling_factor
         masks = indices.unsqueeze(-1) == torch.arange(self.config.n_expert, device=x.device)
         masks = masks.permute(2, 0, 1)  # (n_expert, B*T, n_expert_per_token)
         y = torch.zeros_like(x)  # (B*T, C)
         for mask, expert in zip(masks, self.experts):
             token_idx, expert_idx = torch.where(mask)
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
-        return y.view(B, T, C)
+
+        y = y.view(B, T, C)
+        if self.config.n_shared_expert:
+            y = y + self.shared_experts(residual_x)
+        return y
+
+
+class GroupedTopkRouter(nn.Module):
+    """
+    Derived from: https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py.
+    DeepseekV3TopkRouter class.
+    """
+
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.config = config
+        self.weight = nn.Parameter(torch.empty(config.n_expert, config.n_embd))
+        self.register_buffer("e_score_correction_bias", torch.zeros(config.n_expert))
+
+    @torch.no_grad()
+    def get_topk_indices(self, scores: torch.Tensor) -> torch.Tensor:
+        scores_for_choice = scores.view(-1, self.config.n_expert) + self.e_score_correction_bias.unsqueeze(0)
+        group_scores = (
+            scores_for_choice.view(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .topk(self.config.n_topk_scores_per_group, dim=-1)[0]  # Top k scores for each group
+            .sum(dim=-1)
+        )
+
+        group_idx = torch.topk(group_scores, k=self.config.n_topk_groups, dim=-1, sorted=False)[1]
+        group_mask = torch.zeros_like(group_scores)
+        group_mask.scatter_(1, group_idx, 1)
+        score_mask = (
+            group_mask.unsqueeze(-1)
+            .expand(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .reshape(-1, self.config.n_expert)
+        )
+        scores_for_choice = scores_for_choice.masked_fill(~score_mask.bool(), 0.0)
+        topk_indices = torch.topk(scores_for_choice, k=self.config.n_expert_per_token, dim=-1, sorted=False)[1]
+        return topk_indices
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        router_logits = F.linear(x.type(torch.float32), self.weight.type(torch.float32))
+        scores = router_logits.sigmoid()
+        topk_indices = self.get_topk_indices(scores)
+        topk_weights = scores.gather(1, topk_indices)
+        if self.config.norm_topk_prob:
+            denominator = topk_weights.sum(dim=-1, keepdim=True) + 1e-20
+            topk_weights /= denominator
+        return topk_weights, topk_indices
 
 
 def build_rope_cache(
@@ -806,7 +897,7 @@ def build_rope_cache(
             theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
+    seq_idx = torch.arange(seq_len, device=device).float() / condense_ratio
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
@@ -951,10 +1042,15 @@ class KVCache(nn.Module):
         v_shape: Tuple[int, int, int, int],
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
+        is_sliding_window: bool = False,
+        sliding_window_size: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
+        self.is_sliding_window = is_sliding_window
+        self.sliding_window_size = sliding_window_size
+        self.max_cache_len = k_shape[2]
 
     def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -979,8 +1075,21 @@ class KVCache(nn.Module):
             self.v = self.v.to(v.dtype)
         # update the cache
         bs = k.size(0)
-        k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
-        v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+        if self.is_sliding_window:
+            # Circular buffer for sliding window
+            cache_positions = input_pos % self.max_cache_len
+            k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
+
+            max_pos = input_pos.max().item()
+            if max_pos < self.max_cache_len:
+                k = k[:, :, : max_pos + 1, :]
+                v = v[:, :, : max_pos + 1, :]
+        else:
+            # Standard KV cache (global attention)
+            k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+
         return k, v
 
     def reset_parameters(self) -> None:
