@@ -60,6 +60,10 @@ run: |
       | cut -d'=' -f3 \
       | cut -d'#' -f1 \
       | xargs)
+    if [ -z "${TRANSFORMERS_VERSION}" ]; then
+      echo "Error: Could not determine transformers version from lightning-thunder requirements"
+      exit 1
+    fi
     pip install transformers==${TRANSFORMERS_VERSION}
     # without env var, it filters out all tests
     RUN_ONLY_CUDA_TESTS=0 pytest tests/ext_thunder/test_thunder_networks.py -v
