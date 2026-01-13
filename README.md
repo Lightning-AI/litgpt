@@ -91,7 +91,10 @@ Install from source:
 ```bash
 git clone https://github.com/Lightning-AI/litgpt
 cd litgpt
-pip install -e '.[all]'
+# if using uv
+uv sync --all-extras
+# if using pip
+pip install -e ".[extra,compiler,test]"
 ```
 </details>
 
