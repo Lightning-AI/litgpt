@@ -66,7 +66,8 @@ class BaseLitAPI(LitAPI):
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy=self.generate_strategy or ("sequential" if self.devices is not None and self.devices > 1 else None),
+            generate_strategy=self.generate_strategy
+            or ("sequential" if self.devices is not None and self.devices > 1 else None),
         )
         print("Model successfully initialized.", file=sys.stderr)
 
