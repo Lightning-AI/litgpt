@@ -50,7 +50,7 @@ optional-dependencies.extra = [
   "datasets>=2.18,<4",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
-  "litdata==0.2.51",
+  "litdata==0.2.59",
   # litgpt.deploy:
   "litserve>0.2",
   # lm-eval: pinned <0.4.9.1 due to trust_remote_code issues with datasets like logiqa.
