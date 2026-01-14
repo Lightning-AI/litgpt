@@ -233,15 +233,7 @@ class GPT(nn.Module):
         Returns:
             int: n_elem (head dimension for RoPE)
         """
-        if len(self.cos.shape) == 2:
-            # Standard RoPE: (seq_len, n_elem)
-            return self.cos.size(-1)
-        elif len(self.cos.shape) == 3:
-            # Dual RoPE (local/global): (seq_len, n_elem, 2)
-            return self.cos.size(1)
-        else:
-            # Fallback for unexpected shapes
-            return self.cos.size(-1)
+        return self.cos.size(1)
 
     def set_kv_cache(
         self,
