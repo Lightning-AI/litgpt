@@ -88,7 +88,7 @@ class SimpleLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -133,7 +133,7 @@ class StreamLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -178,7 +178,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
