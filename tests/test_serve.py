@@ -278,7 +278,7 @@ def test_serve_with_generate_strategy(tmp_path, generate_strategy):
 
     # Test with generate strategy
     run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", generate_strategy]
-    
+
     process = None
 
     def run_server():
