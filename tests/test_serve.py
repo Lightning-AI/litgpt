@@ -256,8 +256,14 @@ def test_serve_with_openai_spec(tmp_path):
         server_thread.join()
 
 
-@_RunIf(min_cuda_gpus=1)
-def test_serve_with_generate_strategy(tmp_path):
+@pytest.mark.parametrize(
+    "generate_strategy",
+    [
+        pytest.param("sequential", marks=_RunIf(min_cuda_gpus=1)),
+        pytest.param("tensor_parallel", marks=_RunIf(min_cuda_gpus=2)),
+    ],
+)
+def test_serve_with_generate_strategy(tmp_path, generate_strategy):
     seed_everything(123)
     ours_config = Config.from_name("pythia-14m")
     download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
@@ -270,9 +276,9 @@ def test_serve_with_generate_strategy(tmp_path):
     with open(config_path, "w", encoding="utf-8") as fp:
         yaml.dump(asdict(ours_config), fp)
 
-    # Test with sequential strategy explicitly
-    run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", "sequential"]
-
+    # Test with generate strategy
+    run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", generate_strategy]
+    
     process = None
 
     def run_server():
