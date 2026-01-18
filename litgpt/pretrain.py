@@ -3,6 +3,7 @@
 import math
 import pprint
 import time
+import warnings
 from dataclasses import asdict
 from datetime import timedelta
 from functools import partial
@@ -510,11 +511,17 @@ def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+    if train.max_steps is not None:
+        warnings.warn(
+            "`train.max_steps` is intended for profiling or debug runs only. "
+            "For full pretraining runs, prefer `train.max_tokens` or `train.max_time`.",
+            UserWarning,
+        )
     required = [(train, ["max_tokens", "max_norm"])]
     for args, names in required:
         for name in names:
