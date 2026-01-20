@@ -170,7 +170,7 @@ def copy_weights_gemma_2(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    untie_weights: bool = False,
+    untie_weights: bool = True,
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
@@ -219,7 +219,7 @@ def copy_weights_gemma_3(
     config: Config,
     state_dict: Dict[str, torch.Tensor],
     lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    untie_weights: bool = False,
+    untie_weights: bool = True,
     saver: Optional[incremental_save] = None,
 ) -> None:
     weight_map = {
@@ -557,6 +557,8 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_falcon, config)
     elif config.name.startswith("Gemma-2"):
         copy_fn = partial(copy_weights_gemma_2, config)
+    elif config.name.startswith("Gemma-3"):
+        copy_fn = partial(copy_weights_gemma_3, config)
     elif config.name.lower().startswith("phi"):
         copy_fn = partial(copy_weights_phi, config)
     elif config.name.lower().startswith(("qwen2.5", "qwq")):
@@ -565,9 +567,6 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_olmo2, config)
     elif config.name.lower().startswith("qwen3"):
         copy_fn = partial(copy_weights_qwen_3, config)
-    elif config.name.startswith("Gemma-3"):
-        untie_weights = True
-        copy_fn = partial(copy_weights_gemma_3, config, untie_weights=untie_weights)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)
