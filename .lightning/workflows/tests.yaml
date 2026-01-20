@@ -54,7 +54,17 @@ run: |
     pip install -U "lightning-thunder[test] @ git+https://github.com/Lightning-AI/lightning-thunder.git" "torch==${TORCH_VERSION}"
     # Pin transformers to match thunder's test_networks.py requirements
     # See: https://github.com/Lightning-AI/lightning-thunder/blob/main/requirements/test.txt
-    pip install transformers==4.52.4 # todo: find more robust way
+    # Get transformers version from thunder requirements
+    TRANSFORMERS_VERSION=$(curl -fsSL https://raw.githubusercontent.com/Lightning-AI/lightning-thunder/main/requirements/test.txt \
+      | grep '^transformers==' \
+      | cut -d'=' -f3 \
+      | cut -d'#' -f1 \
+      | xargs)
+    if [ -z "${TRANSFORMERS_VERSION}" ]; then
+      echo "Error: Could not determine transformers version from lightning-thunder requirements"
+      exit 1
+    fi
+    pip install transformers==${TRANSFORMERS_VERSION}
     # without env var, it filters out all tests
     RUN_ONLY_CUDA_TESTS=0 pytest tests/ext_thunder/test_thunder_networks.py -v
   fi

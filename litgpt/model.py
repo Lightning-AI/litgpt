@@ -222,6 +222,19 @@ class GPT(nn.Module):
             rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
+    def rope_cache_length(self) -> int:
+        """
+        Extract the head dimension (n_elem) from RoPE cache regardless of shape.
+
+        The RoPE cache can have different shapes depending on model configuration:
+        - Standard RoPE: (seq_len, n_elem) - 2D tensor
+        - Dual RoPE (local/global): (seq_len, n_elem, 2) - 3D tensor
+
+        Returns:
+            int: n_elem (head dimension for RoPE)
+        """
+        return self.cos.size(1)
+
     def set_kv_cache(
         self,
         batch_size: int,
@@ -231,10 +244,7 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            if len(self.cos.shape) == 2:
-                rope_cache_length = self.cos.size(-1)
-            else:
-                rope_cache_length = self.cos[..., 0].size(-1)
+            rope_cache_length = self.rope_cache_length()
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -551,7 +561,10 @@ class CausalSelfAttention(nn.Module):
 
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
-                raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
+                raise TypeError(
+                    "Please pass the `rope_cache_length` parameter. "
+                    "Use `rope_cache_length=model.rope_cache_length()` to extract it automatically."
+                )
             k_shape = v_shape
         else:
             k_shape = (

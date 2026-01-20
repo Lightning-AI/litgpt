@@ -63,7 +63,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             _materialize_meta_tensors(submodule, target_device)
             # and build the kv cache
             submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-                1, max_seq_length, model.cos.size(-1), target_device
+                1, max_seq_length, model.rope_cache_length(), target_device
             )
     # rebuild odd ends
     with root:
