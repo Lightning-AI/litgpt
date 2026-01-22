@@ -19,6 +19,7 @@ from lightning_utilities.core.imports import RequirementCache
 
 from litgpt import GPT
 from litgpt.args import TrainArgs
+from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
@@ -39,7 +40,6 @@ from litgpt.utils import (
     instantiate_torch_optimizer,
     num_parameters,
     parse_devices,
-    save_hyperparameters,
     select_sft_generate_example,
 )
 

@@ -2,7 +2,6 @@
 
 import itertools
 import logging
-import math
 import re
 import sys
 import time
@@ -11,7 +10,7 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional, Type
+from typing import List, Literal, Optional, Type
 
 import lightning as L
 import torch
@@ -41,18 +40,12 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             f" n_layer={model.config.n_layer} and devices={devices}."
         )
 
-    # The last device might get fewer layers if number of layers not evenly divisible by device count
-    max_layers_per_device = math.ceil(model.config.n_layer / devices)
-    # dictates where each block should be instantiated
-    mapping = layer_to_device(model, chunk_on=Block, chunk_size=max_layers_per_device)
-
-    if set(mapping.values()) != set(range(devices)):
-        # TODO: support smarter partitioning schemes
-        raise RuntimeError(
-            f"Not able to distribute the {model.config.n_layer} layers across {devices} devices."
-            " Try running with a lower number of devices."
-        )
-
+    # Dictates where each block should be instantiated
+    mapping = layer_to_device(
+        model,
+        chunk_on=Block,
+        chunk_sizes=chunk_sizes(model.config.n_layer, devices),
+    )
     num_layers_per_device = {i: sum(1 for v in mapping.values() if v == i) for i in range(devices)}
 
     # materialize each block on the appropriate device
@@ -70,7 +63,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
             _materialize_meta_tensors(submodule, target_device)
             # and build the kv cache
             submodule.attn.kv_cache = submodule.attn.build_kv_cache(
-                1, max_seq_length, model.cos.size(-1), target_device
+                1, max_seq_length, model.rope_cache_length(), target_device
             )
     # rebuild odd ends
     with root:
@@ -100,13 +93,25 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     return model
 
 
+def chunk_sizes(num_units: int, devices: int) -> List[int]:
+    cs = num_units // devices
+    k = devices * (cs + 1) - num_units
+    return [cs] * k + [cs + 1] * (devices - k)
+
+
 def layer_to_device(
-    module: torch.nn.Module, chunk_on: Type[torch.nn.Module], chunk_size: int
+    module: torch.nn.Module,
+    chunk_on: Type[torch.nn.Module],
+    chunk_sizes: List[int],
 ) -> "OrderedDict[str, int]":
     """Create a mapping from layer (block) to device."""
     # this assumes that the definition order is the same as the execution order
     hits = [name for name, submodule in module.named_modules() if isinstance(submodule, chunk_on)]
-    return OrderedDict((name, i // chunk_size) for i, name in enumerate(hits))
+    if sum(chunk_sizes) != len(hits):
+        raise ValueError(f"Found {len(hits)} for chunk_on={chunk_on}, not covered by chunk_sizes={chunk_sizes}")
+    _devices = [[d] * cs for d, cs in enumerate(chunk_sizes)]
+    devices = [d for lst in _devices for d in lst]
+    return OrderedDict(zip(hits, devices))
 
 
 def move_block_input(device: torch.device, module: torch.nn.Module, ins):
@@ -263,9 +268,9 @@ def main(
     for i in range(num_samples):
         t0 = time.perf_counter()
         y = generate_base.generate(
-            model,
-            encoded,
-            max_returned_tokens,
+            model=model,
+            prompt=encoded,
+            max_returned_tokens=max_returned_tokens,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,

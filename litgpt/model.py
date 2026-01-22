@@ -222,6 +222,19 @@ class GPT(nn.Module):
             rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
+    def rope_cache_length(self) -> int:
+        """
+        Extract the head dimension (n_elem) from RoPE cache regardless of shape.
+
+        The RoPE cache can have different shapes depending on model configuration:
+        - Standard RoPE: (seq_len, n_elem) - 2D tensor
+        - Dual RoPE (local/global): (seq_len, n_elem, 2) - 3D tensor
+
+        Returns:
+            int: n_elem (head dimension for RoPE)
+        """
+        return self.cos.size(1)
+
     def set_kv_cache(
         self,
         batch_size: int,
@@ -231,10 +244,7 @@ class GPT(nn.Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if rope_cache_length is None:
-            if len(self.cos.shape) == 2:
-                rope_cache_length = self.cos.size(-1)
-            else:
-                rope_cache_length = self.cos[..., 0].size(-1)
+            rope_cache_length = self.rope_cache_length()
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -457,6 +467,12 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+
+            if self.apply_sliding_window_attention:
+                actual_kv_len = k.size(2)
+                if mask is not None and mask.size(-1) != actual_kv_len:
+                    mask = mask[..., :actual_kv_len]
+
             if input_pos_maxp1 is not None:
                 # Subselect along sequence dimension
                 k = k[..., :input_pos_maxp1, :]
@@ -483,13 +499,18 @@ class CausalSelfAttention(nn.Module):
             │ True True  True  True  │  │ False False True True │  │ False False True  True  │
             └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
-            if mask is None:
-                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), float("-inf"))
-                mask = mask.view(1, 1, *mask.shape)
-            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
-            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
-            mask += sliding_window_bias
+            if input_pos is None:
+                if mask is None:
+                    mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                    mask.masked_fill_(mask.bool(), float("-inf"))
+                    mask = mask.view(1, 1, *mask.shape)
+
+                sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
+                for i in range(T):
+                    window_start = max(0, i - self.config.sliding_window_size + 1)
+                    sliding_window_mask[i, window_start : i + 1] = 0.0
+                sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
+                mask = sliding_window_mask
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
@@ -531,19 +552,36 @@ class CausalSelfAttention(nn.Module):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> "KVCache":
-        v_shape = (batch_size, self.config.n_query_groups, max_seq_length, self.config.head_size)
+        if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
+            effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
+        else:
+            effective_cache_size = max_seq_length
+
+        v_shape = (batch_size, self.config.n_query_groups, effective_cache_size, self.config.head_size)
+
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
-                raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
+                raise TypeError(
+                    "Please pass the `rope_cache_length` parameter. "
+                    "Use `rope_cache_length=model.rope_cache_length()` to extract it automatically."
+                )
             k_shape = v_shape
         else:
             k_shape = (
                 batch_size,
                 self.config.n_query_groups,
-                max_seq_length,
+                effective_cache_size,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+        return KVCache(
+            k_shape,
+            v_shape,
+            device=device,
+            dtype=dtype,
+            is_sliding_window=self.apply_sliding_window_attention,
+            sliding_window_size=self.config.sliding_window_size if self.apply_sliding_window_attention else None,
+        )
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
@@ -872,7 +910,7 @@ def build_rope_cache(
             theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
+    seq_idx = torch.arange(seq_len, device=device).float() / condense_ratio
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
@@ -1017,10 +1055,15 @@ class KVCache(nn.Module):
         v_shape: Tuple[int, int, int, int],
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
+        is_sliding_window: bool = False,
+        sliding_window_size: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
+        self.is_sliding_window = is_sliding_window
+        self.sliding_window_size = sliding_window_size
+        self.max_cache_len = k_shape[2]
 
     def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -1045,8 +1088,21 @@ class KVCache(nn.Module):
             self.v = self.v.to(v.dtype)
         # update the cache
         bs = k.size(0)
-        k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
-        v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+        if self.is_sliding_window:
+            # Circular buffer for sliding window
+            cache_positions = input_pos % self.max_cache_len
+            k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
+
+            max_pos = input_pos.max().item()
+            if max_pos < self.max_cache_len:
+                k = k[:, :, : max_pos + 1, :]
+                v = v[:, :, : max_pos + 1, :]
+        else:
+            # Standard KV cache (global attention)
+            k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+
         return k, v
 
     def reset_parameters(self) -> None:
