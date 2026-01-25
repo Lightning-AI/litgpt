@@ -74,7 +74,7 @@ def setup(
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow", "swanlab"] = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:

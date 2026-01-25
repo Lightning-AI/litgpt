@@ -28,7 +28,7 @@ from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.strategies import FSDPStrategy, ModelParallelStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
-from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
+from lightning.pytorch.loggers import MLFlowLogger, SwanLabLogger, WandbLogger
 from lightning_utilities.core.imports import RequirementCache, module_available
 from packaging import version
 from torch.serialization import normalize_storage_type
@@ -567,7 +567,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 
 
 def choose_logger(
-    logger_name: Literal["csv", "tensorboard", "wandb", "mlflow"],
+    logger_name: Literal["csv", "tensorboard", "wandb", "mlflow", "swanlab"],
     out_dir: Path,
     name: str,
     log_interval: int = 1,
@@ -586,7 +586,25 @@ def choose_logger(
         return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
     if logger_name == "mlflow":
         return MLFlowLogger(experiment_name=name, **kwargs)
-    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+    if logger_name == "swanlab":
+        project = log_args.pop("project", name) if log_args else name
+        experiment_name = log_args.pop("run", None) if log_args else None
+        description = log_args.pop("description", None) if log_args else None
+        logdir = log_args.pop("logdir", str(out_dir / "logs" / "swanlab")) if log_args else str(out_dir / "logs" / "swanlab")
+        mode = log_args.pop("mode", "cloud") if log_args else "cloud"
+        config = log_args.pop("config", None) if log_args else None
+        version = log_args.pop("version", None) if log_args else None
+        return SwanLabLogger(
+            project=project,
+            experiment_name=experiment_name,
+            description=description,
+            logdir=logdir,
+            mode=mode,
+            version=version if resume else None,
+            config=config,
+            **kwargs,
+        )
+    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb', 'mlflow', 'swanlab'.")
 
 
 def get_argument_names(cls):
