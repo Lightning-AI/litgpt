@@ -23,6 +23,7 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    SwanLabLogger,
     _RunIf,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
@@ -298,6 +299,15 @@ def test_choose_logger(tmp_path):
         assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
     if RequirementCache("mlflow") or RequirementCache("mlflow-skinny"):
         assert isinstance(choose_logger("mlflow", out_dir=tmp_path, name="wandb"), MLFlowLogger)
+    if RequirementCache("swanlab"):
+        assert isinstance(
+            choose_logger(
+                "swanlab", out_dir=tmp_path, name="swanlab", log_args={"project": "test", "mode": "disabled"}
+            ),
+            SwanLabLogger,
+        )
+    with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
+        choose_logger("foo", out_dir=tmp_path, name="foo")
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
 

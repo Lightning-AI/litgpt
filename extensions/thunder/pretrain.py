@@ -76,7 +76,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
+    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow", "swanlab"] = "tensorboard",
     seed: int = 42,
     compiler: Optional[Literal["thunder", "torch"]] = "thunder",
     executors: Optional[List[str]] = ("sdpa", "torchcompile", "nvfuser", "torch"),
