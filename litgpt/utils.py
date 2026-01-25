@@ -590,7 +590,9 @@ def choose_logger(
         project = log_args.pop("project", name) if log_args else name
         experiment_name = log_args.pop("run", None) if log_args else None
         description = log_args.pop("description", None) if log_args else None
-        logdir = log_args.pop("logdir", str(out_dir / "logs" / "swanlab")) if log_args else str(out_dir / "logs" / "swanlab")
+        logdir = (
+            log_args.pop("logdir", str(out_dir / "logs" / "swanlab")) if log_args else str(out_dir / "logs" / "swanlab")
+        )
         mode = log_args.pop("mode", "cloud") if log_args else "cloud"
         config = log_args.pop("config", None) if log_args else None
         version = log_args.pop("version", None) if log_args else None
@@ -604,7 +606,9 @@ def choose_logger(
             config=config,
             **kwargs,
         )
-    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb', 'mlflow', 'swanlab'.")
+    raise ValueError(
+        f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb', 'mlflow', 'swanlab'."
+    )
 
 
 def get_argument_names(cls):

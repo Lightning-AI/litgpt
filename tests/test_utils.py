@@ -23,13 +23,13 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    SwanLabLogger,
     _RunIf,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     choose_logger,
-    SwanLabLogger,
     chunked_cross_entropy,
     copy_config_files,
     extend_checkpoint_dir,
@@ -302,12 +302,9 @@ def test_choose_logger(tmp_path):
     if RequirementCache("swanlab"):
         assert isinstance(
             choose_logger(
-                "swanlab",
-                out_dir=tmp_path,
-                name="swanlab",
-                log_args={"project": "test", "mode": "disabled"}
+                "swanlab", out_dir=tmp_path, name="swanlab", log_args={"project": "test", "mode": "disabled"}
             ),
-            SwanLabLogger
+            SwanLabLogger,
         )
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
