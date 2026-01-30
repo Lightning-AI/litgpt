@@ -27,7 +27,7 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from litgpt.utils import _THUNDER_AVAILABLE
+from litgpt.constants import _THUNDER_AVAILABLE
 
 if TYPE_CHECKING:
     from thunder import Executor
