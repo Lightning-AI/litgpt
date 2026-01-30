@@ -14,11 +14,17 @@ import yaml
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
-from lightning_utilities.core.imports import RequirementCache
+from lightning.pytorch.loggers import LitLogger, MLFlowLogger, WandbLogger
 
 from litgpt import GPT
 from litgpt.args import TrainArgs
+from litgpt.constants import (
+    _LITLOGGER_AVAILABLE,
+    _MLFLOW_AVAILABLE,
+    _MLFLOW_SKINNY_AVAILABLE,
+    _TENSORBOARD_AVAILABLE,
+    _WANDB_AVAILABLE,
+)
 from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
@@ -292,12 +298,14 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
 
 def test_choose_logger(tmp_path):
     assert isinstance(choose_logger("csv", out_dir=tmp_path, name="csv"), CSVLogger)
-    if RequirementCache("tensorboard"):
+    if _TENSORBOARD_AVAILABLE:
         assert isinstance(choose_logger("tensorboard", out_dir=tmp_path, name="tb"), TensorBoardLogger)
-    if RequirementCache("wandb"):
+    if _WANDB_AVAILABLE:
         assert isinstance(choose_logger("wandb", out_dir=tmp_path, name="wandb"), WandbLogger)
-    if RequirementCache("mlflow") or RequirementCache("mlflow-skinny"):
+    if _MLFLOW_AVAILABLE or _MLFLOW_SKINNY_AVAILABLE:
         assert isinstance(choose_logger("mlflow", out_dir=tmp_path, name="wandb"), MLFlowLogger)
+    if _LITLOGGER_AVAILABLE:
+        assert isinstance(choose_logger("litlogger", out_dir=tmp_path, name="litlogger"), LitLogger)
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
 

@@ -29,26 +29,19 @@ from lightning.fabric.strategies import FSDPStrategy, ModelParallelStrategy
 from lightning.fabric.utilities.load import _lazy_load as lazy_load
 from lightning.pytorch.cli import instantiate_class
 from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
-from lightning_utilities.core.imports import RequirementCache, module_available
 from packaging import version
 from torch.serialization import normalize_storage_type
 from typing_extensions import Self
 
+from litgpt.constants import (
+    _LITLOGGER_AVAILABLE,
+    _SUPPORTED_LOGGERS,
+    _THUNDER_AVAILABLE,
+)
+from litgpt.types import LoggerChoice
+
 if TYPE_CHECKING:
     from litgpt import GPT, Config
-
-_TORCH_EQUAL_2_7 = RequirementCache("torch>=2.7.0,<2.8")
-_TORCH_EQUAL_2_8 = RequirementCache("torch>=2.8.0,<2.9")
-_REQUESTS_AVAILABLE = RequirementCache("requests")
-_THUNDER_AVAILABLE = module_available("thunder")
-_TRITON_AVAILABLE = module_available("triton")
-_BITANDBYTES_AVAILABLE = module_available("bitsandbytes")
-_BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0 = RequirementCache("bitsandbytes != 0.42.0")
-_LITDATA_AVAILABLE = RequirementCache("litdata")
-_LITSERVE_AVAILABLE = RequirementCache("litserve")
-_JINJA2_AVAILABLE = RequirementCache("jinja2")
-_SAFETENSORS_AVAILABLE = RequirementCache("safetensors")
-_HF_TRANSFER_AVAILABLE = RequirementCache("hf_transfer")
 
 
 def init_out_dir(out_dir: Path) -> Path:
@@ -567,7 +560,7 @@ def parse_devices(devices: Union[str, int]) -> int:
 
 
 def choose_logger(
-    logger_name: Literal["csv", "tensorboard", "wandb", "mlflow"],
+    logger_name: LoggerChoice,
     out_dir: Path,
     name: str,
     log_interval: int = 1,
@@ -586,7 +579,31 @@ def choose_logger(
         return WandbLogger(project=project, name=run, group=group, resume=resume, **kwargs)
     if logger_name == "mlflow":
         return MLFlowLogger(experiment_name=name, **kwargs)
-    raise ValueError(f"`--logger_name={logger_name}` is not a valid option. Choose from 'csv', 'tensorboard', 'wandb'.")
+    if logger_name == "litlogger":
+        if not _LITLOGGER_AVAILABLE:
+            raise ModuleNotFoundError(_LITLOGGER_AVAILABLE)
+        from lightning.pytorch.loggers import LitLogger
+
+        # Extract litlogger-specific args
+        teamspace = log_args.pop("teamspace", None) if log_args else None
+        metadata = log_args.pop("metadata", None) if log_args else None
+        log_model = log_args.pop("log_model", False) if log_args else False
+        save_logs = log_args.pop("save_logs", True) if log_args else True
+        checkpoint_name = log_args.pop("checkpoint_name", None) if log_args else None
+
+        return LitLogger(
+            root_dir=(out_dir / "logs"),
+            name=name,
+            teamspace=teamspace,
+            metadata=metadata,
+            log_model=log_model,
+            save_logs=save_logs,
+            checkpoint_name=checkpoint_name,
+            **kwargs,
+        )
+    raise ValueError(
+        f"`--logger_name={logger_name}` is not a valid option. Choose from {', '.join(_SUPPORTED_LOGGERS)}."
+    )
 
 
 def get_argument_names(cls):
@@ -883,7 +900,7 @@ def _RunIf(thunder: bool = False, **kwargs):
 
     reasons, marker_kwargs = _runif_reasons(**kwargs)
 
-    if thunder and not module_available("thunder"):
+    if thunder and not _THUNDER_AVAILABLE:
         # if we require Thunder, but it's not available, we should skip
         reasons.append("Thunder")
 

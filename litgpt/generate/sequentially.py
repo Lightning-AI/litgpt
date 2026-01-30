@@ -21,11 +21,11 @@ from tqdm import tqdm
 
 import litgpt.generate.base as generate_base
 from litgpt.config import Config
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.model import GPT, Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,

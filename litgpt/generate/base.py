@@ -14,11 +14,11 @@ import torch._inductor.config
 from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt.config import Config
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,

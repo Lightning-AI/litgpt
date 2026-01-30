@@ -8,11 +8,8 @@ from typing import Any, Dict, Literal, Optional
 import torch
 
 from litgpt.api import LLM
-from litgpt.utils import (
-    _JINJA2_AVAILABLE,
-    _LITSERVE_AVAILABLE,
-    auto_download_checkpoint,
-)
+from litgpt.constants import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE
+from litgpt.utils import auto_download_checkpoint
 
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer

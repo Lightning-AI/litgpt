@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from litgpt.config import configs
+from litgpt.constants import _HF_TRANSFER_AVAILABLE, _SAFETENSORS_AVAILABLE
 from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
-from litgpt.utils import _HF_TRANSFER_AVAILABLE, _SAFETENSORS_AVAILABLE
 
 
 def download_from_hub(
