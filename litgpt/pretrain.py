@@ -22,13 +22,12 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
+from litgpt.constants import _TORCH_EQUAL_2_7, _TORCH_EQUAL_2_8
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.parser_config import save_hyperparameters
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _TORCH_EQUAL_2_7,
-    _TORCH_EQUAL_2_8,
     CycleIterator,
     capture_hparams,
     check_nvlink_connectivity,
