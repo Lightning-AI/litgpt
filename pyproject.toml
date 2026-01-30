@@ -53,6 +53,8 @@ optional-dependencies.extra = [
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
   "litdata==0.2.59",
+  # litgpt logging:
+  "litlogger>=0.1",
   # litgpt.deploy:
   "litserve>0.2",
   # lm-eval: pinned <0.4.9.1 due to trust_remote_code issues with datasets like logiqa.
@@ -65,8 +67,6 @@ optional-dependencies.extra = [
   "requests>=2.31",
   # llama-based models:
   "sentencepiece>=0.2",
-  # litgpt logging:
-  "litlogger>=0.1.0",
   # litgpt.pretrain:
   "tensorboard>=2.14",
   "torchmetrics>=1.3.1",
