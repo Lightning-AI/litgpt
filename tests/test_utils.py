@@ -14,7 +14,7 @@ import yaml
 from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
-from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
+from lightning.pytorch.loggers import LitLogger, MLFlowLogger, WandbLogger
 
 from litgpt import GPT
 from litgpt.args import TrainArgs
@@ -305,8 +305,6 @@ def test_choose_logger(tmp_path):
     if _MLFLOW_AVAILABLE or _MLFLOW_SKINNY_AVAILABLE:
         assert isinstance(choose_logger("mlflow", out_dir=tmp_path, name="wandb"), MLFlowLogger)
     if _LITLOGGER_AVAILABLE:
-        from lightning.pytorch.loggers import LitLogger
-
         assert isinstance(choose_logger("litlogger", out_dir=tmp_path, name="litlogger"), LitLogger)
     with pytest.raises(ValueError, match="`--logger_name=foo` is not a valid option."):
         choose_logger("foo", out_dir=tmp_path, name="foo")
