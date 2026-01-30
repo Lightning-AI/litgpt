@@ -24,6 +24,7 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
     _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     CycleIterator,
@@ -75,7 +76,7 @@ def setup(
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
+    logger_name: LoggerChoice = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:

@@ -20,6 +20,7 @@ from litgpt.model import GPT, Block, Config
 from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
     CycleIterator,
     auto_download_checkpoint,
@@ -60,7 +61,7 @@ def setup(
     eval: EvalArgs = EvalArgs(interval=600, max_new_tokens=100, max_iters=100),
     log: LogArgs = LogArgs(),
     optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
+    logger_name: LoggerChoice = "csv",
     seed: int = 1337,
     access_token: Optional[str] = None,
 ) -> None:
