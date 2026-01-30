@@ -18,6 +18,7 @@ from torchmetrics import RunningMean
 
 from litgpt.adapter_v2 import GPT, Block, Config, adapter_filter, mark_only_adapter_v2_as_trainable
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.parser_config import save_hyperparameters
@@ -25,7 +26,6 @@ from litgpt.prompts import save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     CycleIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,

@@ -17,6 +17,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
@@ -26,7 +27,6 @@ from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     CycleIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
