@@ -7,7 +7,7 @@ from lightning_utilities.core.imports import RequirementCache
 _SUPPORTED_LOGGERS: tuple[str, ...] = ("csv", "tensorboard", "wandb", "mlflow", "litlogger")
 
 # Logger-related optional dependencies
-_LITLOGGER_AVAILABLE = RequirementCache("litlogger>=0.1.0")
+_LITLOGGER_AVAILABLE = RequirementCache("litlogger>=0.1.7")
 _TENSORBOARD_AVAILABLE = RequirementCache("tensorboard")
 _WANDB_AVAILABLE = RequirementCache("wandb")
 _MLFLOW_AVAILABLE = RequirementCache("mlflow")
