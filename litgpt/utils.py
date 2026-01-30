@@ -581,7 +581,7 @@ def choose_logger(
         return MLFlowLogger(experiment_name=name, **kwargs)
     if logger_name == "litlogger":
         if not _LITLOGGER_AVAILABLE:
-            raise ImportError("`litlogger` is not installed. Install it with `pip install litlogger>=0.1.0`")
+            raise ModuleNotFoundError(_LITLOGGER_AVAILABLE)
         from lightning.pytorch.loggers import LitLogger
 
         # Extract litlogger-specific args
