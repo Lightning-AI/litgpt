@@ -614,7 +614,7 @@ eval:
   # Number of iterations (type: int, default: 100)
   max_iters: 100
 
-# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
+# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv', 'mlflow', 'litlogger'], default: csv)
 logger_name: csv
 
 # The random seed to use for reproducibility. (type: int, default: 1337)
