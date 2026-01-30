@@ -1,6 +1,4 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-"""Tests for type definitions."""
-
 from typing import get_args
 
 from litgpt.constants import _SUPPORTED_LOGGERS
