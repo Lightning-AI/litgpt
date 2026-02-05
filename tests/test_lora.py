@@ -248,7 +248,7 @@ def test_lora_init_when_linear_overridden():
     original_linear = torch.nn.Linear
     # Our bnb does this sort of monkey patching
     torch.nn.Linear = MyLinear
-    layer = LoRAQKVLinear(1, 1, 1, 1, 1)
+    layer = LoRAQKVLinear(1, 1, 1, 1)
     assert isinstance(layer.linear, original_linear)
     torch.nn.Linear = original_linear
 
@@ -354,9 +354,7 @@ def test_lora_gpt_query_groups_merge_and_forward_no_exception(n_query_groups, ap
 )
 def test_lora_qkv_linear_compare_conv1d(head_size, n_head, enable_lora):
     C = 12
-    layer = LoRAQKVLinear(
-        C, 3 * C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora
-    )
+    layer = LoRAQKVLinear(C, head_size=head_size, n_head=n_head, n_query_groups=n_head, r=2, enable_lora=enable_lora)
     x = torch.randn((1, 1, C))
     a = F.linear(x, layer.lora_A).transpose(-2, -1)  # after_A
     b = layer.lora_B.data.unsqueeze(-1)
@@ -389,7 +387,7 @@ def test_lora_linear_weights_merged_status(rank, expected_merged):
 )
 def test_lora_qkv_linear_weights_merged_status(rank, enable_lora, expected_merged):
     C = 10
-    layer = LoRAQKVLinear(C, 3 * C, head_size=5, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
+    layer = LoRAQKVLinear(C, head_size=5, n_head=2, n_query_groups=2, r=rank, enable_lora=enable_lora)
     assert not layer.merged
     layer.merge()
     assert layer.merged == expected_merged
@@ -909,14 +907,11 @@ def test_zero_pad_cpu_and_mocked_mps():
     n_head = 12
     n_query_groups = 3
     in_features = 128
-    kv_embed_dim = in_features // (n_head // n_query_groups)
-    out_features = in_features + 2 * kv_embed_dim
-    enable_lora = [True, False, True]
+    enable_lora = (True, False, True)
     r = 4
 
     model = LoRAQKVLinear(
         in_features=in_features,
-        out_features=out_features,
         head_size=head_size,
         n_head=n_head,
         n_query_groups=n_query_groups,
@@ -926,7 +921,7 @@ def test_zero_pad_cpu_and_mocked_mps():
 
     batch_size = 64
     seq_len = 64
-    embed_dim = 160
+    embed_dim = head_size * (n_head + n_query_groups)
     x = torch.randn(batch_size, seq_len, embed_dim)
 
     result_cpu = model.zero_pad(x)
@@ -1167,3 +1162,38 @@ def test_load_from_full_model_state_dict():
 
         output_cpu_offload = model_cpu_offload(x)
         assert output_cpu_offload.shape == (1, config.block_size, config.padded_vocab_size)
+
+
+def test_forward_qwen3_4b():
+    """
+    Tests whether LoRA forward works with the Qwen3-4B model, whose
+    transformer block has some non-standard configs:
+
+    * `n_embd != n_head * head_size`
+    * `n_head != n_query_groups`
+    * LoRA adapters added to queries and values, but not keys
+
+    """
+    device = torch.device("cpu")
+    T = 20
+    config = Config.from_name(
+        "Qwen3-4B",
+        block_size=T,
+        n_layer=2,
+        vocab_size=128,
+        padded_vocab_size=128,
+        lora_r=8,
+        lora_alpha=16,
+        lora_dropout=0.05,
+        lora_query=True,
+        lora_key=False,
+        lora_value=True,
+    )
+    model = LoRAGPT(config)
+    x = torch.randint(
+        low=0,
+        high=config.padded_vocab_size,
+        size=(2, T),
+        device=device,
+    )
+    y = model(x)
