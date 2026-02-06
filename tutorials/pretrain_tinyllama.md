@@ -141,6 +141,14 @@ GPU memory. For more tips to avoid out-of-memory issues, please also see the mor
 [Dealing with out-of-memory (OOM) errors](oom.md) guide.
 
 Last, logging is kept minimal in the script, but for long-running experiments we recommend switching to a proper experiment tracker.
+LitGPT supports multiple experiment trackers including:
+
+- **TensorBoard** (default): Local visualization with TensorBoard
+- **CSV Logger**: Simple local logging to CSV files
+- **WandB**: Cloud-based experiment tracking with Weights & Biases
+- **MLflow**: MLflow experiment tracking
+- **[LitLogger](https://github.com/Lightning-AI/LitLogger)**: Lightning.ai's native experiment tracking (set `--logger_name=litlogger`)
+
 As an example, we included WandB (set `--logger_name=wandb`) to show how you can integrate any experiment tracking framework.
 For reference, [here are the loss curves for our reproduction](https://api.wandb.ai/links/awaelchli/y7pzdpwy).
 

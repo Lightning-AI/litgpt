@@ -32,7 +32,7 @@ from torch.optim import Optimizer
 from typing_extensions import override
 
 from extensions.thunder.strategies.thunder_ddp import _ThunderDataParalellBackwardSyncControl
-from litgpt.utils import _THUNDER_AVAILABLE
+from litgpt.constants import _THUNDER_AVAILABLE
 
 if TYPE_CHECKING:
     from thunder import Executor

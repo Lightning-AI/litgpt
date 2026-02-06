@@ -8,7 +8,8 @@ import torch
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 
-from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
+from litgpt.constants import _THUNDER_AVAILABLE
+from litgpt.utils import _RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()

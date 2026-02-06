@@ -22,12 +22,12 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
+from litgpt.constants import _TORCH_EQUAL_2_7, _TORCH_EQUAL_2_8
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.parser_config import save_hyperparameters
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _TORCH_EQUAL_2_7,
-    _TORCH_EQUAL_2_8,
     CycleIterator,
     capture_hparams,
     check_nvlink_connectivity,
@@ -71,7 +71,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
+    logger_name: LoggerChoice = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
