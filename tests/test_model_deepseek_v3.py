@@ -111,9 +111,11 @@ def patch_deepseek_v3(model: GPT):
         "attn.kv_a_proj_with_mqa",
         "attn.kv_b_proj",
         "attn.proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
+        "mlp.fc_1",
+        "mlp.fc_2",
+        "mlp.proj",
+        "mlp.experts",
+        "mlp.shared_experts"
     ]
     for name, module in model.named_modules():
         new_module = None

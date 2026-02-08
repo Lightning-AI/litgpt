@@ -546,6 +546,12 @@ def copy_weights_deepseek_v3(
     if config.mlp_class_name == "LLaMAMoE":
         weight_map.update(
             {
+                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+                "transformer.h.{}.mlp.fc_1.weight_scale_inv": "model.layers.{}.mlp.gate_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+                "transformer.h.{}.mlp.fc_2.weight_scale_inv": "model.layers.{}.mlp.up_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+                "transformer.h.{}.mlp.proj.weight_scale_inv": "model.layers.{}.mlp.down_proj.weight_scale_inv",
                 "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.mlp.experts.{}.gate_proj.weight",
                 "transformer.h.{}.mlp.experts.{}.fc_1.weight_scale_inv": "model.layers.{}.mlp.experts.{}.gate_proj.weight_scale_inv",
                 "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.mlp.experts.{}.up_proj.weight",
@@ -559,7 +565,7 @@ def copy_weights_deepseek_v3(
                 "transformer.h.{}.mlp.shared_experts.proj.weight": "model.layers.{}.mlp.shared_experts.down_proj.weight",
                 "transformer.h.{}.mlp.shared_experts.proj.weight_scale_inv": "model.layers.{}.mlp.shared_experts.down_proj.weight_scale_inv",
                 "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
-                "transformer.h.{}.mlp.e_score_correction_bias": "model.layers.{}.mlp.e_score_correction_bias",
+                "transformer.h.{}.mlp.gate.e_score_correction_bias": "model.layers.{}.mlp.gate.e_score_correction_bias",
             }
         )
     else:
