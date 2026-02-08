@@ -130,5 +130,5 @@ def patch_deepseek_v3(model: GPT):
                     block_size=(128, 128),
                 )
             if new_module is not None:
-                model.replace_module(name, new_module)
+                model.set_submodule(name, new_module)
     return model
