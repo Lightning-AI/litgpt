@@ -113,6 +113,7 @@ class Config:
     # `rope_base` is used, for 1 `rope_local_base_freq` is used. If
     # `len(rope_indices) > n_layer`, we only use the initial part.
     rope_indices: Optional[List[int]] = None
+    rope_interleaved: bool = False
 
     def __post_init__(self):
         if not self.name:
@@ -3221,6 +3222,7 @@ deepseek_v3 = [
         norm_topk_prob=True,
         routed_scaling_factor=2.5,
         rope_adjustments=dict(factor=40.0, low_freq_factor=1.0, high_freq_factor=32.0, original_max_seq_len=4096),
+        rope_interleaved=True
     ),
 ]
 

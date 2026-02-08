@@ -93,7 +93,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
     state_dict = {}
     copy_weights_deepseek_v3(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
-    ours_model = patch_deepseek_v3(ours_model)
+    #ours_model = patch_deepseek_v3(ours_model)
     ours_model.to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -134,7 +134,7 @@ def patch_deepseek_v3(model: GPT):
             )
 
         # Use to_empty() to move from meta device
-        new_module = new_module.to_empty(device=module.weight.device, dtype=module.weight.dtype)
+        new_module = new_module.to_empty(device=module.weight.device)
 
         # Copy weights and bias
         new_module.weight.data = module.weight.data.clone()
