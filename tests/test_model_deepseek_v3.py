@@ -118,17 +118,28 @@ def patch_deepseek_v3(model: GPT):
         "mlp.experts",
         "mlp.shared_experts",
     ]
+    modules_to_replace = []
     for name, module in model.named_modules():
-        new_module = None
+        if isinstance(module, nn.Linear) and any(target in name for target in to_replace):
+            modules_to_replace.append((name, module))
+    
+    for name, module in modules_to_replace:
         with torch.device("meta"):
-            if isinstance(module, nn.Linear) and any(target in name for target in to_replace):
-                new_module = FP8Linear(
-                    in_features=module.in_features,
-                    out_features=module.out_features,
-                    bias=module.bias is not None,
-                    activation_scheme="dynamic",
-                    block_size=(128, 128),
-                )
-            if new_module is not None:
-                model.set_submodule(name, new_module)
+            new_module = FP8Linear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                activation_scheme="dynamic",
+                block_size=(128, 128),
+            )
+        
+        # Use to_empty() to move from meta device
+        new_module = new_module.to_empty(device=module.weight.device, dtype=module.weight.dtype)
+        
+        # Copy weights and bias
+        new_module.weight.data = module.weight.data.clone()
+        if module.bias is not None:
+            new_module.bias.data = module.bias.data.clone()
+        
+        model.set_submodule(name, new_module)
     return model
