@@ -122,7 +122,7 @@ def patch_deepseek_v3(model: GPT):
     for name, module in model.named_modules():
         if isinstance(module, nn.Linear) and any(target in name for target in to_replace):
             modules_to_replace.append((name, module))
-    
+
     for name, module in modules_to_replace:
         with torch.device("meta"):
             new_module = FP8Linear(
@@ -132,14 +132,14 @@ def patch_deepseek_v3(model: GPT):
                 activation_scheme="dynamic",
                 block_size=(128, 128),
             )
-        
+
         # Use to_empty() to move from meta device
         new_module = new_module.to_empty(device=module.weight.device, dtype=module.weight.dtype)
-        
+
         # Copy weights and bias
         new_module.weight.data = module.weight.data.clone()
         if module.bias is not None:
             new_module.bias.data = module.bias.data.clone()
-        
+
         model.set_submodule(name, new_module)
     return model
