@@ -754,7 +754,9 @@ def copy_weights_deepseek_v3(
         "model.norm.weight": "transformer.ln_f.weight",
         "lm_head.weight": "lm_head.weight",
     }
-    if config.mlp_class_name == "LLaMAMoE": # Deepseek V3 has both MoE and MLP layers (specified with `first_k_dense_replace`), but we treat it as a LLaMAMoE type
+    if (
+        config.mlp_class_name == "LLaMAMoE"
+    ):  # Deepseek V3 has both MoE and MLP layers (specified with `first_k_dense_replace`), but we treat it as a LLaMAMoE type
         weight_map.update(
             {
                 "model.layers.{}.mlp.gate_proj.weight": "transformer.h.{}.mlp.fc_1.weight",
