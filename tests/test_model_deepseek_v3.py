@@ -121,7 +121,7 @@ def patch_deepseek_v3(model: GPT):
     for name, module in model.named_modules():
         new_module = None
         with torch.device("meta"):
-            if isinstance(module, nn.Linear) and any(to_replace) in name:
+            if isinstance(module, nn.Linear) and any(target in name for target in to_replace):
                 new_module = FP8Linear(
                     in_features=module.in_features,
                     out_features=module.out_features,
