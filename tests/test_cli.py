@@ -16,7 +16,7 @@ def test_cli():
     out = out.getvalue()
     assert "usage: litgpt" in out
     assert (
-        "{download,chat,finetune,finetune_lora,finetune_lora_legacy,finetune_full,finetune_adapter,finetune_adapter_v2,"
+        "{download,chat,finetune,finetune_lora,finetune_full,finetune_adapter,finetune_adapter_v2,"
         "pretrain,generate,generate_full,generate_adapter,generate_adapter_v2,generate_sequentially,"
         "generate_speculatively,generate_tp,convert_to_litgpt,convert_from_litgpt,convert_pretrained_checkpoint,"
         "merge_lora,evaluate,serve}" in out
@@ -55,6 +55,25 @@ def test_cli():
                         Optional[int], default: 3000000000000)"""
         in out
     )
+
+
+def test_pretrain_allows_max_steps():
+    # Ensure --train.max_steps is accepted by the CLI for pretrain
+    # and only emits a warning instead of raising a validation error.
+    args = [
+        "litgpt",
+        "pretrain",
+        "pythia-14m",
+        "--train.max_steps=1",
+        "--out_dir=out/test-cli",
+    ]
+
+    with pytest.warns(UserWarning, match="max_steps"):
+        try:
+            with mock.patch("sys.argv", args):
+                main()
+        except Exception:
+            pass
 
 
 def test_rewrite_finetune_command():

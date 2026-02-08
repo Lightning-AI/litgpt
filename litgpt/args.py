@@ -2,7 +2,7 @@
 import math
 import warnings
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 
 @dataclass
@@ -96,11 +96,24 @@ class EvalArgs:
 
 @dataclass
 class LogArgs:
-    """Logging-related arguments"""
+    """Logging-related arguments. Different loggers use different fields."""
 
+    # === WandB Fields ===
     project: Optional[str] = None
-    """Project name"""
+    """WandB project name"""
     run: Optional[str] = None
-    """Run name"""
+    """WandB run name (defaults to generated name)"""
     group: Optional[str] = None
-    """Group name"""
+    """WandB group name"""
+
+    # === LitLogger Fields (Lightning.ai) ===
+    teamspace: Optional[str] = None
+    """Teamspace name where charts and artifacts will appear"""
+    metadata: Optional[Dict] = None
+    """Extra metadata to associate with the experiment as tags"""
+    log_model: bool = False
+    """If True, automatically log model checkpoints as artifacts"""
+    save_logs: bool = True
+    """If True, capture and upload terminal logs"""
+    checkpoint_name: Optional[str] = None
+    """Override the base name for logged checkpoints"""

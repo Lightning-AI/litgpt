@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from litgpt.utils import _TRITON_AVAILABLE
+from litgpt.constants import _TRITON_AVAILABLE
 
 if _TRITON_AVAILABLE:
     import triton

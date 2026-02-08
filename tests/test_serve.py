@@ -254,3 +254,45 @@ def test_serve_with_openai_spec(tmp_path):
         if process:
             kill_process_tree(process.pid)
         server_thread.join()
+
+
+@pytest.mark.parametrize(
+    "generate_strategy",
+    [
+        pytest.param("sequential", marks=_RunIf(min_cuda_gpus=1)),
+        pytest.param("tensor_parallel", marks=_RunIf(min_cuda_gpus=2)),
+    ],
+)
+def test_serve_with_generate_strategy(tmp_path, generate_strategy):
+    seed_everything(123)
+    ours_config = Config.from_name("pythia-14m")
+    download_from_hub(repo_id="EleutherAI/pythia-14m", tokenizer_only=True, checkpoint_dir=tmp_path)
+    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer.json"), str(tmp_path))
+    shutil.move(str(tmp_path / "EleutherAI" / "pythia-14m" / "tokenizer_config.json"), str(tmp_path))
+    ours_model = GPT(ours_config)
+    checkpoint_path = tmp_path / "lit_model.pth"
+    torch.save(ours_model.state_dict(), checkpoint_path)
+    config_path = tmp_path / "model_config.yaml"
+    with open(config_path, "w", encoding="utf-8") as fp:
+        yaml.dump(asdict(ours_config), fp)
+
+    # Test with generate strategy
+    run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", generate_strategy]
+
+    process = None
+
+    def run_server():
+        nonlocal process
+        try:
+            process = subprocess.Popen(run_command, stdout=None, stderr=None, text=True)
+        except subprocess.TimeoutExpired:
+            print("Server start-up timeout expired")
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.start()
+
+    _wait_and_check_response()
+
+    if process:
+        kill_process_tree(process.pid)
+    server_thread.join()

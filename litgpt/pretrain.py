@@ -3,6 +3,7 @@
 import math
 import pprint
 import time
+import warnings
 from dataclasses import asdict
 from datetime import timedelta
 from functools import partial
@@ -21,11 +22,12 @@ from typing_extensions import Literal
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
+from litgpt.constants import _TORCH_EQUAL_2_7, _TORCH_EQUAL_2_8
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
+from litgpt.parser_config import save_hyperparameters
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _TORCH_EQUAL_2_7,
-    _TORCH_EQUAL_2_8,
     CycleIterator,
     capture_hparams,
     check_nvlink_connectivity,
@@ -41,7 +43,6 @@ from litgpt.utils import (
     parse_devices,
     reset_parameters,
     save_config,
-    save_hyperparameters,
 )
 
 
@@ -70,7 +71,7 @@ def setup(
     devices: Union[int, str] = "auto",
     num_nodes: int = 1,
     tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
+    logger_name: LoggerChoice = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -510,11 +511,17 @@ def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+    if train.max_steps is not None:
+        warnings.warn(
+            "`train.max_steps` is intended for profiling or debug runs only. "
+            "For full pretraining runs, prefer `train.max_tokens` or `train.max_time`.",
+            UserWarning,
+        )
     required = [(train, ["max_tokens", "max_norm"])]
     for args, names in required:
         for name in names:

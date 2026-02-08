@@ -8,11 +8,8 @@ from typing import Any, Dict, Literal, Optional
 import torch
 
 from litgpt.api import LLM
-from litgpt.utils import (
-    _JINJA2_AVAILABLE,
-    _LITSERVE_AVAILABLE,
-    auto_download_checkpoint,
-)
+from litgpt.constants import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE
+from litgpt.utils import auto_download_checkpoint
 
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
@@ -33,6 +30,7 @@ class BaseLitAPI(LitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
+        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
     ) -> None:
         if not _LITSERVE_AVAILABLE:
             raise ImportError(str(_LITSERVE_AVAILABLE))
@@ -47,6 +45,7 @@ class BaseLitAPI(LitAPI):
         self.max_new_tokens = max_new_tokens
         self.top_p = top_p
         self.devices = devices
+        self.generate_strategy = generate_strategy
 
     def setup(self, device: str) -> None:
         if ":" in device:
@@ -64,7 +63,8 @@ class BaseLitAPI(LitAPI):
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy=("sequential" if self.devices is not None and self.devices > 1 else None),
+            generate_strategy=self.generate_strategy
+            or ("sequential" if self.devices is not None and self.devices > 1 else None),
         )
         print("Model successfully initialized.", file=sys.stderr)
 
@@ -85,6 +85,7 @@ class SimpleLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -96,6 +97,7 @@ class SimpleLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -128,6 +130,7 @@ class StreamLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -139,6 +142,7 @@ class StreamLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -171,6 +175,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
         max_new_tokens: int = 50,
         devices: int = 1,
         api_path: Optional[str] = None,
+        generate_strategy: Optional[str] = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -182,6 +187,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -241,6 +247,7 @@ def run_server(
     access_token: Optional[str] = None,
     api_path: Optional[str] = "/predict",
     timeout: int = 30,
+    generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -284,6 +291,10 @@ def run_server(
         access_token: Optional API token to access models with restrictions.
         api_path: The custom API path for the endpoint (e.g., "/my_api/classify").
         timeout: Request timeout in seconds. Defaults to 30.
+        generate_strategy: The generation strategy to use. The "sequential" strategy (default for devices > 1)
+            allows running models that wouldn't fit in a single card by partitioning the transformer blocks across
+            all devices and running them sequentially. "tensor_parallel" shards the model using tensor parallelism.
+            If None (default for devices = 1), the model is not distributed.
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
@@ -301,6 +312,7 @@ def run_server(
             max_new_tokens=max_new_tokens,
             devices=devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         ),
         spec=OpenAISpec() if openai_spec else None,
         accelerator=accelerator,

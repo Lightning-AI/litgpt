@@ -9,10 +9,10 @@ from typing import Optional, Union
 import torch
 from torch.utils.data import DataLoader, random_split
 
+from litgpt.constants import _REQUESTS_AVAILABLE
 from litgpt.data.base import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
-from litgpt.utils import _REQUESTS_AVAILABLE
 
 _URL = "https://raw.githubusercontent.com/tloen/alpaca-lora/main/alpaca_data_cleaned_archive.json"
 

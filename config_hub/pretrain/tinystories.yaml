@@ -123,7 +123,7 @@ num_nodes: 1
 # module require this. (type: Optional[Path], default: null)
 tokenizer_dir: checkpoints/meta-llama/Llama-2-7b-hf
 
-# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: tensorboard)
+# The name of the logger to send metrics to. (type: LoggerChoice, i.e. Literal['wandb', 'tensorboard', 'csv', 'mlflow', 'litlogger'], default: tensorboard)
 logger_name: csv
 
 # The random seed to use for reproducibility. (type: int, default: 42)
