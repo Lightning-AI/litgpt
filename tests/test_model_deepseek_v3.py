@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+import torch.nn as nn
 from transformers.integrations.finegrained_fp8 import FP8Linear
 from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
