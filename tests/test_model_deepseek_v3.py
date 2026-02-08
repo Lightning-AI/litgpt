@@ -115,7 +115,7 @@ def patch_deepseek_v3(model: GPT):
         "mlp.fc_2",
         "mlp.proj",
         "mlp.experts",
-        "mlp.shared_experts"
+        "mlp.shared_experts",
     ]
     for name, module in model.named_modules():
         new_module = None
