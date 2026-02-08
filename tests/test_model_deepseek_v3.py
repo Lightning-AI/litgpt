@@ -41,7 +41,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         n_layer=2,
         n_head=16,
         n_embd=32,
-        n_query_groups=4,
+        n_query_groups=16,
         intermediate_size=86,
         moe_intermediate_size=20,
         n_expert=4,

@@ -3224,4 +3224,6 @@ deepseek_v3 = [
     ),
 ]
 
+configs.extend(deepseek_v3)
+
 name_to_config = {config["name"]: config for config in configs}
