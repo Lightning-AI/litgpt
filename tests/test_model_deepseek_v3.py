@@ -93,7 +93,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
     state_dict = {}
     copy_weights_deepseek_v3(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
-    #ours_model = patch_deepseek_v3(ours_model)
+    # ours_model = patch_deepseek_v3(ours_model)
     ours_model.to(device)
     ours_model.load_state_dict(state_dict)
 

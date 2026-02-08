@@ -3222,7 +3222,7 @@ deepseek_v3 = [
         norm_topk_prob=True,
         routed_scaling_factor=2.5,
         rope_adjustments=dict(factor=40.0, low_freq_factor=1.0, high_freq_factor=32.0, original_max_seq_len=4096),
-        rope_interleaved=True
+        rope_interleaved=True,
     ),
 ]
 

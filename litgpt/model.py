@@ -212,22 +212,26 @@ class GPT(nn.Module):
                     "All adjusted RoPE parameters must be specified together."
                 )
 
-        return build_rope_cache(
-            seq_len=self.max_seq_length,
-            n_elem=self.config.rope_n_elem,
-            device=device,
-            condense_ratio=self.config.rope_condense_ratio,
-            base=self.config.rope_base,
-            extra_config=extra_config,
-            rope_local_base_freq=self.config.rope_local_base_freq,
-        ) if not self.config.rope_interleaved else build_rope_cache_interleaved(
-            seq_len=self.max_seq_length,
-            n_elem=self.config.rope_n_elem,
-            device=device,
-            condense_ratio=self.config.rope_condense_ratio,
-            base=self.config.rope_base,
-            extra_config=extra_config,
-            rope_local_base_freq=self.config.rope_local_base_freq,
+        return (
+            build_rope_cache(
+                seq_len=self.max_seq_length,
+                n_elem=self.config.rope_n_elem,
+                device=device,
+                condense_ratio=self.config.rope_condense_ratio,
+                base=self.config.rope_base,
+                extra_config=extra_config,
+                rope_local_base_freq=self.config.rope_local_base_freq,
+            )
+            if not self.config.rope_interleaved
+            else build_rope_cache_interleaved(
+                seq_len=self.max_seq_length,
+                n_elem=self.config.rope_n_elem,
+                device=device,
+                condense_ratio=self.config.rope_condense_ratio,
+                base=self.config.rope_base,
+                extra_config=extra_config,
+                rope_local_base_freq=self.config.rope_local_base_freq,
+            )
         )
 
     def rope_cache_length(self) -> int:
@@ -465,8 +469,16 @@ class CausalSelfAttention(nn.Module):
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(q[..., :rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(k[..., :rope_n_elem], cos, sin)
+        q_roped = (
+            apply_rope(q[..., :rope_n_elem], cos, sin)
+            if not self.config.rope_interleaved
+            else apply_rope_interleaved(q[..., :rope_n_elem], cos, sin)
+        )
+        k_roped = (
+            apply_rope(k[..., :rope_n_elem], cos, sin)
+            if not self.config.rope_interleaved
+            else apply_rope_interleaved(k[..., :rope_n_elem], cos, sin)
+        )
         q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
         k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
@@ -665,8 +677,12 @@ class MultiheadLatentAttention(nn.Module):
         k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q_rot, cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(q_rot, cos, sin)
-        k_roped = apply_rope(k_rot, cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(k_rot, cos, sin)
+        q_roped = (
+            apply_rope(q_rot, cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(q_rot, cos, sin)
+        )
+        k_roped = (
+            apply_rope(k_rot, cos, sin) if not self.config.rope_interleaved else apply_rope_interleaved(k_rot, cos, sin)
+        )
         k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
 
         q = torch.cat((q_pass, q_roped), dim=-1)
@@ -955,7 +971,6 @@ def build_rope_cache_interleaved(
     extra_config: Optional[dict] = None,
     rope_local_base_freq: Optional[float] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
-    
     # [Identical logic to original for calculating theta]
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
@@ -993,7 +1008,7 @@ def build_rope_cache_interleaved(
         # --- CHANGED SECTION START ---
         local_idx_theta = torch.repeat_interleave(local_idx_theta, 2, dim=-1)
         # --- CHANGED SECTION END ---
-        
+
         if local_idx_theta.shape[-1] > n_elem > 1:
             local_idx_theta = local_idx_theta[..., :n_elem]
 
@@ -1131,12 +1146,12 @@ def apply_rope_interleaved(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
     # 2. Select evens (x) and odds (y)
     # 3. Construct rotated pairs (-y, x)
     x_reshaped = x.view(*x.shape[:-1], -1, 2)
-    
+
     # x_reshaped[..., 0] is the "real" part (even indices)
     # x_reshaped[..., 1] is the "imag" part (odd indices)
     # Rotation: (x, y) -> (-y, x)
     rotated_reshaped = torch.stack((-x_reshaped[..., 1], x_reshaped[..., 0]), dim=-1)
-    
+
     # Flatten back to original shape
     rotated = rotated_reshaped.view_as(x)
     # --- CHANGED SECTION END ---
