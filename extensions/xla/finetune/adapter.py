@@ -176,6 +176,9 @@ def train(
             xm.mark_step()
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
+            # Remove empty chunks (can happen when last chunk has size 1)
+            if logits[-1].size(1) == 0:
+                logits = logits[:-1]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
             fabric.backward(loss / gradient_accumulation_iters)
         xm.mark_step()
