@@ -267,14 +267,15 @@ class LoRAQKVLinear(LoRALinear):
         # Indices are needed to properly pad weight updates with zeros.
         if not hasattr(self, "_lora_ind"):
             enable_q, enable_k, enable_v = self.enable_lora
-            kv_embd_size = self.linear.in_features // (self.n_head // self.n_query_groups)
+            q_embd_size = self.head_size * self.n_head
+            kv_embd_size = self.head_size * self.n_query_groups
             lora_ind = []
             if enable_q:
-                lora_ind.extend(range(0, self.linear.in_features))
+                lora_ind.extend(range(0, q_embd_size))
             if enable_k:
-                lora_ind.extend(range(self.linear.in_features, self.linear.in_features + kv_embd_size))
+                lora_ind.extend(range(q_embd_size, q_embd_size + kv_embd_size))
             if enable_v:
-                lora_ind.extend(range(self.linear.in_features + kv_embd_size, self.linear.out_features))
+                lora_ind.extend(range(q_embd_size + kv_embd_size, self.linear.out_features))
             self.register_buffer(
                 "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
             )
