@@ -173,6 +173,57 @@ def test_lora_mqa_gqa():
     assert torch.count_nonzero(out[:, :, non_lora_ind]) == 0
 
 
+@pytest.mark.parametrize(
+    "n_head, n_query_groups, enable_lora",
+    [
+        (4, 2, (True, False, True)),   # GQA: Q+V only
+        (4, 1, (False, True, True)),   # MQA: K+V only
+        (4, 2, (True, True, False)),   # GQA: Q+K only
+        (8, 2, (True, True, True)),    # GQA: all enabled, different ratio
+        (4, 4, (False, False, True)),  # MHA: V only
+    ],
+)
+def test_lora_ind_correctness(n_head, n_query_groups, enable_lora):
+    """Verify lora_ind correctly partitions Q, K, V regions using head_size-based sizes."""
+    n_embd = 16
+    config = Config(
+        n_layer=1,
+        n_head=n_head,
+        n_embd=n_embd,
+        block_size=1,
+        vocab_size=1,
+        lora_r=2,
+        lora_alpha=8,
+        lora_dropout=0.0,
+        lora_query=enable_lora[0],
+        lora_key=enable_lora[1],
+        lora_value=enable_lora[2],
+        n_query_groups=n_query_groups,
+    )
+    model = LoRAGPT(config)
+    attn = model.transformer.h[0].attn.qkv
+
+    head_size = n_embd // n_head
+    q_size = head_size * n_head
+    kv_size = head_size * n_query_groups
+
+    expected_ind = []
+    if enable_lora[0]:
+        expected_ind.extend(range(0, q_size))
+    if enable_lora[1]:
+        expected_ind.extend(range(q_size, q_size + kv_size))
+    if enable_lora[2]:
+        expected_ind.extend(range(q_size + kv_size, q_size + 2 * kv_size))
+
+    assert torch.equal(attn.lora_ind, torch.tensor(expected_ind))
+
+    # Verify zero_pad output dimension matches full QKV size
+    total_qkv = q_size + 2 * kv_size
+    lora_out_dim = sum(attn.qkv_shapes)
+    x = torch.randn(1, 1, lora_out_dim)
+    assert attn.zero_pad(x).shape[-1] == total_qkv
+
+
 def test_lora_filter(tmp_path):
     fabric = Fabric(devices=1)
     model = LoRAGPT.from_name("pythia-14m", n_layer=3, lora_r=1, lora_query=True, lora_value=True)
