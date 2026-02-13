@@ -176,10 +176,10 @@ def test_lora_mqa_gqa():
 @pytest.mark.parametrize(
     "n_head, n_query_groups, enable_lora",
     [
-        (4, 2, (True, False, True)),   # GQA: Q+V only
-        (4, 1, (False, True, True)),   # MQA: K+V only
-        (4, 2, (True, True, False)),   # GQA: Q+K only
-        (8, 2, (True, True, True)),    # GQA: all enabled, different ratio
+        (4, 2, (True, False, True)),  # GQA: Q+V only
+        (4, 1, (False, True, True)),  # MQA: K+V only
+        (4, 2, (True, True, False)),  # GQA: Q+K only
+        (8, 2, (True, True, True)),  # GQA: all enabled, different ratio
         (4, 4, (False, False, True)),  # MHA: V only
     ],
 )
