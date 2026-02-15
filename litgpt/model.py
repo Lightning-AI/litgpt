@@ -1023,6 +1023,10 @@ def build_rope_cache(
                 theta_interpolation * (1 - theta_extrapolation_factor)
                 + theta_extrapolation * theta_extrapolation_factor
             )
+            # Debug: print YaRN theta
+            if extra_config.get("_debug"):
+                print(f"[YaRN Debug] theta (inv_freq): {theta}")
+                print(f"[YaRN Debug] attention_scaling: {attention_scaling}")
         elif "original_max_seq_len" in extra_config:
             # Llama3-style RoPE scaling
             orig_context_len = extra_config["original_max_seq_len"]

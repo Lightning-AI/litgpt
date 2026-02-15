@@ -110,6 +110,7 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
             "original_max_seq_len": yarn_config["original_max_seq_len"],
             "mscale": yarn_config["mscale"],
             "mscale_all_dim": yarn_config["mscale_all_dim"],
+            "_debug": True,  # Enable debug prints
         },
     )
 
@@ -128,6 +129,16 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     print(f"HF cos/sin shape: {cos_hf.shape}, {sin_hf.shape}")
     print(f"Cos max diff: {(cos_litgpt - cos_hf).abs().max()}")
     print(f"Sin max diff: {(sin_litgpt - sin_hf).abs().max()}")
+    print(f"\nLitGPT cos sample [0,0,:4]: {cos_litgpt[0, 0, :4]}")
+    print(f"HF cos sample [0,0,:4]: {cos_hf[0, 0, :4]}")
+    print(f"LitGPT cos min/max: {cos_litgpt.min():.4f} / {cos_litgpt.max():.4f}")
+    print(f"HF cos min/max: {cos_hf.min():.4f} / {cos_hf.max():.4f}")
+
+    # Check inv_freq from both
+    print(f"\n=== Checking inv_freq ===")
+    print(f"HF rotary_emb.inv_freq shape: {rotary_emb.inv_freq.shape}")
+    print(f"HF inv_freq: {rotary_emb.inv_freq}")
+    print(f"HF attention_scaling: {rotary_emb.attention_scaling}")
 
     # Use the same embeddings for both (LitGPT's)
     cos = cos_litgpt
