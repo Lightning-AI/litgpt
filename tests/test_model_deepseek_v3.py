@@ -59,6 +59,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
             qk_nope_head_dim=8,  # 2x qk_rope_head_dim (matching DeepSeek V3 architecture)
             v_head_dim=8,  # Same as qk_nope_head_dim
         ),
+        rope_adjustments=None
     )
     theirs_config = DeepseekV3Config(
         vocab_size=ours_config.padded_vocab_size,
