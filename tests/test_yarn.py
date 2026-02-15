@@ -52,7 +52,7 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
 
     # HF config with YaRN
     rope_parameters = {
-        "rope_type": "yarn",
+        "type": "yarn",
         "rope_theta": 10000.0,
         "factor": yarn_config["factor"],
         "beta_fast": yarn_config["beta_fast"],
@@ -78,12 +78,12 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
         rope_interleave=True,
         first_k_dense_replace=3,
         rms_norm_eps=1e-6,
-        rope_parameters=rope_parameters,  # YaRN config
+        rope_scaling=rope_parameters,  # YaRN config
     )
 
     # Debug: Check if HF config has rope_parameters
     print(f"\n=== HF Config Debug ===")
-    print(f"config_hf.rope_parameters: {config_hf.rope_parameters}")
+    print(f"config_hf.rope_parameters: {config_hf.rope_scaling}")
 
     block_litgpt = Block(config_litgpt, block_idx=layer_idx).to(device)
     model_hf = DeepseekV3ForCausalLM(config_hf).to(device)
