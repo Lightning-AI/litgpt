@@ -113,8 +113,8 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
         },
     )
 
-    # Get YaRN RoPE embeddings from HF
-    rotary_emb = model_hf.model.layers[layer_idx].self_attn.rotary_emb
+    # Get YaRN RoPE embeddings from HF (rotary_emb is on model level, not layer level)
+    rotary_emb = model_hf.model.rotary_emb
     position_ids = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1)
     cos_hf, sin_hf = rotary_emb(hidden_states, position_ids)
 
