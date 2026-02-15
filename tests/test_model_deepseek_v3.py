@@ -40,9 +40,9 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         model_name,
         block_size=T,
         n_layer=2,
-        n_head=16,
-        n_embd=32,
-        n_query_groups=16,
+        n_head=8,  # Reduced to make n_embd work out
+        n_embd=32,  # 8 heads * 4 head_dim (qk_rope=4 + qk_nope=8)
+        n_query_groups=8,
         intermediate_size=86,
         moe_intermediate_size=20,
         n_expert=4,
@@ -55,9 +55,9 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         latent_attention=dict(
             q_lora_rank=16,
             kv_lora_rank=16,
-            qk_rope_head_dim=8,
-            qk_nope_head_dim=8,
-            v_head_dim=16,
+            qk_rope_head_dim=4,  # Maintain 1:2 ratio with qk_nope_head_dim
+            qk_nope_head_dim=8,  # 2x qk_rope_head_dim (matching DeepSeek V3 architecture)
+            v_head_dim=8,  # Same as qk_nope_head_dim
         ),
     )
     theirs_config = DeepseekV3Config(

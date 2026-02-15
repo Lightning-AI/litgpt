@@ -91,6 +91,7 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
             "qk_nope_head_dim": 8,
             "v_head_dim": 16,
         },
+        rope_interleave=True,
     )
 
     config_hf = DeepseekV3Config(
@@ -170,7 +171,7 @@ def test_deepseek_v3_block(batch_size, seq_len, device):
         norm_class_name="RMSNorm",
         bias=False,
         parallel_residual=False,
-        mlp_class_name="LLaMAMLP",
+        mlp_class_name="LLaMAMoE",
         intermediate_size=128,
         rope_interleave=True,
         latent_attention={
