@@ -969,20 +969,8 @@ def build_rope_cache(
 
     if extra_config is not None:
         factor = extra_config["factor"]
-        if "original_max_seq_len" in extra_config:
-            orig_context_len = extra_config["original_max_seq_len"]
-            low_freq_factor = extra_config["low_freq_factor"]
-            high_freq_factor = extra_config["high_freq_factor"]
-
-            wavelen = 2 * torch.pi / theta
-            ratio = orig_context_len / wavelen
-            smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
-            smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
-
-            # Compute adjusted_theta without masked indexing
-            adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
-            theta = adjusted_theta
-        elif "beta_fast" in extra_config:
+        # Check YaRN first (has beta_fast/beta_slow)
+        if "beta_fast" in extra_config or "beta_slow" in extra_config:
             # YaRN-style RoPE scaling
             beta_fast = extra_config["beta_fast"]
             beta_slow = extra_config["beta_slow"]
@@ -1035,6 +1023,20 @@ def build_rope_cache(
                 theta_interpolation * (1 - theta_extrapolation_factor)
                 + theta_extrapolation * theta_extrapolation_factor
             )
+        elif "original_max_seq_len" in extra_config:
+            # Llama3-style RoPE scaling
+            orig_context_len = extra_config["original_max_seq_len"]
+            low_freq_factor = extra_config["low_freq_factor"]
+            high_freq_factor = extra_config["high_freq_factor"]
+
+            wavelen = 2 * torch.pi / theta
+            ratio = orig_context_len / wavelen
+            smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
+            smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
+
+            # Compute adjusted_theta without masked indexing
+            adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
+            theta = adjusted_theta
         else:
             # Linear scaling fallback
             theta = theta / factor

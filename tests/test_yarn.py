@@ -92,10 +92,46 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
 
     hidden_states = torch.randn(batch_size, seq_len, config_litgpt.n_embd, device=device)
 
-    # Prepare RoPE sin/cos tables
+    # Prepare RoPE sin/cos tables using YaRN computation
+    from litgpt.model import build_rope_cache
+
     rope_head_dim = config_litgpt.latent_attention["qk_rope_head_dim"]
-    cos = torch.randn(batch_size, seq_len, rope_head_dim, device=device, dtype=hidden_states.dtype)
-    sin = torch.randn(batch_size, seq_len, rope_head_dim, device=device, dtype=hidden_states.dtype)
+
+    # Build YaRN RoPE cache for LitGPT
+    cos_litgpt, sin_litgpt = build_rope_cache(
+        seq_len=seq_len,
+        n_elem=rope_head_dim,
+        device=device,
+        base=config_litgpt.rope_base,
+        extra_config={
+            "factor": yarn_config["factor"],
+            "beta_fast": yarn_config["beta_fast"],
+            "beta_slow": yarn_config["beta_slow"],
+            "original_max_seq_len": yarn_config["original_max_seq_len"],
+            "mscale": yarn_config["mscale"],
+            "mscale_all_dim": yarn_config["mscale_all_dim"],
+        },
+    )
+
+    # Get YaRN RoPE embeddings from HF
+    rotary_emb = model_hf.model.layers[layer_idx].self_attn.rotary_emb
+    position_ids = torch.arange(seq_len, device=device).unsqueeze(0).expand(batch_size, -1)
+    cos_hf, sin_hf = rotary_emb(hidden_states, position_ids)
+
+    # Expand dimensions for batch and broadcast
+    cos_litgpt = cos_litgpt.unsqueeze(0).expand(batch_size, -1, -1)
+    sin_litgpt = sin_litgpt.unsqueeze(0).expand(batch_size, -1, -1)
+
+    # Compare RoPE embeddings first
+    print(f"\n=== RoPE Embeddings Comparison ===")
+    print(f"LitGPT cos/sin shape: {cos_litgpt.shape}, {sin_litgpt.shape}")
+    print(f"HF cos/sin shape: {cos_hf.shape}, {sin_hf.shape}")
+    print(f"Cos max diff: {(cos_litgpt - cos_hf).abs().max()}")
+    print(f"Sin max diff: {(sin_litgpt - sin_hf).abs().max()}")
+
+    # Use the same embeddings for both (LitGPT's)
+    cos = cos_litgpt
+    sin = sin_litgpt
 
     causal_mask = torch.triu(
         torch.full((seq_len, seq_len), float("-inf"), device=device, dtype=hidden_states.dtype), diagonal=1
@@ -106,8 +142,21 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     output_litgpt = block_litgpt(hidden_states, cos, sin)
     output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
 
+    max_diff = (output_litgpt - output_hf).abs().max()
+    print(f"\n=== DEBUG INFO ===")
+    print(f"Max diff: {max_diff}")
+    print(f"Output litgpt mean: {output_litgpt.mean()}, std: {output_litgpt.std()}")
+    print(f"Output hf mean: {output_hf.mean()}, std: {output_hf.std()}")
+    print(f"Cos/sin shape: {cos.shape}, {sin.shape}")
+    print(f"Hidden states shape: {hidden_states.shape}")
+
+    # Check if the issue is in attention or MLP
+    if hasattr(output_litgpt, 'shape') and hasattr(output_hf, 'shape'):
+        if output_litgpt.shape != output_hf.shape:
+            print(f"Shape mismatch! litgpt: {output_litgpt.shape}, hf: {output_hf.shape}")
+
     assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), (
-        f"Max diff: {(output_litgpt - output_hf).abs().max()}"
+        f"FAILED: Max diff: {max_diff}"
     )
 
 
