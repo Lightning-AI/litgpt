@@ -114,7 +114,6 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
             "original_max_seq_len": yarn_config["original_max_seq_len"],
             "mscale": yarn_config["mscale"],
             "mscale_all_dim": yarn_config["mscale_all_dim"],
-            "_debug": True,  # Enable debug prints
         },
     )
 
