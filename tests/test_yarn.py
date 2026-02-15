@@ -81,6 +81,10 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
         rope_parameters=rope_parameters,  # YaRN config
     )
 
+    # Debug: Check if HF config has rope_parameters
+    print(f"\n=== HF Config Debug ===")
+    print(f"config_hf.rope_parameters: {config_hf.rope_parameters}")
+
     block_litgpt = Block(config_litgpt, block_idx=layer_idx).to(device)
     model_hf = DeepseekV3ForCausalLM(config_hf).to(device)
     block_hf = model_hf.model.layers[layer_idx]
