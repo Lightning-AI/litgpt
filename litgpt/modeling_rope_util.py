@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Optional, TypedDict
 
 from .utils import is_torch_available, logging
 
-
 logger = logging.get_logger(__name__)
 
 
@@ -829,9 +828,7 @@ class RotaryEmbeddingConfigMixin:
         if not isinstance(long_factor, list) and all(isinstance(x, (int, float)) for x in long_factor):
             logger.warning(f"`rope_parameters`'s long_factor field must be a list of numbers, got {long_factor}")
         if len(long_factor) != dim // 2:
-            logger.warning(
-                f"`rope_parameters`'s long_factor field must have length {dim // 2}, got {len(long_factor)}"
-            )
+            logger.warning(f"`rope_parameters`'s long_factor field must have length {dim // 2}, got {len(long_factor)}")
 
         factor = rope_parameters.get("factor")
         original_max_position_embeddings = rope_parameters["original_max_position_embeddings"]
