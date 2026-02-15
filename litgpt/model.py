@@ -189,28 +189,64 @@ class GPT(nn.Module):
             extra_config = None
 
         else:
-            adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
-            params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
-            num_params_present = sum(params_present)
+            # Check for mutually exclusive parameter sets
+            llama3_params = ["low_freq_factor", "high_freq_factor"]
+            yarn_params = ["beta_fast", "beta_slow"]
 
-            if num_params_present == 0:
-                extra_config = None  # uses standard RoPE
-            elif num_params_present == 4:
-                # These parameters should always be used together so that we don't interfere with standard rope
-                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+            has_llama3 = any(param in self.config.rope_adjustments for param in llama3_params)
+            has_yarn = any(param in self.config.rope_adjustments for param in yarn_params)
+
+            if has_llama3 and has_yarn:
+                raise ValueError(
+                    "RoPE adjustments cannot contain both Llama3 parameters (low_freq_factor, high_freq_factor) "
+                    "and YaRN parameters (beta_fast, beta_slow). These are mutually exclusive."
+                )
+
+            # Llama3-style RoPE
+            if has_llama3:
+                adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
+                if all(params_present):
+                    extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+                else:
+                    missing_params = [
+                        param for param, present in zip(adjusted_params_required, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following Llama3 RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All Llama3 parameters must be specified together."
+                    )
+
+            # YaRN-style RoPE
+            elif has_yarn:
+                # Required: factor, beta_fast, beta_slow, original_max_seq_len
+                # Optional: mscale, mscale_all_dim
+                yarn_required_params = ["factor", "beta_fast", "beta_slow", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in yarn_required_params]
+
+                if not all(params_present):
+                    missing_params = [
+                        param for param, present in zip(yarn_required_params, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following YaRN RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All YaRN required parameters must be specified together."
+                    )
+
+                extra_config = {name: self.config.rope_adjustments[name] for name in yarn_required_params}
+
+                # Add optional YaRN parameters
+                for param in ["mscale", "mscale_all_dim"]:
+                    if param in self.config.rope_adjustments:
+                        extra_config[param] = self.config.rope_adjustments[param]
+
+            # Linear or standard RoPE
             elif "factor" in self.config.rope_adjustments:
                 # linear RoPE
                 adjusted_params_required = ["factor"]
                 extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
-                # Some but not all parameters are specified; raise an error
-                missing_params = [
-                    param for param, present in zip(adjusted_params_required, params_present) if not present
-                ]
-                raise ValueError(
-                    f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
-                    "All adjusted RoPE parameters must be specified together."
-                )
+                extra_config = None  # uses standard RoPE
 
         return build_rope_cache(
             seq_len=self.max_seq_length,
@@ -928,6 +964,9 @@ def build_rope_cache(
     # Compute the inverse frequencies theta
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
+    # Initialize attention scaling factor (modified for YaRN)
+    attention_scaling = 1.0
+
     if extra_config is not None:
         factor = extra_config["factor"]
         if "original_max_seq_len" in extra_config:
@@ -943,7 +982,61 @@ def build_rope_cache(
             # Compute adjusted_theta without masked indexing
             adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
             theta = adjusted_theta
+        elif "beta_fast" in extra_config:
+            # YaRN-style RoPE scaling
+            beta_fast = extra_config["beta_fast"]
+            beta_slow = extra_config["beta_slow"]
+            original_max_seq_len = extra_config["original_max_seq_len"]
+
+            # Calculate attention scaling factor based on mscale and mscale_all_dim
+            mscale = extra_config.get("mscale")
+            mscale_all_dim = extra_config.get("mscale_all_dim")
+            if mscale and mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale) / yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale:
+                attention_scaling = yarn_get_mscale(factor, mscale)
+            # else: attention_scaling remains 1.0
+
+            # Create two frequency sets: extrapolation (unscaled) and interpolation (scaled)
+            pos_freqs = base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem)
+            theta_extrapolation = 1.0 / pos_freqs
+            theta_interpolation = 1.0 / (factor * pos_freqs)
+
+            # Find correction range based on rotation counts
+            # Inverse dimension formula to find dimension based on number of rotations
+            def find_correction_dim(num_rotations, dim, base_val, max_pos):
+                return (dim * math.log(max_pos / (num_rotations * 2 * math.pi))) / (2 * math.log(base_val))
+
+            low_dim = find_correction_dim(beta_fast, n_elem, base, original_max_seq_len)
+            high_dim = find_correction_dim(beta_slow, n_elem, base, original_max_seq_len)
+
+            # Apply truncation if specified
+            if extra_config.get("truncate", True):
+                low_dim = math.floor(low_dim)
+                high_dim = math.ceil(high_dim)
+
+            low_dim = max(low_dim, 0)
+            high_dim = min(high_dim, n_elem // 2 - 1)
+
+            # Create linear ramp factor for blending
+            dim_range = torch.arange(n_elem // 2, device=device, dtype=torch.float32)
+            if low_dim == high_dim:
+                high_dim += 0.001  # Prevent singularity
+
+            linear_func = (dim_range - low_dim) / (high_dim - low_dim)
+            ramp_func = torch.clamp(linear_func, 0.0, 1.0)
+
+            # Blend extrapolation and interpolation frequencies
+            # ramp_func = 0 -> use interpolation (scaled), ramp_func = 1 -> use extrapolation (unscaled)
+            theta_extrapolation_factor = ramp_func
+            theta = (
+                theta_interpolation * (1 - theta_extrapolation_factor)
+                + theta_extrapolation * theta_extrapolation_factor
+            )
         else:
+            # Linear scaling fallback
             theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
@@ -972,7 +1065,9 @@ def build_rope_cache(
 
         idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
-    return torch.cos(idx_theta), torch.sin(idx_theta)
+    cos = torch.cos(idx_theta) * attention_scaling
+    sin = torch.sin(idx_theta) * attention_scaling
+    return cos, sin
 
 
 def batched_index_select(t, dim, idx):
