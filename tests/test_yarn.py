@@ -135,7 +135,7 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     print(f"HF cos min/max: {cos_hf.min():.4f} / {cos_hf.max():.4f}")
 
     # Check inv_freq from both
-    print(f"\n=== Checking inv_freq ===")
+    print("\n=== Checking inv_freq ===")
     print(f"HF rotary_emb.inv_freq shape: {rotary_emb.inv_freq.shape}")
     print(f"HF inv_freq: {rotary_emb.inv_freq}")
     print(f"HF attention_scaling: {rotary_emb.attention_scaling}")
