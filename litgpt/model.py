@@ -457,8 +457,12 @@ class CausalSelfAttention(nn.Module):
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope_interleave(k[..., :rope_n_elem], cos, sin)
+        else:
+            q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
         q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
         k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
@@ -657,8 +661,12 @@ class MultiheadLatentAttention(nn.Module):
         k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q_rot, cos, sin)
-        k_roped = apply_rope(k_rot, cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q_rot, cos, sin)
+            k_roped = apply_rope_interleave(k_rot, cos, sin)
+        else:
+            q_roped = apply_rope(q_rot, cos, sin)
+            k_roped = apply_rope(k_rot, cos, sin)
         k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
 
         q = torch.cat((q_pass, q_roped), dim=-1)
@@ -1031,6 +1039,47 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     dims_diff = x.dim() - cos.dim()
     if dims_diff > 0:
         # Ensure that shapes of `x`, `cos`, `sin` align
+        new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
+        cos = cos.view(*new_shape)
+        sin = sin.view(*new_shape)
+
+    roped = (x * cos) + (rotated * sin)
+    return roped.to(dtype=x.dtype)
+
+
+def apply_rope_interleave(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply rotary position embeddings with interleaved tensor layout.
+
+    This version rearranges the input tensor to group even/odd indices separately
+    before applying the standard RoPE rotation, matching HuggingFace's
+    apply_rotary_pos_emb_interleave behavior.
+
+    Args:
+        x: Input tensor of shape (..., seq_len, head_dim)
+        cos: Cosine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+        sin: Sine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input
+    """
+    if cos.dim() != 3:
+        raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
+    if cos.shape != sin.shape:
+        raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+
+    # Rearrange tensor to group even/odd indices: [x0,x1,x2,x3,...] -> [x0,x2,x4,...,x1,x3,x5,...]
+    *batch_dims, d = x.shape
+    x = x.view(*batch_dims, d // 2, 2).transpose(-1, -2).reshape(*batch_dims, d)
+
+    # Standard rotation logic (same as apply_rope)
+    head_size_half = x.size(-1) // 2
+    x1 = x[..., :head_size_half]
+    x2 = x[..., head_size_half:]
+    rotated = torch.cat((-x2, x1), dim=-1)
+
+    # Auto-detect dimension mismatch and reshape cos/sin
+    dims_diff = x.dim() - cos.dim()
+    if dims_diff > 0:
         new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
         cos = cos.view(*new_shape)
         sin = sin.view(*new_shape)
