@@ -105,7 +105,7 @@ def test_multihead_latent_attention_litgpt_vs_hf(batch_size, seq_len, device):
         qk_rope_head_dim=8,
         qk_nope_head_dim=8,
         v_head_dim=16,
-        rope_interleave=False,
+        rope_interleave=True,
     )
 
     mla_litgpt = MultiheadLatentAttention(config_litgpt, block_idx=0).to(device)
