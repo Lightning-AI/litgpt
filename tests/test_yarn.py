@@ -123,7 +123,7 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     sin_litgpt = sin_litgpt.unsqueeze(0).expand(batch_size, -1, -1)
 
     # Compare RoPE embeddings first
-    print(f"\n=== RoPE Embeddings Comparison ===")
+    print("\n=== RoPE Embeddings Comparison ===")
     print(f"LitGPT cos/sin shape: {cos_litgpt.shape}, {sin_litgpt.shape}")
     print(f"HF cos/sin shape: {cos_hf.shape}, {sin_hf.shape}")
     print(f"Cos max diff: {(cos_litgpt - cos_hf).abs().max()}")
@@ -143,7 +143,7 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
 
     max_diff = (output_litgpt - output_hf).abs().max()
-    print(f"\n=== DEBUG INFO ===")
+    print("\n=== DEBUG INFO ===")
     print(f"Max diff: {max_diff}")
     print(f"Output litgpt mean: {output_litgpt.mean()}, std: {output_litgpt.std()}")
     print(f"Output hf mean: {output_hf.mean()}, std: {output_hf.std()}")
@@ -151,13 +151,11 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
     print(f"Hidden states shape: {hidden_states.shape}")
 
     # Check if the issue is in attention or MLP
-    if hasattr(output_litgpt, 'shape') and hasattr(output_hf, 'shape'):
+    if hasattr(output_litgpt, "shape") and hasattr(output_hf, "shape"):
         if output_litgpt.shape != output_hf.shape:
             print(f"Shape mismatch! litgpt: {output_litgpt.shape}, hf: {output_hf.shape}")
 
-    assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), (
-        f"FAILED: Max diff: {max_diff}"
-    )
+    assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), f"FAILED: Max diff: {max_diff}"
 
 
 def sync_weights(litgpt_model, hf_model):
