@@ -226,8 +226,9 @@ def test_deepseek_v3_block(batch_size, seq_len, device):
     output_litgpt = block_litgpt(hidden_states, cos, sin)
     output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
 
-    assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), \
+    assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), (
         f"Max diff: {(output_litgpt - output_hf).abs().max()}"
+    )
 
 
 def sync_block_weights(block_litgpt, block_hf):

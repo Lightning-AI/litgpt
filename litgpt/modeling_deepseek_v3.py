@@ -124,6 +124,8 @@ class DeepseekV3RotaryEmbedding(nn.Module):
             sin = emb.sin() * self.attention_scaling
 
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
+
+
 # ============================================================================
 # END ROPE COMPONENT 1
 # ============================================================================
@@ -376,6 +378,8 @@ def yarn_get_mscale(scale=1, mscale=1):
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0
+
+
 # ============================================================================
 # END ROPE COMPONENT 2
 # ============================================================================

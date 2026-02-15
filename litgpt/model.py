@@ -910,7 +910,7 @@ def build_rope_cache(
             ratio = orig_context_len / wavelen
             smooth_factor = (ratio - low_freq_factor) / (high_freq_factor - low_freq_factor)
             smooth_factor = torch.clamp(smooth_factor, min=0.0, max=1.0)
- 
+
             # Compute adjusted_theta without masked indexing
             adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
             theta = adjusted_theta
@@ -1070,20 +1070,20 @@ def apply_rope_interleave(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor)
     # Rearrange tensor to group even/odd indices: [x0,x1,x2,x3,...] -> [x0,x2,x4,...,x1,x3,x5,...]
     *batch_dims, d = x.shape
     x = x.view(*batch_dims, d // 2, 2).transpose(-1, -2).reshape(*batch_dims, d)
-    
+
     # Standard rotation logic (same as apply_rope)
     head_size_half = x.size(-1) // 2
     x1 = x[..., :head_size_half]
     x2 = x[..., head_size_half:]
     rotated = torch.cat((-x2, x1), dim=-1)
-    
+
     # Auto-detect dimension mismatch and reshape cos/sin
     dims_diff = x.dim() - cos.dim()
     if dims_diff > 0:
         new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
         cos = cos.view(*new_shape)
         sin = sin.view(*new_shape)
-    
+
     roped = (x * cos) + (rotated * sin)
     return roped.to(dtype=x.dtype)
 
