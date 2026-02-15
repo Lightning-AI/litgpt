@@ -378,6 +378,13 @@ class CausalSelfAttention(nn.Module):
         else:
             self.norm_q = self.norm_k = None
 
+        mscale_all_dim = config.rope_adjustments.get("mscale_all_dim",None)
+        scaling_factor = config.rope_adjustments.get("factor", None)
+        if mscale_all_dim and scaling_factor: #YaRN
+            self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+        else:
+            self.mscale = 1.0
+
         self.config = config
         self.block_idx = block_idx
 
@@ -531,6 +538,7 @@ class CausalSelfAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -622,6 +630,13 @@ class MultiheadLatentAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
+        mscale_all_dim = config.rope_adjustments.get("mscale_all_dim",None)
+        scaling_factor = config.rope_adjustments.get("factor", None)
+        if mscale_all_dim and scaling_factor: #YaRN
+            self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+        else:
+            self.mscale = 1.0
+
         self.config = config
         self.block_idx = block_idx
 
@@ -707,6 +722,7 @@ class MultiheadLatentAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.qk_head_dim)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -869,6 +885,13 @@ class GroupedTopkRouter(nn.Module):
             denominator = topk_weights.sum(dim=-1, keepdim=True) + 1e-20
             topk_weights /= denominator
         return topk_weights, topk_indices
+
+
+# ROPE: YaRN (Yet another RoPE extensioN) scaling function for extended context
+def yarn_get_mscale(scale=1, mscale=1):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * mscale * math.log(scale) + 1.0
 
 
 def build_rope_cache(
