@@ -59,7 +59,9 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
             qk_nope_head_dim=8,  # 2x qk_rope_head_dim (matching DeepSeek V3 architecture)
             v_head_dim=8,  # Same as qk_nope_head_dim
         ),
-        rope_adjustments=None,
+        rope_adjustments=dict(
+            factor=40.0, low_freq_factor=1.0, high_freq_factor=32.0, original_max_seq_len=4096, mscale_all_dim=1.0
+        ),
     )
     theirs_config = DeepseekV3Config(
         vocab_size=ours_config.padded_vocab_size,
@@ -87,6 +89,18 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         v_head_dim=ours_config.latent_attention["v_head_dim"],
         q_lora_rank=ours_config.latent_attention["q_lora_rank"],
         kv_lora_rank=ours_config.latent_attention["kv_lora_rank"],
+        rope_parameters=(
+            {
+                "type": "yarn",
+                "factor": ours_config.rope_adjustments["factor"],
+                "beta_slow": ours_config.rope_adjustments["low_freq_factor"],
+                "beta_fast": ours_config.rope_adjustments["high_freq_factor"],
+                "original_max_position_embeddings": ours_config.rope_adjustments["original_max_seq_len"],
+                "mscale_all_dim": 1.0,
+            }
+            if ours_config.rope_adjustments
+            else None
+        ),
     )
 
     theirs_model = DeepseekV3ForCausalLM(theirs_config).to(device)

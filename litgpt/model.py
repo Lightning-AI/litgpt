@@ -378,10 +378,13 @@ class CausalSelfAttention(nn.Module):
         else:
             self.norm_q = self.norm_k = None
 
-        mscale_all_dim = config.rope_adjustments.get("mscale_all_dim",None)
-        scaling_factor = config.rope_adjustments.get("factor", None)
-        if mscale_all_dim and scaling_factor: #YaRN
-            self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
         else:
             self.mscale = 1.0
 
@@ -630,10 +633,13 @@ class MultiheadLatentAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
-        mscale_all_dim = config.rope_adjustments.get("mscale_all_dim",None)
-        scaling_factor = config.rope_adjustments.get("factor", None)
-        if mscale_all_dim and scaling_factor: #YaRN
-            self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
         else:
             self.mscale = 1.0
 
