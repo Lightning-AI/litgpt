@@ -178,7 +178,6 @@ class LoRAQKVLinear(LoRALinear):
         self,
         # ↓ this part is for pretrained weights
         in_features: int,
-        out_features: int,
         # ↓ the remaining part is for LoRA
         head_size: int,
         n_head: int,
@@ -199,7 +198,6 @@ class LoRAQKVLinear(LoRALinear):
 
         Args:
             in_features: number of input features of the pretrained weights
-            out_features: number of output features of the pretrained weights
             head_size: size of a single attention head
             n_head: number of attention heads
             n_query_groups: number of query groups (see diagram in `litgpt/config.py`)
@@ -214,6 +212,7 @@ class LoRAQKVLinear(LoRALinear):
                 and `value` but keep `key` without weight updates we should pass `[True, False, True]`
         """
         super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        out_features = head_size * (n_head + 2 * n_query_groups)
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
         self.head_size = head_size
         self.n_head = n_head
@@ -229,18 +228,17 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ out_features: 384 (3 * embedding_size)
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
+        self._all_qkv_shapes = (
+            # if `head_size` is explicitly specified in the config, `n_embd` (or `in_features`)
+            # might not be equal to `head_size * n_head`, thus we use it directly here
+            head_size * n_head,
+            head_size * n_query_groups,
+            head_size * n_query_groups,
+        )
         if r > 0 and any(enable_lora):
             self.lora_A = nn.Parameter(torch.empty((r * sum(enable_lora), in_features)))  # (4, 128)
-            enable_q, enable_k, enable_v = enable_lora
             # qkv_shapes will be used to split a tensor with weights correctly
-            qkv_shapes = (
-                # if `head_size` is explicitly specified in the config, `n_embd` (or `in_features`)
-                # might not be equal to `head_size * n_head`, thus we use it directly here
-                head_size * n_head * enable_q,
-                head_size * n_query_groups * enable_k,
-                head_size * n_query_groups * enable_v,
-            )
-            self.qkv_shapes = [s for s in qkv_shapes if s]
+            self.qkv_shapes = [s for s, e in zip(self._all_qkv_shapes, enable_lora) if e]
             self.lora_B = nn.Parameter(torch.empty(sum(self.qkv_shapes), r))  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
@@ -266,15 +264,13 @@ class LoRAQKVLinear(LoRALinear):
         """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
         # Indices are needed to properly pad weight updates with zeros.
         if not hasattr(self, "_lora_ind"):
-            enable_q, enable_k, enable_v = self.enable_lora
-            kv_embd_size = self.linear.in_features // (self.n_head // self.n_query_groups)
+            off = 0
             lora_ind = []
-            if enable_q:
-                lora_ind.extend(range(0, self.linear.in_features))
-            if enable_k:
-                lora_ind.extend(range(self.linear.in_features, self.linear.in_features + kv_embd_size))
-            if enable_v:
-                lora_ind.extend(range(self.linear.in_features + kv_embd_size, self.linear.out_features))
+            for enable, size in zip(self.enable_lora, self._all_qkv_shapes):
+                if enable:
+                    lora_ind.extend(range(off, off + size))
+                off += size
+            assert len(lora_ind) == sum(self.qkv_shapes)  # Sanity check
             self.register_buffer(
                 "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
             )
@@ -527,10 +523,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
     def __init__(self, config: Config, block_idx: int) -> None:
         super().__init__(config, block_idx)
         # key, query, value projections for all heads, but in a batch
-        shape = (config.n_head + 2 * config.n_query_groups) * config.head_size
         self.qkv = LoRAQKVLinear(
             in_features=config.n_embd,
-            out_features=shape,
             r=config.lora_r,
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
