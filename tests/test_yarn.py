@@ -154,7 +154,9 @@ def test_deepseek_v3_block_with_yarn(batch_size, seq_len, device):
 
     # Run forward passes
     output_litgpt = block_litgpt(hidden_states, cos, sin)
-    output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)[0]
+    output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
+    if isinstance(output_hf, tuple):
+        output_hf = output_hf[0]
 
     max_diff = (output_litgpt - output_hf).abs().max()
     print("\n=== DEBUG INFO ===")
