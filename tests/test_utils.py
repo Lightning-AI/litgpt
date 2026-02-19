@@ -162,6 +162,90 @@ def test_chunked_cross_entropy(ignore_index, B):
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
 
+def test_chunked_cross_entropy_with_empty_last_chunk_single_remaining_chunk():
+    """Test that chunked_cross_entropy works when last chunk becomes empty after shift, resulting in a single remaining chunk.
+
+    This tests the fix for the issue where finetune_lora on Gemma models would fail with
+    IndexError when the last logit chunk has size 1, which becomes size 0 after applying
+    the shift operation logits[-1] = logits[-1][..., :-1, :].
+
+    The fix removes empty chunks before passing to chunked_cross_entropy.
+    """
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+
+    # Test case: Sequence length 129 (results in chunks [128, 1])
+    # After shift, last chunk becomes size 0 and should be removed
+    T = 129
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    # Simulate what happens in finetune: chunk the logits
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    assert len(chunked_logits) == 2
+    assert chunked_logits[-1].size(1) == 1
+
+    # Apply the shift operation (this is what finetune does)
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    assert chunked_logits[-1].size(1) == 0
+
+    # Apply the fix: remove empty chunks
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    assert len(chunked_logits) == 1
+
+    # Now compute loss - should work without error
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+    assert loss.numel() == 1
+
+    # Compare with baseline (non-chunked)
+    baseline_logits = regular_logits[..., :-1, :]
+    baseline_loss = F.cross_entropy(
+        baseline_logits.reshape(-1, baseline_logits.size(-1)),
+        shifted_targets.reshape(-1),
+    )
+    torch.testing.assert_close(loss, baseline_loss)
+
+
+def test_chunked_cross_entropy_with_empty_last_chunk_multiple_remaining_chunks():
+    """Test that chunked_cross_entropy works when last chunk becomes empty after shift, resulting in multiple remaining chunks.
+
+    This tests the fix for the issue where finetune_lora on Gemma models would fail with
+    IndexError when the last logit chunk has size 1, which becomes size 0 after applying
+    the shift operation logits[-1] = logits[-1][..., :-1, :].
+
+    The fix removes empty chunks before passing to chunked_cross_entropy.
+    """
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+
+    # Test case: Sequence length 257 (results in chunks [128, 128, 1])
+    T = 257
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    assert len(chunked_logits) == 3
+
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    assert len(chunked_logits) == 2
+
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+
+    baseline_logits = regular_logits[..., :-1, :]
+    baseline_loss = F.cross_entropy(
+        baseline_logits.reshape(-1, baseline_logits.size(-1)),
+        shifted_targets.reshape(-1),
+    )
+    torch.testing.assert_close(loss, baseline_loss)
+
+
 def test_num_parameters():
     model = torch.nn.Linear(2, 2)
     assert num_parameters(model) == 6
@@ -857,3 +941,155 @@ def test_select_sft_generate_example():
     eval_mock.evaluate_example = "unknown"
     with pytest.raises(ValueError):
         select_sft_generate_example(eval_mock, data_mock)
+
+
+def test_chunked_cross_entropy_chunking_and_shift_T129():
+    """Test chunking and shift logic for T=129, ensuring last chunk becomes empty."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 129
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    # Simulate chunking
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    assert len(chunked_logits) == 2
+    assert chunked_logits[-1].size(1) == 1
+
+    # Apply shift
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    assert chunked_logits[-1].size(1) == 0
+
+
+def test_chunked_cross_entropy_empty_removal_T129():
+    """Test empty chunk removal for T=129, resulting in a single remaining chunk."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 129
+    regular_logits = torch.randn(B, T, V)
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]  # Shift to make empty
+
+    # Apply removal
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+    assert len(chunked_logits) == 1
+
+
+def test_chunked_cross_entropy_loss_computation_T129():
+    """Test loss computation for T=129 after empty chunk removal."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 129
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+    assert loss.numel() == 1
+
+
+def test_chunked_cross_entropy_baseline_comparison_T129():
+    """Test baseline comparison for T=129."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 129
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+
+    baseline_logits = regular_logits[..., :-1, :]
+    baseline_loss = F.cross_entropy(
+        baseline_logits.reshape(-1, baseline_logits.size(-1)),
+        shifted_targets.reshape(-1),
+    )
+    torch.testing.assert_close(loss, baseline_loss)
+
+
+def test_chunked_cross_entropy_chunking_and_shift_T257():
+    """Test chunking and shift logic for T=257, ensuring last chunk becomes empty."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 257
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    # Simulate chunking
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    assert len(chunked_logits) == 3
+    assert chunked_logits[-1].size(1) == 1
+
+    # Apply shift
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    assert chunked_logits[-1].size(1) == 0
+
+
+def test_chunked_cross_entropy_empty_removal_T257():
+    """Test empty chunk removal for T=257, resulting in multiple remaining chunks."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 257
+    regular_logits = torch.randn(B, T, V)
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]  # Shift to make empty
+
+    # Apply removal
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+    assert len(chunked_logits) == 2
+
+
+def test_chunked_cross_entropy_loss_computation_T257():
+    """Test loss computation for T=257 after empty chunk removal."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 257
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+    assert loss.numel() == 1
+
+
+def test_chunked_cross_entropy_baseline_comparison_T257():
+    """Test baseline comparison for T=257."""
+    B, V = 2, 100
+    lm_head_chunk_size = 128
+    T = 257
+    regular_logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
+    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
+    if chunked_logits[-1].size(1) == 0:
+        chunked_logits = chunked_logits[:-1]
+
+    shifted_targets = targets[..., 1:]
+    loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
+
+    baseline_logits = regular_logits[..., :-1, :]
+    baseline_loss = F.cross_entropy(
+        baseline_logits.reshape(-1, baseline_logits.size(-1)),
+        shifted_targets.reshape(-1),
+    )
+    torch.testing.assert_close(loss, baseline_loss)
