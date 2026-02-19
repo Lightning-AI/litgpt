@@ -85,8 +85,9 @@ def test_json_input_validation(tmp_path):
     with pytest.raises(FileNotFoundError, match="must be a file or a directory containing"):
         data.setup()
 
-    # When a single file is passed without val_split_fraction, it defaults to 0.05
-    data = JSON(tmp_path / "train.json", val_split_fraction=None)
+    # When a single file is passed without val_split_fraction, it defaults to 0.05 and warns.
+    with pytest.warns(UserWarning, match="Defaulting to `val_split_fraction=0.05`"):
+        data = JSON(tmp_path / "train.json", val_split_fraction=None)
     assert data.val_split_fraction == 0.05
 
 
