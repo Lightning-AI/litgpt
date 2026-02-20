@@ -1,0 +1,86 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Thomas Breitner <mail@thms.de>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+.pagetree {
+  --caret-indent: 1em;
+  --list-item-margin-vertical: 0.25em;
+}
+
+/* Forcefully reset some styles to support MkDocs builtin themes
+   (mkdocs, readthedocs) and third party themes (Material) */
+.pagetree,
+.pagetree * {
+  padding: revert !important;
+  margin: revert !important;
+  border: revert !important;
+  background: revert !important;
+  box-shadow: revert !important;
+  font-size: unset !important;
+}
+
+button.pagetree-toggle,
+select.pagestatus-select {
+  font-size: revert !important
+}
+
+.pagetree ul {
+  padding: 0 0 0 var(--caret-indent) !important;
+}
+
+.pagetree li {
+  list-style-type: disc !important;
+  margin: var(--list-item-margin-vertical) 0 !important;
+}
+
+.pagetree li:has(> details){
+  list-style-type: none !important;
+  margin-left: calc(-1 * var(--caret-indent)) !important;
+}
+
+.pagetree details ul {
+  padding-left: calc(2 * var(--caret-indent)) !important
+}
+
+.pagetree summary {
+  list-style: none !important;
+  cursor: pointer !important;
+  position: relative !important;
+  left: -(var(--caret-indent)) !important;
+}
+
+.pagetree summary::before {
+  content: '';
+  position: relative;
+  top: 0.2em;
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  margin: 0 0.4em 0 0;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgdmlld0JveD0iLTIgMCAxMCAxMCI+PHBhdGggZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLXdpZHRoPSIyIiBkPSJtMSA5IDQtNC00LTQiLz48L3N2Zz4=');
+  background-size: contain;
+  background-position: left center;
+  background-repeat: no-repeat;
+  transition: transform 0.2s;
+
+  /* Reset some MkDocs Material theme styles */
+  left: 0 !important;
+  mask-image: none !important;
+  background-color: transparent !important;
+}
+
+/* Fix marker for WebKit browsers */
+.pagetree summary::-webkit-details-marker {
+  display: none;
+}
+
+.pagetree summary::after {
+  /* Reset some MkDocs Material theme styles */
+  display: none !important;
+}
+
+.pagetree details[open] > summary::before {
+  transform: rotate(90deg);
+}
