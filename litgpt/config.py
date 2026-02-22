@@ -84,6 +84,7 @@ class Config:
     rotary_percentage: float = 0.25
     rope_condense_ratio: int = 1
     rope_adjustments: Optional[dict] = None
+    rope_interleave: bool = False
     # Transformer block (MLP)
     intermediate_size: Optional[int] = None
     moe_intermediate_size: Optional[int] = None
