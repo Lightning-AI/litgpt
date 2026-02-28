@@ -48,7 +48,7 @@ optional-dependencies.extra = [
   # quantization:
   "bitsandbytes>=0.45.2,<0.50; sys_platform=='linux' or sys_platform=='win32'",
   # litgpt.evaluate:
-  "datasets>=2.18,<4",
+  "datasets>=2.18,<5",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
   "litdata==0.2.59",
@@ -56,9 +56,7 @@ optional-dependencies.extra = [
   "litlogger>=0.1.7",
   # litgpt.deploy:
   "litserve>0.2",
-  # lm-eval: pinned <0.4.9.1 due to trust_remote_code issues with datasets like logiqa.
-  # See: https://github.com/EleutherAI/lm-evaluation-harness/issues/3171
-  "lm-eval>=0.4.2,<0.4.9.1",
+  "lm-eval>=0.4.2",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
   "pyarrow>=15.0.2",
