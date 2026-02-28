@@ -517,6 +517,74 @@ def copy_weights_qwen_3(
             state_dict[to_name] = param
 
 
+def copy_weights_deepseek_v3(
+    config: Config,
+    state_dict: Dict[str, torch.Tensor],
+    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    untie_weights: bool = False,
+    saver: Optional[incremental_save] = None,
+) -> None:
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.attn.q_a_proj.weight": "model.layers.{}.self_attn.q_a_proj.weight",
+        "transformer.h.{}.attn.q_a_proj.weight_scale_inv": "model.layers.{}.self_attn.q_a_proj.weight_scale_inv",
+        "transformer.h.{}.attn.q_a_norm.weight": "model.layers.{}.self_attn.q_a_layernorm.weight",
+        "transformer.h.{}.attn.q_b_proj.weight": "model.layers.{}.self_attn.q_b_proj.weight",
+        "transformer.h.{}.attn.q_b_proj.weight_scale_inv": "model.layers.{}.self_attn.q_b_proj.weight_scale_inv",
+        "transformer.h.{}.attn.kv_a_proj_with_mqa.weight": "model.layers.{}.self_attn.kv_a_proj_with_mqa.weight",
+        "transformer.h.{}.attn.kv_a_proj_with_mqa.weight_scale_inv": "model.layers.{}.self_attn.kv_a_proj_with_mqa.weight_scale_inv",
+        "transformer.h.{}.attn.kv_a_norm.weight": "model.layers.{}.self_attn.kv_a_layernorm.weight",
+        "transformer.h.{}.attn.kv_b_proj.weight": "model.layers.{}.self_attn.kv_b_proj.weight",
+        "transformer.h.{}.attn.kv_b_proj.weight_scale_inv": "model.layers.{}.self_attn.kv_b_proj.weight_scale_inv",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.attn.proj.weight_scale_inv": "model.layers.{}.self_attn.o_proj.weight_scale_inv",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+    if config.mlp_class_name == "LLaMAMoE":
+        weight_map.update(
+            {
+                "transformer.h.{}.mlp.fc_1.weight": "model.layers.{}.mlp.gate_proj.weight",
+                "transformer.h.{}.mlp.fc_1.weight_scale_inv": "model.layers.{}.mlp.gate_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.fc_2.weight": "model.layers.{}.mlp.up_proj.weight",
+                "transformer.h.{}.mlp.fc_2.weight_scale_inv": "model.layers.{}.mlp.up_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.proj.weight": "model.layers.{}.mlp.down_proj.weight",
+                "transformer.h.{}.mlp.proj.weight_scale_inv": "model.layers.{}.mlp.down_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.mlp.experts.{}.gate_proj.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_1.weight_scale_inv": "model.layers.{}.mlp.experts.{}.gate_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.mlp.experts.{}.up_proj.weight",
+                "transformer.h.{}.mlp.experts.{}.fc_2.weight_scale_inv": "model.layers.{}.mlp.experts.{}.up_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{}.mlp.experts.{}.down_proj.weight",
+                "transformer.h.{}.mlp.experts.{}.proj.weight_scale_inv": "model.layers.{}.mlp.experts.{}.down_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.shared_experts.fc_1.weight": "model.layers.{}.mlp.shared_experts.gate_proj.weight",
+                "transformer.h.{}.mlp.shared_experts.fc_1.weight_scale_inv": "model.layers.{}.mlp.shared_experts.gate_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.shared_experts.fc_2.weight": "model.layers.{}.mlp.shared_experts.up_proj.weight",
+                "transformer.h.{}.mlp.shared_experts.fc_2.weight_scale_inv": "model.layers.{}.mlp.shared_experts.up_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.shared_experts.proj.weight": "model.layers.{}.mlp.shared_experts.down_proj.weight",
+                "transformer.h.{}.mlp.shared_experts.proj.weight_scale_inv": "model.layers.{}.mlp.shared_experts.down_proj.weight_scale_inv",
+                "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
+                "transformer.h.{}.mlp.gate.e_score_correction_bias": "model.layers.{}.mlp.gate.e_score_correction_bias",
+            }
+        )
+    else:
+        raise NotImplementedError
+
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
+            continue
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+        to_names = (weight_map[name_template].format(*ids),)
+        params = (param,)
+
+        for to_name, param in zip(to_names, params):
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+
 def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
@@ -567,6 +635,8 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_olmo2, config)
     elif config.name.lower().startswith("qwen3"):
         copy_fn = partial(copy_weights_qwen_3, config)
+    elif config.name.lower().startswith("deepseek"):
+        copy_fn = partial(copy_weights_deepseek_v3, config)
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
         untie_weights = "Gemma" in config.name
         copy_fn = partial(copy_weights_llama, config, untie_weights=untie_weights)

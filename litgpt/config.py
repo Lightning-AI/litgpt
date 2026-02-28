@@ -83,6 +83,7 @@ class Config:
     rope_base: int = 10000
     rotary_percentage: float = 0.25
     rope_condense_ratio: int = 1
+    rope_interleave: bool = False
     rope_adjustments: Optional[dict] = None
     # Transformer block (MLP)
     intermediate_size: Optional[int] = None
@@ -3182,5 +3183,51 @@ r1_distill_llama = [
 ]
 
 configs.extend(r1_distill_llama)
+
+deepseek_v3 = [
+    # https://huggingface.co/deepseek-ai/DeepSeek-V3/blob/main/config.json
+    dict(
+        name="DeepSeek-V3",
+        hf_config=dict(org="deepseek-ai", name="DeepSeek-V3"),
+        block_size=163840,
+        vocab_size=129280,
+        padded_vocab_size=129280,
+        n_layer=61,
+        n_head=128,
+        n_embd=7168,
+        n_query_groups=128,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-6,
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=18432,
+        rope_base=10000,
+        rope_interleave=True,
+        latent_attention=dict(
+            q_lora_rank=1536,
+            kv_lora_rank=512,
+            qk_nope_head_dim=128,
+            qk_rope_head_dim=64,
+            v_head_dim=128,
+        ),
+        n_expert=256,
+        n_shared_expert=1,
+        n_expert_per_token=8,
+        n_expert_groups=8,
+        n_topk_groups=4,
+        n_topk_scores_per_group=2,  # hardcoded in DeepseekV3ForCausalLM
+        moe_intermediate_size=2048,
+        first_k_dense_replace=3,
+        norm_topk_prob=True,
+        routed_scaling_factor=2.5,
+        rope_adjustments=dict(
+            factor=40.0, beta_slow=1.0, beta_fast=32.0, original_max_seq_len=4096, mscale=1.0, mscale_all_dim=1.0
+        ),
+    ),
+]
+
+configs.extend(deepseek_v3)
 
 name_to_config = {config["name"]: config for config in configs}

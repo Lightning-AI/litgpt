@@ -189,28 +189,64 @@ class GPT(nn.Module):
             extra_config = None
 
         else:
-            adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
-            params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
-            num_params_present = sum(params_present)
+            # Check for mutually exclusive parameter sets
+            llama3_params = ["low_freq_factor", "high_freq_factor"]
+            yarn_params = ["beta_fast", "beta_slow"]
 
-            if num_params_present == 0:
-                extra_config = None  # uses standard RoPE
-            elif num_params_present == 4:
-                # These parameters should always be used together so that we don't interfere with standard rope
-                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+            has_llama3 = any(param in self.config.rope_adjustments for param in llama3_params)
+            has_yarn = any(param in self.config.rope_adjustments for param in yarn_params)
+
+            if has_llama3 and has_yarn:
+                raise ValueError(
+                    "RoPE adjustments cannot contain both Llama3 parameters (low_freq_factor, high_freq_factor) "
+                    "and YaRN parameters (beta_fast, beta_slow). These are mutually exclusive."
+                )
+
+            # Llama3-style RoPE
+            if has_llama3:
+                adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
+                if all(params_present):
+                    extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+                else:
+                    missing_params = [
+                        param for param, present in zip(adjusted_params_required, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following Llama3 RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All Llama3 parameters must be specified together."
+                    )
+
+            # YaRN-style RoPE
+            elif has_yarn:
+                # Required: factor, beta_fast, beta_slow, original_max_seq_len
+                # Optional: mscale, mscale_all_dim
+                yarn_required_params = ["factor", "beta_fast", "beta_slow", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in yarn_required_params]
+
+                if not all(params_present):
+                    missing_params = [
+                        param for param, present in zip(yarn_required_params, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following YaRN RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All YaRN required parameters must be specified together."
+                    )
+
+                extra_config = {name: self.config.rope_adjustments[name] for name in yarn_required_params}
+
+                # Add optional YaRN parameters
+                for param in ["mscale", "mscale_all_dim"]:
+                    if param in self.config.rope_adjustments:
+                        extra_config[param] = self.config.rope_adjustments[param]
+
+            # Linear or standard RoPE
             elif "factor" in self.config.rope_adjustments:
                 # linear RoPE
                 adjusted_params_required = ["factor"]
                 extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
-                # Some but not all parameters are specified; raise an error
-                missing_params = [
-                    param for param, present in zip(adjusted_params_required, params_present) if not present
-                ]
-                raise ValueError(
-                    f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
-                    "All adjusted RoPE parameters must be specified together."
-                )
+                extra_config = None  # uses standard RoPE
 
         return build_rope_cache(
             seq_len=self.max_seq_length,
@@ -378,6 +414,16 @@ class CausalSelfAttention(nn.Module):
         else:
             self.norm_q = self.norm_k = None
 
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
+        else:
+            self.mscale = 1.0
+
         self.config = config
         self.block_idx = block_idx
 
@@ -457,8 +503,12 @@ class CausalSelfAttention(nn.Module):
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope_interleave(k[..., :rope_n_elem], cos, sin)
+        else:
+            q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
         q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
         k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
@@ -527,6 +577,7 @@ class CausalSelfAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -618,6 +669,16 @@ class MultiheadLatentAttention(nn.Module):
         # disabled by default
         self.kv_cache: Optional[KVCache] = None
 
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
+        else:
+            self.mscale = 1.0
+
         self.config = config
         self.block_idx = block_idx
 
@@ -657,8 +718,12 @@ class MultiheadLatentAttention(nn.Module):
         k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q_rot, cos, sin)
-        k_roped = apply_rope(k_rot, cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q_rot, cos, sin)
+            k_roped = apply_rope_interleave(k_rot, cos, sin)
+        else:
+            q_roped = apply_rope(q_rot, cos, sin)
+            k_roped = apply_rope(k_rot, cos, sin)
         k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
 
         q = torch.cat((q_pass, q_roped), dim=-1)
@@ -699,6 +764,7 @@ class MultiheadLatentAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.qk_head_dim)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -863,6 +929,13 @@ class GroupedTopkRouter(nn.Module):
         return topk_weights, topk_indices
 
 
+# ROPE: YaRN (Yet another RoPE extensioN) scaling function for extended context
+def yarn_get_mscale(scale=1, mscale=1):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * mscale * math.log(scale) + 1.0
+
+
 def build_rope_cache(
     seq_len: int,
     n_elem: int,
@@ -891,9 +964,67 @@ def build_rope_cache(
     # Compute the inverse frequencies theta
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
+    # Initialize attention scaling factor (modified for YaRN)
+    attention_scaling = 1.0
+
     if extra_config is not None:
         factor = extra_config["factor"]
-        if "original_max_seq_len" in extra_config:
+        # Check YaRN first (has beta_fast/beta_slow)
+        if "beta_fast" in extra_config or "beta_slow" in extra_config:
+            # YaRN-style RoPE scaling
+            beta_fast = extra_config["beta_fast"]
+            beta_slow = extra_config["beta_slow"]
+            original_max_seq_len = extra_config["original_max_seq_len"]
+
+            # Calculate attention scaling factor based on mscale and mscale_all_dim
+            mscale = extra_config.get("mscale")
+            mscale_all_dim = extra_config.get("mscale_all_dim")
+            if mscale and mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale) / yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale:
+                attention_scaling = yarn_get_mscale(factor, mscale)
+            # else: attention_scaling remains 1.0
+
+            # Create two frequency sets: extrapolation (unscaled) and interpolation (scaled)
+            pos_freqs = base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem)
+            theta_extrapolation = 1.0 / pos_freqs
+            theta_interpolation = 1.0 / (factor * pos_freqs)
+
+            # Find correction range based on rotation counts
+            # Inverse dimension formula to find dimension based on number of rotations
+            def find_correction_dim(num_rotations, dim, base_val, max_pos):
+                return (dim * math.log(max_pos / (num_rotations * 2 * math.pi))) / (2 * math.log(base_val))
+
+            low_dim = find_correction_dim(beta_fast, n_elem, base, original_max_seq_len)
+            high_dim = find_correction_dim(beta_slow, n_elem, base, original_max_seq_len)
+
+            # Apply truncation if specified
+            if extra_config.get("truncate", True):
+                low_dim = math.floor(low_dim)
+                high_dim = math.ceil(high_dim)
+
+            low_dim = max(low_dim, 0)
+            high_dim = min(high_dim, n_elem // 2 - 1)
+
+            # Create linear ramp factor for blending
+            dim_range = torch.arange(n_elem // 2, device=device, dtype=torch.float32)
+            if low_dim == high_dim:
+                high_dim += 0.001  # Prevent singularity
+
+            linear_func = (dim_range - low_dim) / (high_dim - low_dim)
+            ramp_func = torch.clamp(linear_func, 0.0, 1.0)
+
+            # Blend extrapolation and interpolation frequencies
+            # ramp_func = 0 -> use interpolation (scaled), ramp_func = 1 -> use extrapolation (unscaled)
+            theta_extrapolation_factor = ramp_func
+            theta = (
+                theta_interpolation * (1 - theta_extrapolation_factor)
+                + theta_extrapolation * theta_extrapolation_factor
+            )
+        elif "original_max_seq_len" in extra_config:
+            # Llama3-style RoPE scaling
             orig_context_len = extra_config["original_max_seq_len"]
             low_freq_factor = extra_config["low_freq_factor"]
             high_freq_factor = extra_config["high_freq_factor"]
@@ -907,6 +1038,7 @@ def build_rope_cache(
             adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
             theta = adjusted_theta
         else:
+            # Linear scaling fallback
             theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
@@ -935,7 +1067,9 @@ def build_rope_cache(
 
         idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
-    return torch.cos(idx_theta), torch.sin(idx_theta)
+    cos = torch.cos(idx_theta) * attention_scaling
+    sin = torch.sin(idx_theta) * attention_scaling
+    return cos, sin
 
 
 def batched_index_select(t, dim, idx):
@@ -1031,6 +1165,47 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     dims_diff = x.dim() - cos.dim()
     if dims_diff > 0:
         # Ensure that shapes of `x`, `cos`, `sin` align
+        new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
+        cos = cos.view(*new_shape)
+        sin = sin.view(*new_shape)
+
+    roped = (x * cos) + (rotated * sin)
+    return roped.to(dtype=x.dtype)
+
+
+def apply_rope_interleave(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply rotary position embeddings with interleaved tensor layout.
+
+    This version rearranges the input tensor to group even/odd indices separately
+    before applying the standard RoPE rotation, matching HuggingFace's
+    apply_rotary_pos_emb_interleave behavior.
+
+    Args:
+        x: Input tensor of shape (..., seq_len, head_dim)
+        cos: Cosine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+        sin: Sine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input
+    """
+    if cos.dim() != 3:
+        raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
+    if cos.shape != sin.shape:
+        raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+
+    # Rearrange tensor to group even/odd indices: [x0,x1,x2,x3,...] -> [x0,x2,x4,...,x1,x3,x5,...]
+    *batch_dims, d = x.shape
+    x = x.view(*batch_dims, d // 2, 2).transpose(-1, -2).reshape(*batch_dims, d)
+
+    # Standard rotation logic (same as apply_rope)
+    head_size_half = x.size(-1) // 2
+    x1 = x[..., :head_size_half]
+    x2 = x[..., head_size_half:]
+    rotated = torch.cat((-x2, x1), dim=-1)
+
+    # Auto-detect dimension mismatch and reshape cos/sin
+    dims_diff = x.dim() - cos.dim()
+    if dims_diff > 0:
         new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
         cos = cos.view(*new_shape)
         sin = sin.view(*new_shape)
