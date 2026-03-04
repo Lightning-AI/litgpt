@@ -32,7 +32,7 @@ run: |
   set -ex
 
   pip install -q uv
-  uv pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U --upgrade-strategy eager
+  uv pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
 
   if [ "${dependency}" == "compiler" ]; then
     uv pip uninstall torchvision torchaudio
