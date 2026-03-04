@@ -21,7 +21,7 @@ env:
   NCCL_IGNORE_DISABLED_P2P: "1"
   TORCH_VERSION: "2.8.0"
   RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
-  UV_TORCH_BACKEND: "cu128"
+
 run: |
   whereis nvidia
   nvidia-smi
@@ -34,7 +34,7 @@ run: |
   curl -LsSf https://astral.sh/uv/install.sh | sh
   [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
   export PATH="$HOME/.local/bin:$PATH"
-  uv venv .venv
+  uv venv .venv --system-site-packages
   . .venv/bin/activate
   hash -r
 
