@@ -30,6 +30,7 @@ run: |
   pip list
   set -ex
 
+  pip install -q --ignore-installed PyYAML
   pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U --upgrade-strategy eager
 
   if [ "${dependency}" == "compiler" ]; then
