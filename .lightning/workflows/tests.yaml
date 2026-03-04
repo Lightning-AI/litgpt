@@ -21,7 +21,6 @@ env:
   NCCL_IGNORE_DISABLED_P2P: "1"
   TORCH_VERSION: "2.8.0"
   RUN_ONLY_CUDA_TESTS: "1" # run CUDA tests only
-  UV_SYSTEM_PYTHON: "1"
 
 run: |
   whereis nvidia
@@ -31,7 +30,14 @@ run: |
   pip list
   set -ex
 
-  pip install -q uv
+  echo "Install uv and create virtual environment"
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  [ -f "$HOME/.local/bin/env" ] && . "$HOME/.local/bin/env"
+  export PATH="$HOME/.local/bin:$PATH"
+  uv venv .venv
+  . .venv/bin/activate
+  hash -r
+
   uv pip install -q '.[extra,test]' "torch==${TORCH_VERSION}" cffi -U
 
   if [ "${dependency}" == "compiler" ]; then
