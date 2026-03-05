@@ -158,7 +158,7 @@ class Tokenizer:
         if self.backend not in ("huggingface", "sentencepiece"):
             raise NotImplementedError(self.backend)
 
-        # Both huggingface and sentencepiece do not support decoding token-by-token robustly. 
+        # Both huggingface and sentencepiece do not support decoding token-by-token robustly.
         # For HF BPE tokenizers, decoding isolated tokens often strips leading spaces.
         # For sentencepiece, it adds spaces based on the surrounding tokens.
         # This requires us to decode everything each time and yield the string difference.
