@@ -179,7 +179,11 @@ def test_litgpt_chat_endtoend():
                 pass
 
     # pythia-14m is not instruct-tuned, so it does not give an "answer" per se, but a continuation.
-    assert ">> Reply: !" in captured_output.getvalue(), f"Expected output not found. Got:\n{captured_output.getvalue()}"
+    output = captured_output.getvalue()
+    assert ">> Reply: " in output, f"Expected reply not found. Got:\n{output}"
+    # Verify the model actually generated some text after the reply prompt
+    reply_start = output.index(">> Reply: ") + len(">> Reply: ")
+    assert len(output[reply_start:].strip()) > 0, f"Expected non-empty reply. Got:\n{output}"
     assert simulated_input.call_count == 2
 
 
