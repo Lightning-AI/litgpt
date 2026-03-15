@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+import warnings
 from pathlib import Path
 from typing import Iterable, Iterator, Optional, Union
 
@@ -43,6 +44,11 @@ class Tokenizer:
                     with open(special_tokens_path, encoding="utf-8") as fp:
                         config = json.load(fp)
                 except json.JSONDecodeError:  # Some files like the Llama 3.2 one have bugs
+                    warnings.warn(
+                        f"generation_config.json in '{checkpoint_dir}' contains invalid JSON. "
+                        "Attempting automatic fix. Verify this file is not corrupted.",
+                        stacklevel=2,
+                    )
                     with open(special_tokens_path, encoding="utf-8") as fp:
                         json_string = fp.read()
                         config = fix_and_load_json(json_string)
