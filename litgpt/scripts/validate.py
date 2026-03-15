@@ -8,7 +8,6 @@ Usage:
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 import torch
 import yaml
@@ -44,7 +43,7 @@ def validate_setup(
     """
     checkpoint_dir = Path(checkpoint_dir)
     print(f"{'=' * 60}")
-    print(f"LitGPT Pre-flight Validation")
+    print("LitGPT Pre-flight Validation")
     print(f"Checkpoint: {checkpoint_dir}")
     print(f"{'=' * 60}\n")
 
@@ -74,8 +73,10 @@ def validate_setup(
                 config_dict = yaml.safe_load(f)
             config = Config(**config_dict)
             print(f"  ✓ Config loaded: {config.name or 'unnamed'}")
-            print(f"    n_layer={config.n_layer}, n_embd={config.n_embd}, "
-                  f"n_head={config.n_head}, vocab_size={config.vocab_size}\n")
+            print(
+                f"    n_layer={config.n_layer}, n_embd={config.n_embd}, "
+                f"n_head={config.n_head}, vocab_size={config.vocab_size}\n"
+            )
         else:
             print(f"  ✗ Config file not found: {config_path}\n", file=sys.stderr)
             all_passed = False

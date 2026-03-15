@@ -999,8 +999,10 @@ def validate_checkpoint(
     try:
         state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
         # Some checkpoints wrap the state_dict under a "model" key
-        if isinstance(state_dict, dict) and "model" in state_dict and not any(
-            k.startswith("transformer.") or k.startswith("lm_head.") for k in state_dict.keys()
+        if (
+            isinstance(state_dict, dict)
+            and "model" in state_dict
+            and not any(k.startswith("transformer.") or k.startswith("lm_head.") for k in state_dict.keys())
         ):
             state_dict = state_dict["model"]
     except Exception as e:
@@ -1108,7 +1110,7 @@ def estimate_model_memory(
     total_params = emb_params + lm_head_params + n_layer * layer_params + n_embd  # final norm
 
     param_memory_bytes = total_params * bytes_per_param
-    param_memory_gb = param_memory_bytes / (1024 ** 3)
+    param_memory_gb = param_memory_bytes / (1024**3)
 
     # Training multiplier: params + gradients + optimizer states (Adam ≈ 3×)
     multiplier = 3.0 if training else 1.0
@@ -1120,7 +1122,7 @@ def estimate_model_memory(
     if torch.cuda.is_available():
         try:
             total_mem = torch.cuda.get_device_properties(0).total_memory
-            available_gpu_memory_gb = total_mem / (1024 ** 3)
+            available_gpu_memory_gb = total_mem / (1024**3)
             fits_in_memory = estimated_total_gb < available_gpu_memory_gb
         except Exception:
             pass
@@ -1132,4 +1134,3 @@ def estimate_model_memory(
         "available_gpu_memory_gb": round(available_gpu_memory_gb, 2) if available_gpu_memory_gb is not None else None,
         "fits_in_memory": fits_in_memory,
     }
-

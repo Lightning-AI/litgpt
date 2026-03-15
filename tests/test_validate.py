@@ -3,7 +3,6 @@
 """Tests for the validate CLI script and related error-handling utilities."""
 
 import json
-import os
 import warnings
 from dataclasses import asdict
 from pathlib import Path
@@ -20,7 +19,6 @@ from litgpt.utils import (
     estimate_model_memory,
     validate_checkpoint,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_checkpoint tests
@@ -228,7 +226,6 @@ def test_tokenizer_json_warning(tmp_path):
         tokenizer = Tokenizer.__new__(Tokenizer)
 
     # Directly test the JSON fallback behavior
-    import litgpt.tokenizer as tok_module
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -283,9 +280,7 @@ class TestValidateScript:
         torch.save(real_sd, str(checkpoint_dir / "lit_model.pth"))
 
         # Create minimal tokenizer files
-        (checkpoint_dir / "tokenizer_config.json").write_text(
-            json.dumps({"tokenizer_class": "GPT2Tokenizer"})
-        )
+        (checkpoint_dir / "tokenizer_config.json").write_text(json.dumps({"tokenizer_class": "GPT2Tokenizer"}))
         (checkpoint_dir / "tokenizer.json").write_text("{}")
 
         return checkpoint_dir
