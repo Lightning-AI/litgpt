@@ -1,6 +1,7 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
@@ -44,9 +45,13 @@ class JSON(DataModule):
     def __post_init__(self):
         super().__init__()
         if self.json_path.is_file() and self.val_split_fraction is None:
-            raise ValueError(
-                "If `json_path` is a file, you must set `val_split_fraction` to a value between 0 and 1 to split the"
-                " data into train and validation sets."
+            self.val_split_fraction = 0.05
+            warnings.warn(
+                "The `json_path` points to a single file and `val_split_fraction` was not set. "
+                "Defaulting to `val_split_fraction=0.05`. Set `val_split_fraction` explicitly "
+                "to use a different split percentage.",
+                UserWarning,
+                stacklevel=2,
             )
         if self.json_path.is_dir() and self.val_split_fraction is not None:
             raise ValueError(

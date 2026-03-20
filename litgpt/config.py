@@ -85,6 +85,7 @@ class Config:
     rope_condense_ratio: int = 1
     rope_interleave: bool = False
     rope_adjustments: Optional[dict] = None
+    rope_interleave: bool = False
     # Transformer block (MLP)
     intermediate_size: Optional[int] = None
     moe_intermediate_size: Optional[int] = None
