@@ -60,7 +60,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
             v_head_dim=8,  # Same as qk_nope_head_dim
         ),
         rope_adjustments=dict(
-            factor=40.0, low_freq_factor=1.0, high_freq_factor=32.0, original_max_seq_len=4096, mscale_all_dim=1.0
+            factor=40.0, beta_slow=1.0, beta_fast=32.0, original_max_seq_len=4096, mscale_all_dim=1.0
         ),
     )
     theirs_config = DeepseekV3Config(
