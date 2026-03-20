@@ -3,8 +3,6 @@
 
 import pytest
 import torch
-import torch.nn as nn
-from transformers.integrations.finegrained_fp8 import FP8Linear
 from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
 from litgpt import GPT, Config
@@ -60,7 +58,7 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
             v_head_dim=8,  # Same as qk_nope_head_dim
         ),
         rope_adjustments=dict(
-            factor=40.0, beta_slow=1.0, beta_fast=32.0, original_max_seq_len=4096, mscale_all_dim=1.0
+            factor=40.0, beta_slow=1.0, beta_fast=32.0, original_max_seq_len=4096, mscale=1.0, mscale_all_dim=1.0
         ),
     )
     theirs_config = DeepseekV3Config(
@@ -89,13 +87,14 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
         v_head_dim=ours_config.latent_attention["v_head_dim"],
         q_lora_rank=ours_config.latent_attention["q_lora_rank"],
         kv_lora_rank=ours_config.latent_attention["kv_lora_rank"],
-        rope_parameters=(
+        rope_scaling=(
             {
                 "type": "yarn",
                 "factor": ours_config.rope_adjustments["factor"],
-                "beta_slow": ours_config.rope_adjustments["low_freq_factor"],
-                "beta_fast": ours_config.rope_adjustments["high_freq_factor"],
+                "beta_slow": ours_config.rope_adjustments["beta_slow"],
+                "beta_fast": ours_config.rope_adjustments["beta_fast"],
                 "original_max_position_embeddings": ours_config.rope_adjustments["original_max_seq_len"],
+                "mscale": 1.0,
                 "mscale_all_dim": 1.0,
             }
             if ours_config.rope_adjustments
@@ -108,7 +107,6 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
     state_dict = {}
     copy_weights_deepseek_v3(ours_config, {}, state_dict, theirs_state_dict)
     ours_model = GPT(ours_config)
-    # ours_model = patch_deepseek_v3(ours_model)
     ours_model.to(device)
     ours_model.load_state_dict(state_dict)
 
@@ -118,43 +116,3 @@ def test_against_original_deepseek_v3(model_name, device, dtype):
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
-
-
-def patch_deepseek_v3(model: GPT):
-    to_replace = [
-        "attn.q_a_proj",
-        "attn.q_b_proj",
-        "attn.kv_a_proj_with_mqa",
-        "attn.kv_b_proj",
-        "attn.proj",
-        "mlp.fc_1",
-        "mlp.fc_2",
-        "mlp.proj",
-        "mlp.experts",
-        "mlp.shared_experts",
-    ]
-    modules_to_replace = []
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Linear) and any(target in name for target in to_replace):
-            modules_to_replace.append((name, module))
-
-    for name, module in modules_to_replace:
-        with torch.device("meta"):
-            new_module = FP8Linear(
-                in_features=module.in_features,
-                out_features=module.out_features,
-                bias=module.bias is not None,
-                activation_scheme="dynamic",
-                block_size=(128, 128),
-            )
-
-        # Use to_empty() to move from meta device
-        new_module = new_module.to_empty(device=module.weight.device)
-
-        # Copy weights and bias
-        new_module.weight.data = module.weight.data.clone()
-        if module.bias is not None:
-            new_module.bias.data = module.bias.data.clone()
-
-        model.set_submodule(name, new_module)
-    return model

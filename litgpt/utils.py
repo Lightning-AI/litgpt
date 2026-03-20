@@ -379,11 +379,57 @@ def get_default_supported_precision(training: bool) -> str:
     return "bf16-mixed" if training else "bf16-true"
 
 
+def _has_fp8_weights(state_dict: Dict[str, Any]) -> bool:
+    """Check if a state dict contains FP8 weight_scale_inv tensors."""
+    return any(k.endswith(".weight_scale_inv") for k in state_dict)
+
+
+def patch_linear_for_fp8(model: nn.Module) -> nn.Module:
+    """Replace nn.Linear modules with FP8Linear for loading FP8 weights (e.g. DeepSeek-V3).
+
+    Must be called after GPT(config) but before load_state_dict().
+    Only replaces modules whose names match known FP8-quantized layers.
+    """
+    from transformers.integrations.finegrained_fp8 import FP8Linear
+
+    fp8_targets = (
+        "q_a_proj", "q_b_proj", "kv_a_proj_with_mqa", "kv_b_proj", "proj",
+        "fc_1", "fc_2",
+    )
+
+    modules_to_replace = []
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear) and name.split(".")[-1] in fp8_targets:
+            modules_to_replace.append((name, module))
+
+    for name, module in modules_to_replace:
+        with torch.device("meta"):
+            new_module = FP8Linear(
+                in_features=module.in_features,
+                out_features=module.out_features,
+                bias=module.bias is not None,
+                activation_scheme="dynamic",
+                block_size=(128, 128),
+            )
+        new_module = new_module.to_empty(device=module.weight.device)
+
+        # Navigate to parent and replace the child module
+        parts = name.split(".")
+        parent = model
+        for part in parts[:-1]:
+            parent = getattr(parent, part)
+        setattr(parent, parts[-1], new_module)
+
+    return model
+
+
 def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, strict: bool = True) -> None:
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     elif isinstance(fabric.strategy, ModelParallelStrategy):
         state_dict = torch.load(checkpoint_path, mmap=True)
+        if _has_fp8_weights(state_dict):
+            patch_linear_for_fp8(model)
         load_from_full_model_state_dict(
             model=model,
             full_sd=state_dict,
@@ -394,6 +440,8 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
     else:
         state_dict = lazy_load(checkpoint_path)
         state_dict = state_dict.get("model", state_dict)
+        if _has_fp8_weights(state_dict):
+            patch_linear_for_fp8(model)
         model.load_state_dict(state_dict, strict=strict)
 
 

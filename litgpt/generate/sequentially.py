@@ -26,9 +26,11 @@ from litgpt.model import GPT, Block, build_mask_cache
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    _has_fp8_weights,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
     get_default_supported_precision,
+    patch_linear_for_fp8,
 )
 
 
@@ -240,6 +242,8 @@ def main(
 
     t0 = time.perf_counter()
     state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
+    if _has_fp8_weights(state_dict):
+        patch_linear_for_fp8(model)
     # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
     model.load_state_dict(state_dict, assign=True)
     print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
