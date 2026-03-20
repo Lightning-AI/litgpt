@@ -3191,7 +3191,7 @@ deepseek_v3 = [
         name="DeepSeek-V3",
         hf_config=dict(org="deepseek-ai", name="DeepSeek-V3"),
         block_size=163840,
-        vocab_size=129280,
+        vocab_size=128000,
         padded_vocab_size=129280,
         n_layer=61,
         n_head=128,
