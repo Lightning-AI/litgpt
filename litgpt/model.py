@@ -1018,10 +1018,7 @@ def build_rope_cache(
 
             # Blend extrapolation and interpolation frequencies
             # ramp_func = 0 -> use extrapolation (unscaled), ramp_func = 1 -> use interpolation (scaled)
-            theta = (
-                theta_interpolation * ramp_func
-                + theta_extrapolation * (1 - ramp_func)
-            )
+            theta = theta_interpolation * ramp_func + theta_extrapolation * (1 - ramp_func)
         elif "original_max_seq_len" in extra_config:
             # Llama3-style RoPE scaling
             orig_context_len = extra_config["original_max_seq_len"]
