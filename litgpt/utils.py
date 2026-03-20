@@ -393,8 +393,13 @@ def patch_linear_for_fp8(model: nn.Module) -> nn.Module:
     from transformers.integrations.finegrained_fp8 import FP8Linear
 
     fp8_targets = (
-        "q_a_proj", "q_b_proj", "kv_a_proj_with_mqa", "kv_b_proj", "proj",
-        "fc_1", "fc_2",
+        "q_a_proj",
+        "q_b_proj",
+        "kv_a_proj_with_mqa",
+        "kv_b_proj",
+        "proj",
+        "fc_1",
+        "fc_2",
     )
 
     modules_to_replace = []
