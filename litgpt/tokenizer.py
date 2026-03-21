@@ -155,28 +155,21 @@ class Tokenizer:
     def decode_stream(
         self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None
     ) -> Iterator[str]:
-        if self.backend == "huggingface":
-            try:
-                for token in token_stream:
-                    yield self.decode(token)
-            except KeyboardInterrupt:
-                return
-        elif self.backend == "sentencepiece":
-            # TODO: Is there a way to not have to do this?
-            # This may actually affect our tokens per second.
-
-            # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
-            # meaning that we need to decode everything each time
-            so_far = torch.tensor([], dtype=torch.long, device=device)
-            decoded_so_far = ""
-            try:
-                for token in token_stream:
-                    so_far = so_far.to(device=token.device)
-                    so_far = torch.cat((so_far, token.view(-1)))
-                    decoded_new = self.decode(so_far)
-                    yield decoded_new[len(decoded_so_far) :]
-                    decoded_so_far = decoded_new
-            except KeyboardInterrupt:
-                return
-        else:
+        if self.backend not in ("huggingface", "sentencepiece"):
             raise NotImplementedError(self.backend)
+
+        # Both huggingface and sentencepiece do not support decoding token-by-token robustly.
+        # For HF BPE tokenizers, decoding isolated tokens often strips leading spaces.
+        # For sentencepiece, it adds spaces based on the surrounding tokens.
+        # This requires us to decode everything each time and yield the string difference.
+        so_far = torch.tensor([], dtype=torch.long, device=device)
+        decoded_so_far = ""
+        try:
+            for token in token_stream:
+                so_far = so_far.to(device=token.device)
+                so_far = torch.cat((so_far, token.view(-1)))
+                decoded_new = self.decode(so_far)
+                yield decoded_new[len(decoded_so_far) :]
+                decoded_so_far = decoded_new
+        except KeyboardInterrupt:
+            return
