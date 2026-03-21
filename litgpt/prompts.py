@@ -248,7 +248,7 @@ class R1Base(PromptStyle):
 
             # Extract system prompt (if any)
             system_prompt = ""
-            if prompt[0].get("role") == "system":
+            if prompt and prompt[0].get("role") == "system":
                 system_prompt = prompt[0]["content"]
                 prompt = prompt[1:]  # Remove system message from the list
 
