@@ -529,8 +529,8 @@ def test_lora_gpt_init_weights():
 @pytest.mark.parametrize("name", [c["name"] for c in config_module.configs])
 def test_base_model_can_be_lora_loaded(name):
     kwargs = {"n_layer": 2, "n_head": 8, "n_query_groups": 4, "n_embd": 16, "padded_vocab_size": 32}
-    config = config_module.Config.from_name(name, **kwargs)
-    if config.latent_attention is not None:
+    raw_config = next(c for c in config_module.configs if c["name"] == name)
+    if raw_config.get("latent_attention") is not None:
         pytest.skip("LoRA does not support latent attention")
     base_model = BaseGPT.from_name(name, **kwargs)
     base_model_state_dict = base_model.state_dict()
