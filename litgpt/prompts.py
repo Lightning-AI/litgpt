@@ -474,7 +474,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return Llama3()
     if re.search("OLMo-2.*-(Instruct|SFT|DPO)", model_name):
         return Llama3()
-    if re.search("R1", model_name):
+    if re.search(r"(R1|DeepSeek-V3)", model_name):
         return R1Base()
     if re.search("FreeWilly2", model_name):
         return FreeWilly2()
