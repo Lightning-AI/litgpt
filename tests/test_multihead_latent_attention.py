@@ -226,6 +226,8 @@ def test_deepseek_v3_block(batch_size, seq_len, device):
     # Run forward passes
     output_litgpt = block_litgpt(hidden_states, cos, sin)
     output_hf = block_hf(hidden_states, position_embeddings=(cos, sin), attention_mask=attention_mask)
+    if isinstance(output_hf, tuple):
+        output_hf = output_hf[0]
 
     assert torch.allclose(output_litgpt, output_hf, atol=1e-5, rtol=1e-4), (
         f"Max diff: {(output_litgpt - output_hf).abs().max()}"
