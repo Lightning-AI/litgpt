@@ -4,8 +4,10 @@
 import sys
 import time
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any, Literal
+from typing import List, Optional, Tuple, Union
+
+from pathlib import Path
 
 import lightning as L
 import numpy as np
@@ -33,6 +35,7 @@ from litgpt.utils import (
     load_checkpoint,
     save_config,
 )
+from litgpt.vision import ImagePreprocessor
 
 
 class LLM(torch.nn.Module):
@@ -469,6 +472,7 @@ class LLM(torch.nn.Module):
         top_p: float = 1.0,
         return_as_token_ids: bool = False,
         stream: bool = False,
+        image: str | Path | None = None,
     ) -> str | torch.Tensor:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -499,12 +503,31 @@ class LLM(torch.nn.Module):
             stream: If True, returns a generator that yields tokens as they are generated.
                 At the moment, this setting is slower and may use more memory than the non-streaming version.
                 We plan to resolve this in the future.
+            image: Optional path to an image file for multimodal models.
         """
         if self.model is None:
             raise AttributeError(
                 "The model is not initialized yet; use the .distribute() "
                 "or .trainer_setup() method to initialize the model."
             )
+
+        # Preprocess image if provided
+        pixel_values = None
+        if image is not None:
+            if not self.config.is_multimodal:
+                raise ValueError(
+                    "An image was provided but the model is not multimodal. "
+                    "Ensure the model config has vision_feature_dim set."
+                )
+            preprocessor = ImagePreprocessor(
+                image_size=self.config.vision_image_size or 224,
+            )
+            if self.fabric is not None:
+                device = self.fabric.device
+            else:
+                device = self.preprocessor.device
+            pixel_values = preprocessor(image, device=device)
+
         input_ids = self._text_to_token_ids(prompt, sys_prompt)
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
@@ -559,6 +582,7 @@ class LLM(torch.nn.Module):
                 top_p=top_p,
                 eos_id=self.preprocessor.tokenizer.eos_id,
                 include_prompt=False,
+                pixel_values=pixel_values,
             )
 
         if stream:

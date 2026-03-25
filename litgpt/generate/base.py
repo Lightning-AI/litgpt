@@ -79,9 +79,10 @@ def next_token(
     input_pos: torch.Tensor,
     x: torch.Tensor,
     input_pos_maxp1: int | None = None,
+    pixel_values: torch.Tensor | None = None,
     **sample_kwargs: dict[str, Any],
 ) -> torch.Tensor:
-    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
+    logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1, pixel_values=pixel_values)
     _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
     return _next
 
@@ -137,6 +138,7 @@ def generate_fn(
     stop_tokens: tuple[list[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
+    pixel_values: Optional[torch.Tensor] = None,
 ) -> Iterator[torch.Tensor]:
     """
     Generates tokens for a single prompt.
@@ -182,11 +184,13 @@ def generate_fn(
     input_pos_maxp1 = prompt_size if all(m.__class__.__name__ != "ThunderModule" for m in model.modules()) else None
     for current_idx in range(max_returned_tokens - prompt_size):
         # Generate the token
+        # pixel_values is only needed for the prefill (first forward pass)
         token = next_token(
             model,
             input_pos,
             token.view(1, -1),
             input_pos_maxp1=input_pos_maxp1,
+            pixel_values=pixel_values if prefill_token else None,
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
@@ -380,6 +384,7 @@ def generate(
     top_p: float = 1.0,
     eos_id: int | None = None,
     include_prompt: bool = True,
+    pixel_values: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
@@ -407,6 +412,7 @@ def generate(
             or https://huyenchip.com/2024/01/16/sampling.html#top_p
         eos_id: If specified, stop generating any more token once the <eos> token is triggered.
         include_prompt: If true (default) prepends the prompt (after applying the prompt style) to the output.
+        pixel_values: Optional image tensor for multimodal models.
     """
 
     token_list = list(
@@ -420,6 +426,7 @@ def generate(
             top_k=top_k,
             top_p=top_p,
             stop_tokens=(([eos_id],) if eos_id is not None else ()),
+            pixel_values=pixel_values,
         )
     )
 
