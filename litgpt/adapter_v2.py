@@ -9,7 +9,7 @@ Port for LitGPT
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Type
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -27,7 +27,7 @@ from litgpt.utils import map_old_state_dict_weights
 @dataclass
 class Config(BaseConfig):
     @property
-    def mlp_class(self) -> Type:
+    def mlp_class(self) -> type:
         return getattr(litgpt.adapter_v2, self.mlp_class_name)
 
 
@@ -77,7 +77,7 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
     @classmethod
@@ -90,7 +90,7 @@ class GPT(BaseModel):
         if isinstance(module, AdapterV2Linear):
             module.reset_parameters()
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {"lm_head.weight": "lm_head.linear.weight", "lm_head.bias": "lm_head.linear.bias"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
@@ -116,7 +116,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
         # output projection
         self.proj = AdapterV2Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base and/or legacy checkpoints."""
         mapping = {
             "qkv.weight": "qkv.linear.weight",
@@ -145,7 +145,7 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
         self.proj = AdapterV2Linear(config.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc.weight": "fc.linear.weight",
@@ -158,7 +158,7 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 
 
 class LLaMAMLP(litgpt.model.LLaMAMLP):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         nn.Module.__init__(self)
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc_1 = AdapterV2Linear(config.n_embd, self.intermediate_size, bias=config.bias)
@@ -166,7 +166,7 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
         self.proj = AdapterV2Linear(self.intermediate_size, config.n_embd, bias=config.bias)
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc_1.weight": "fc_1.linear.weight",
@@ -197,7 +197,7 @@ class LLaMAMoE(litgpt.model.LLaMAMoE):
         )
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {"gate.weight": "gate.linear.weight"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)

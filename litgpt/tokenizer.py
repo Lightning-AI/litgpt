@@ -1,8 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator, Optional, Union
 
 import torch
 
@@ -10,7 +10,7 @@ from litgpt.utils import fix_and_load_json
 
 
 class Tokenizer:
-    def __init__(self, checkpoint_dir: Union[Path, str]) -> None:
+    def __init__(self, checkpoint_dir: Path | str) -> None:
         checkpoint_dir = Path(checkpoint_dir)
         if not checkpoint_dir.exists():
             raise NotADirectoryError(f"The checkpoint directory does not exist: {str(checkpoint_dir)}")
@@ -108,8 +108,8 @@ class Tokenizer:
     def encode(
         self,
         string: str,
-        device: Optional[torch.device] = None,
-        bos: Optional[bool] = None,
+        device: torch.device | None = None,
+        bos: bool | None = None,
         eos: bool = False,
         max_length: int = -1,
     ) -> torch.Tensor:
@@ -152,9 +152,7 @@ class Tokenizer:
             return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
-    def decode_stream(
-        self, token_stream: Iterable[torch.Tensor], device: Optional[torch.device] = None
-    ) -> Iterator[str]:
+    def decode_stream(self, token_stream: Iterable[torch.Tensor], device: torch.device | None = None) -> Iterator[str]:
         if self.backend == "huggingface":
             try:
                 for token in token_stream:
