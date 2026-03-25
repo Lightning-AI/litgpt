@@ -1265,6 +1265,14 @@ class KVCache(nn.Module):
         bs = k.size(0)
         if self.is_sliding_window:
             # Circular buffer for sliding window
+            prefill_len = input_pos.shape[-1]
+            if prefill_len > self.max_cache_len:
+                raise ValueError(
+                    f"Prefill length ({prefill_len}) exceeds the sliding window size ({self.max_cache_len}). "
+                    f"This causes the ring-buffer KV cache to overwrite entries, but the attention mask is not "
+                    f"rebuilt to reflect the true positions, which silently violates causality. "
+                    f"Please use chunked prefill with chunk size <= {self.max_cache_len} to avoid this issue."
+                )
             cache_positions = input_pos % self.max_cache_len
             k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
