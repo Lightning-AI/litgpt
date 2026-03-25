@@ -219,39 +219,31 @@ def test_tokenizer_json_warning(tmp_path):
     )
 
     # Create a minimal tokenizer.json that the HF tokenizer can load
-    # This is hard to mock, so we'll test the warning path directly by patching
+    minimal_tokenizer_json = {
+        "version": "1.0",
+        "truncation": None,
+        "padding": None,
+        "added_tokens": [],
+        "normalizer": None,
+        "pre_tokenizer": None,
+        "post_processor": None,
+        "decoder": None,
+        "model": {"type": "BPE", "vocab": {"<s>": 0, "</s>": 1}, "merges": []},
+    }
+    (checkpoint_dir / "tokenizer.json").write_text(json.dumps(minimal_tokenizer_json))
+
     from litgpt.tokenizer import Tokenizer
-
-    with mock.patch.object(Tokenizer, "__init__", lambda self, *a, **kw: None):
-        tokenizer = Tokenizer.__new__(Tokenizer)
-
-    # Directly test the JSON fallback behavior
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        # Trigger the code path: read invalid JSON, fall back to fix_and_load_json
-        special_tokens_path = checkpoint_dir / "generation_config.json"
-        try:
-            with open(special_tokens_path, encoding="utf-8") as fp:
-                config = json.load(fp)
-        except json.JSONDecodeError:
-            import litgpt.utils
+        tokenizer = Tokenizer(checkpoint_dir)
 
-            warnings.warn(
-                f"generation_config.json in '{checkpoint_dir}' contains invalid JSON. "
-                "Attempting automatic fix. Verify this file is not corrupted.",
-                stacklevel=2,
-            )
-            with open(special_tokens_path, encoding="utf-8") as fp:
-                json_string = fp.read()
-                config = litgpt.utils.fix_and_load_json(json_string)
-
-        # Check that the warning was raised
-        assert len(w) == 1
-        assert "invalid JSON" in str(w[0].message)
-        # Check that the fix worked
-        assert config["bos_token_id"] == 1
-        assert config["eos_token_id"] == 2
+    # Check that the warning was raised
+    assert len(w) == 1
+    assert "invalid JSON" in str(w[0].message)
+    # Check that the fix worked
+    assert tokenizer.bos_id == 1
+    assert tokenizer.eos_id == 2
 
 
 # ---------------------------------------------------------------------------

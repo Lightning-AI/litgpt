@@ -55,8 +55,6 @@ def validate_setup(
         check_valid_checkpoint_dir(
             checkpoint_dir,
             model_filename=model_filename,
-            verbose=True,
-            raise_error=True,
         )
         print("  ✓ All required files found.\n")
     except (FileNotFoundError, SystemExit) as e:
@@ -126,13 +124,7 @@ def validate_setup(
     # --- Step 5: Memory estimation ---
     print("[5/5] Estimating memory requirements...")
     if config is not None:
-        dtype_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16,
-        }
-        torch_dtype = dtype_map.get(dtype, torch.float32)
-        mem = estimate_model_memory(config, dtype=torch_dtype, training=training)
+        mem = estimate_model_memory(config, dtype=dtype, training=training)
         print(f"  Estimated parameters: {mem['param_count']:,}")
         print(f"  Parameter memory: {mem['param_memory_gb']:.2f} GB ({dtype})")
         mode_str = "training (params + grads + optimizer)" if training else "inference (params only)"
