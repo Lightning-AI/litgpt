@@ -1981,6 +1981,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
         sliding_window_size=4096,
     )
 )
@@ -2066,6 +2067,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2084,6 +2086,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2102,6 +2105,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2120,6 +2124,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2140,6 +2145,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2160,6 +2166,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=1000000,
     )
 )
 
