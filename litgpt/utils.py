@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import warnings
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from io import BytesIO
 from pathlib import Path
@@ -926,10 +927,10 @@ class CheckpointValidationResult:
     """Result of validating a checkpoint against a model."""
 
     is_valid: bool
-    missing_keys: List[str]
-    unexpected_keys: List[str]
-    shape_mismatches: List[str]
-    errors: List[str]
+    missing_keys: list[str]
+    unexpected_keys: list[str]
+    shape_mismatches: list[str]
+    errors: list[str]
 
     def summary(self) -> str:
         """Return a human-readable summary of the validation result."""
@@ -976,10 +977,10 @@ def validate_checkpoint(
         A :class:`CheckpointValidationResult` with details.
     """
     checkpoint_path = Path(checkpoint_path)
-    errors: List[str] = []
-    missing_keys: List[str] = []
-    unexpected_keys: List[str] = []
-    shape_mismatches: List[str] = []
+    errors: list[str] = []
+    missing_keys: list[str] = []
+    unexpected_keys: list[str] = []
+    shape_mismatches: list[str] = []
 
     # 1. Check file exists
     if not checkpoint_path.is_file():
@@ -1033,9 +1034,9 @@ def validate_checkpoint(
 
 def estimate_model_memory(
     config: "Config",
-    dtype: Union[str, torch.dtype] = torch.float32,
+    dtype: str | torch.dtype = torch.float32,
     training: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Estimate the GPU memory required for a model based on its config.
 
     This provides a rough lower-bound estimate. Actual usage will be higher due to
