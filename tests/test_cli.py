@@ -1,10 +1,8 @@
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
 
 import pytest
-from packaging.version import Version
 
 from litgpt.__main__ import main
 
