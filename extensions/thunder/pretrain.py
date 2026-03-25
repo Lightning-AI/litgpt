@@ -5,11 +5,12 @@ import os
 import pprint
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Literal
 
 import lightning as L
 import torch
@@ -18,7 +19,6 @@ from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
-from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
@@ -54,12 +54,12 @@ def forward_and_loss(model: nn.Module, input_ids: torch.Tensor, targets: torch.T
 
 
 def setup(
-    model_name: Optional[str] = None,
-    model_config: Optional[Config] = None,
+    model_name: str | None = None,
+    model_config: Config | None = None,
     out_dir: Path = Path("out/pretrain"),
-    initial_checkpoint_dir: Optional[Path] = None,
-    resume: Union[bool, Literal["auto"], Path] = False,
-    data: Optional[DataModule] = None,
+    initial_checkpoint_dir: Path | None = None,
+    resume: bool | Literal["auto"] | Path = False,
+    data: DataModule | None = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -73,14 +73,14 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     log: LogArgs = LogArgs(),
-    optimizer: Union[str, Dict] = "AdamW",
-    devices: Union[int, str] = "auto",
+    optimizer: str | dict = "AdamW",
+    devices: int | str = "auto",
     num_nodes: int = 1,
-    tokenizer_dir: Optional[Path] = None,
+    tokenizer_dir: Path | None = None,
     logger_name: LoggerChoice = "tensorboard",
     seed: int = 42,
-    compiler: Optional[Literal["thunder", "torch"]] = "thunder",
-    executors: Optional[List[str]] = ("sdpa", "torchcompile", "nvfuser", "torch"),
+    compiler: Literal["thunder", "torch"] | None = "thunder",
+    executors: list[str] | None = ("sdpa", "torchcompile", "nvfuser", "torch"),
     strategy: Literal["auto", "ddp", "fsdp"] = "fsdp",
 ):
     """Pretrain a model.
@@ -190,17 +190,17 @@ def main(
     fabric: L.Fabric,
     devices: int,
     seed: int,
-    initial_checkpoint_dir: Optional[Path],
-    resume: Union[bool, Literal["auto"], Path],
+    initial_checkpoint_dir: Path | None,
+    resume: bool | Literal["auto"] | Path,
     config: Config,
     data: DataModule,
     out_dir: Path,
-    tokenizer_dir: Optional[Path],
-    tokenizer: Optional[Tokenizer],
+    tokenizer_dir: Path | None,
+    tokenizer: Tokenizer | None,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer: Union[str, Dict],
-    compiler: Optional[Literal["thunder", "torch"]],
+    optimizer: str | dict,
+    compiler: Literal["thunder", "torch"] | None,
     num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
@@ -280,10 +280,10 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     out_dir: Path,
-    tokenizer_dir: Optional[Path],
+    tokenizer_dir: Path | None,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer: Union[str, Dict],
+    optimizer: str | dict,
     num_nodes: int = 1,
 ) -> None:
     model = state["model"]
@@ -422,7 +422,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
 
 def get_dataloaders(
     fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -505,7 +505,7 @@ def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resu
         raise ValueError("\n".join(issues))
 
 
-def jit(fn: Callable, executors: List[str]) -> Any:
+def jit(fn: Callable, executors: list[str]) -> Any:
     assert executors is not None
     from unsloth.executor import unsloth_ex  # import for registration  # noqa: F401
 

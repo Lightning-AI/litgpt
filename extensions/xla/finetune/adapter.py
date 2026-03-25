@@ -4,7 +4,6 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import lightning as L
 import torch
@@ -123,8 +122,8 @@ def train(
     fabric: L.Fabric,
     model: GPT,
     optimizer: torch.optim.Optimizer,
-    train_data: List[Dict],
-    val_data: List[Dict],
+    train_data: list[dict],
+    val_data: list[dict],
     checkpoint_dir: Path,
     out_dir: Path,
 ) -> None:
@@ -220,7 +219,7 @@ def train(
 # xla does not support `inference_mode`: RuntimeError: Cannot set version_counter for inference tensor
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_data: List[Dict], tokenizer: Tokenizer, longest_seq_length: int
+    fabric: L.Fabric, model: GPT, val_data: list[dict], tokenizer: Tokenizer, longest_seq_length: int
 ) -> torch.Tensor:
     rank_print(fabric, "Validating ...")
     model.eval()
@@ -251,7 +250,7 @@ def validate(
     return val_loss
 
 
-def get_batch(fabric: L.Fabric, data: List[Dict], longest_seq_length: int) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_batch(fabric: L.Fabric, data: list[dict], longest_seq_length: int) -> tuple[torch.Tensor, torch.Tensor]:
     ix = torch.randint(len(data), (micro_batch_size,))
 
     input_ids = [data[i]["input_ids"].type(torch.int64) for i in ix]
@@ -269,7 +268,7 @@ def get_batch(fabric: L.Fabric, data: List[Dict], longest_seq_length: int) -> Tu
     return x, y
 
 
-def get_longest_seq_length(data: List[Dict]) -> int:
+def get_longest_seq_length(data: list[dict]) -> int:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     return max(len(d["input_ids"]) for d in data)
 

@@ -3,7 +3,6 @@
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import lightning as L
 import torch
@@ -30,8 +29,8 @@ def generate(
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
-    eos_id: Optional[int] = None,
+    top_k: int | None = None,
+    eos_id: int | None = None,
 ) -> torch.Tensor:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -99,7 +98,7 @@ def setup(
     *,
     num_samples: int = 1,
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     temperature: float = 0.8,
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     precision: str = "bf16-true",
@@ -127,7 +126,7 @@ def main(
     prompt: str,
     num_samples: int,
     max_new_tokens: int,
-    top_k: Optional[int],
+    top_k: int | None,
     temperature: float,
     checkpoint_dir: Path,
 ) -> None:

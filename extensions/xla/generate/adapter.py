@@ -3,7 +3,6 @@
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 import lightning as L
 from lightning.fabric.accelerators import XLAAccelerator
@@ -26,11 +25,11 @@ def setup(
     prompt: str = "What food do llamas eat?",
     *,
     input: str = "",
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     adapter_path: Path = Path("out/adapter/alpaca/lit_model_adapter_finetuned.pth"),
     checkpoint_dir: Path = Path("checkpoints/tiiuae/falcon-7b"),
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     temperature: float = 0.8,
     precision: str = "bf16-true",
 ) -> None:
@@ -61,11 +60,11 @@ def main(
     fabric: L.Fabric,
     prompt: str,
     input: str,
-    sys_prompt: Optional[str],
+    sys_prompt: str | None,
     adapter_path: Path,
     checkpoint_dir: Path,
     max_new_tokens: int,
-    top_k: Optional[int],
+    top_k: int | None,
     temperature: float,
 ) -> None:
     check_valid_checkpoint_dir(checkpoint_dir)
