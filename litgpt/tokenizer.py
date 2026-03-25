@@ -2,7 +2,7 @@
 
 import json
 import warnings
-from typing import Iterable, Iterator, Optional, Union
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import torch
