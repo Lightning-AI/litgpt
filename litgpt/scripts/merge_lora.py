@@ -4,7 +4,7 @@
 
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import lightning as L
 import torch
@@ -15,7 +15,7 @@ from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
 def merge_lora(
-    checkpoint_dir: Path, pretrained_checkpoint_dir: Optional[Path] = None, precision: Optional[str] = None
+    checkpoint_dir: Path, pretrained_checkpoint_dir: Path | None = None, precision: str | None = None
 ) -> None:
     """Merges the LoRA weights with the base model.
 
@@ -83,7 +83,7 @@ def merge_lora(
     fabric.print(f"Saved merged weights to {str(checkpoint_dir / 'lit_model.pth')!r}")
 
 
-def load_lora_metadata(checkpoint_dir: Path) -> Tuple[Dict[str, Any], Path, Optional[str]]:
+def load_lora_metadata(checkpoint_dir: Path) -> tuple[dict[str, Any], Path, str | None]:
     hparams_file = checkpoint_dir / "hyperparameters.yaml"
     if not hparams_file.is_file():
         raise FileNotFoundError(

@@ -2,9 +2,10 @@
 
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from pprint import pprint
-from typing import Iterator, List, Literal, Optional, Tuple
+from typing import Literal
 
 import lightning as L
 import torch
@@ -31,9 +32,9 @@ def generate(
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
+    top_k: int | None = None,
     top_p: float = 1.0,
-    stop_tokens: Tuple[List[int], ...] = (),
+    stop_tokens: tuple[list[int], ...] = (),
 ) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
@@ -152,14 +153,14 @@ def main(
     checkpoint_dir: Path,
     *,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+    precision: str | None = None,
     compile: bool = False,
     multiline: bool = False,
-    access_token: Optional[str] = None,
+    access_token: str | None = None,
 ) -> None:
     """Chat with a model.
 

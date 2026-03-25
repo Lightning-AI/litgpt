@@ -3,9 +3,10 @@
 import sys
 import time
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import lightning as L
 import torch
@@ -32,7 +33,7 @@ from litgpt.utils import (
 def sample(
     logits: torch.Tensor,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
+    top_k: int | None = None,
     top_p: float = 1.0,
     apply_softmax: bool = True,
 ) -> torch.Tensor:
@@ -64,7 +65,7 @@ def speculative_decoding(
     input_pos: torch.Tensor,
     input_pos_maxp1: int,
     speculative_k: int,
-    **sample_kwargs: Dict[str, Any],
+    **sample_kwargs: dict[str, Any],
 ) -> torch.Tensor:
     """Performs speculative decoding using a draft and a target model.
 
@@ -176,9 +177,9 @@ def generate(
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
+    top_k: int | None = None,
     top_p: float = 1.0,
-    stop_tokens: Tuple[List[int], ...] = (),
+    stop_tokens: tuple[list[int], ...] = (),
     include_prompt: bool = True,
     speculative_k: int,
 ) -> Iterator[torch.Tensor]:
@@ -316,7 +317,7 @@ def setup_model(config: Config, max_returned_tokens: int, fabric: L.Fabric) -> G
     return fabric.setup_module(model)
 
 
-def load_model(checkpoint_dir: Path, fabric: L.Fabric) -> Tuple[Config, Path]:
+def load_model(checkpoint_dir: Path, fabric: L.Fabric) -> tuple[Config, Path]:
     """Helper function to validate and load model configuration."""
     check_valid_checkpoint_dir(checkpoint_dir)
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
@@ -331,15 +332,15 @@ def main(
     target_model_checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
     speculative_k: int = 3,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+    precision: str | None = None,
     compile: bool = False,
 ) -> None:
     """Default generation option.

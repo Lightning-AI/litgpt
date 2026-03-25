@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -33,7 +32,7 @@ register_executor(unsloth_ex)
 """
 
 
-def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> Tuple[TensorProxy, TensorProxy]:
+def unsloth_cross_entropy_meta(logits: TensorProxy, labels: TensorProxy) -> tuple[TensorProxy, TensorProxy]:
     return (
         TensorProxy(
             shape=(logits.shape[0],),
@@ -70,10 +69,10 @@ unsloth_cross_entropy_backward = unsloth_ex.register_operator(
 def unsloth_cross_entropy_checker(
     logits: TensorProxy,
     labels: TensorProxy,
-    weight: Optional[TensorProxy] = None,
-    size_average: Optional[bool] = None,
+    weight: TensorProxy | None = None,
+    size_average: bool | None = None,
     ignore_index: int = -100,
-    reduce: Optional[bool] = None,
+    reduce: bool | None = None,
     reduction: str = "mean",
     label_smoothing: float = 0.0,
 ) -> bool:
@@ -92,13 +91,13 @@ def unsloth_cross_entropy_checker(
 def cross_entropy_to_unsloth(
     logits: TensorProxy,
     labels: TensorProxy,
-    weight: Optional[TensorProxy] = None,
-    size_average: Optional[bool] = None,
+    weight: TensorProxy | None = None,
+    size_average: bool | None = None,
     ignore_index: int = -100,
-    reduce: Optional[bool] = None,
+    reduce: bool | None = None,
     reduction: str = "mean",
     label_smoothing: float = 0.0,
-) -> Tuple[TensorProxy, TensorProxy]:
+) -> tuple[TensorProxy, TensorProxy]:
     loss, logsumexp = unsloth_cross_entropy(logits, labels)
     if reduction == "mean":
         # "mean" reduction is not part of the kernel
@@ -113,10 +112,10 @@ def cross_entropy_to_unsloth(
 def unsloth_cross_entropy_grad(
     logits: TensorProxy,
     labels: TensorProxy,
-    weight: Optional[TensorProxy] = None,
-    size_average: Optional[bool] = None,
+    weight: TensorProxy | None = None,
+    size_average: bool | None = None,
     ignore_index: int = -100,
-    reduce: Optional[bool] = None,
+    reduce: bool | None = None,
     reduction: str = "mean",
     label_smoothing: float = 0.0,
 ) -> TensorProxy:
@@ -182,11 +181,11 @@ unsloth_swiglu_forward = unsloth_ex.register_operator(
 )
 
 
-def unsloth_swiglu_backward_meta(DW: TensorProxy, e: TensorProxy, g: TensorProxy) -> Tuple[TensorProxy, TensorProxy]:
+def unsloth_swiglu_backward_meta(DW: TensorProxy, e: TensorProxy, g: TensorProxy) -> tuple[TensorProxy, TensorProxy]:
     return TensorProxy(like=g), TensorProxy(like=e)
 
 
-def unsloth_swiglu_backward_fn(DW: Tensor, e: Tensor, g: Tensor) -> Tuple[Tensor, Tuple]:
+def unsloth_swiglu_backward_fn(DW: Tensor, e: Tensor, g: Tensor) -> tuple[Tensor, tuple]:
     B, T, n_embd = e.shape
     e = e.view(-1, n_embd)
     g = g.view(-1, n_embd)
@@ -239,7 +238,7 @@ apply_rope = unsloth_ex.register_operator(
 
 def unsloth_apply_rope_meta(
     Q: TensorProxy, cos: TensorProxy, sin: TensorProxy
-) -> Tuple[TensorProxy, TensorProxy, TensorProxy, int, int, int]:
+) -> tuple[TensorProxy, TensorProxy, TensorProxy, int, int, int]:
     batch, n_heads, seq_len, head_dim = Q.shape
     assert seq_len <= cos.shape[-2]
     BLOCK_SIZE, num_warps = kernels.calculate_settings(head_dim // 2)

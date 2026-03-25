@@ -1,7 +1,8 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from abc import abstractmethod
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
 
 import torch
 from lightning import LightningDataModule
@@ -18,9 +19,9 @@ class DataModule(LightningDataModule):
     @abstractmethod
     def connect(
         self,
-        tokenizer: Optional[Tokenizer] = None,
+        tokenizer: Tokenizer | None = None,
         batch_size: int = 1,
-        max_seq_length: Optional[int] = None,
+        max_seq_length: int | None = None,
         **kwargs,
     ) -> None:
         """All settings that can't be determined at the time of instantiation need to be passed through here
@@ -57,13 +58,13 @@ class SFTDataset(Dataset):
 
     def __init__(
         self,
-        data: List[Dict[str, str]],
+        data: list[dict[str, str]],
         tokenizer: Tokenizer,
-        prompt_style: Union[str, PromptStyle],
+        prompt_style: str | PromptStyle,
         max_seq_length: int = -1,
         mask_prompt: bool = True,
         ignore_index: int = -100,
-        transform: Optional[Callable[[Any], Any]] = None,
+        transform: Callable[[Any], Any] | None = None,
     ) -> None:
         self.data = data
         self.tokenizer = tokenizer
@@ -78,7 +79,7 @@ class SFTDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Dict[str, Union[Tensor, Dict[str, int]]]:
+    def __getitem__(self, idx: int) -> dict[str, Tensor | dict[str, int]]:
         example = self.data[idx]
         if self.transform is not None:
             example = self.transform(example)
@@ -119,8 +120,8 @@ def get_sft_collate_fn(max_seq_length: int = -1, pad_id: int = 0, ignore_index: 
 
 
 def _sft_collate_fn(
-    samples: List[Dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
-) -> Dict[str, Tensor]:
+    samples: list[dict[str, Tensor]], max_seq_length: int = -1, pad_id: int = 0, ignore_index: int = -100
+) -> dict[str, Tensor]:
     batched = {}
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index

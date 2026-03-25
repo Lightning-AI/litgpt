@@ -3,7 +3,7 @@ import json
 import sys
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 import torch
 
@@ -22,15 +22,15 @@ class BaseLitAPI(LitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-        precision: Optional[str] = None,
+        quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+        api_path: str | None = None,
+        generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
     ) -> None:
         if not _LITSERVE_AVAILABLE:
             raise ImportError(str(_LITSERVE_AVAILABLE))
@@ -68,7 +68,7 @@ class BaseLitAPI(LitAPI):
         )
         print("Model successfully initialized.", file=sys.stderr)
 
-    def decode_request(self, request: Dict[str, Any]) -> Any:
+    def decode_request(self, request: dict[str, Any]) -> Any:
         prompt = str(request["prompt"])
         return prompt
 
@@ -77,15 +77,15 @@ class SimpleLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
-        generate_strategy: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -113,7 +113,7 @@ class SimpleLitAPI(BaseLitAPI):
         )
         return output
 
-    def encode_response(self, output: str) -> Dict[str, Any]:
+    def encode_response(self, output: str) -> dict[str, Any]:
         # Convert the model output to a response payload.
         return {"output": output}
 
@@ -122,15 +122,15 @@ class StreamLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
-        generate_strategy: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -167,15 +167,15 @@ class OpenAISpecLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
-        generate_strategy: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -233,8 +233,8 @@ class OpenAISpecLitAPI(BaseLitAPI):
 
 def run_server(
     checkpoint_dir: Path,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+    precision: str | None = None,
     temperature: float = 0.8,
     top_k: int = 50,
     top_p: float = 1.0,
@@ -244,10 +244,10 @@ def run_server(
     port: int = 8000,
     stream: bool = False,
     openai_spec: bool = False,
-    access_token: Optional[str] = None,
-    api_path: Optional[str] = "/predict",
+    access_token: str | None = None,
+    api_path: str | None = "/predict",
     timeout: int = 30,
-    generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+    generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 

@@ -1,10 +1,8 @@
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
 
 import pytest
-from packaging.version import Version
 
 from litgpt.__main__ import main
 
@@ -40,10 +38,6 @@ def test_cli():
         in out
     )
 
-    if Version(f"{sys.version_info.major}.{sys.version_info.minor}") < Version("3.9"):
-        # python 3.8 prints `Union[int, null]` instead of `Optional[int]`
-        return
-
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):
         main()
@@ -51,8 +45,8 @@ def test_cli():
     print(out)
     assert (
         """--train.max_tokens MAX_TOKENS
-                        Total number of tokens to train on (type:
-                        Optional[int], default: 3000000000000)"""
+                        Total number of tokens to train on (type: int | None,
+                        default: 3000000000000)"""
         in out
     )
 

@@ -3,7 +3,6 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
@@ -15,7 +14,7 @@ from litgpt.tokenizer import Tokenizer
 class OpenWebText(DataModule):
     """The OpenWebText data module for pretraining."""
 
-    data_path: Union[str, Path] = Path("data/openwebtext")
+    data_path: str | Path = Path("data/openwebtext")
     """The path to the data directory, containing two folders 'train' and 'val'
     which are the output of the preprocessing step. The path can also be a remote path (e.g., s3://)."""
     val_split_fraction: float = 0.0005
@@ -25,7 +24,7 @@ class OpenWebText(DataModule):
     num_workers: int = 8
     """The number of workers to use for the dataloaders."""
 
-    tokenizer: Optional[Tokenizer] = field(default=None, repr=False, init=False)
+    tokenizer: Tokenizer | None = field(default=None, repr=False, init=False)
     batch_size: int = field(default=1, repr=False, init=False)
     seq_length: int = field(default=2048, repr=False, init=False)
 
@@ -36,7 +35,7 @@ class OpenWebText(DataModule):
         self.data_path_val = str(self.data_path).rstrip("/") + "/val"
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = 2048
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = 2048
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size

@@ -2,14 +2,13 @@
 import math
 import warnings
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
 
 
 @dataclass
 class TrainArgs:
     """Training-related arguments"""
 
-    save_interval: Optional[int] = 1000
+    save_interval: int | None = 1000
     """Number of optimizer steps between saving checkpoints"""
     log_interval: int = 1
     """Number of iterations between logging calls"""
@@ -17,26 +16,26 @@ class TrainArgs:
     """Number of samples between optimizer steps across data-parallel ranks"""
     micro_batch_size: int = 4
     """Number of samples per data-parallel rank"""
-    lr_warmup_steps: Optional[int] = 100
+    lr_warmup_steps: int | None = 100
     """Number of iterations with learning rate warmup active"""
-    lr_warmup_fraction: Optional[float] = None
+    lr_warmup_fraction: float | None = None
     """The fraction of an epoch to use for learning rate warmup"""
-    epochs: Optional[int] = None
+    epochs: int | None = None
     """Number of epochs to train on"""
     # TODO: `pretrain` is the only script using `max_tokens` explicitly. replace it with epoch_size*epochs?
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     """Total number of tokens to train on"""
-    max_steps: Optional[int] = None
+    max_steps: int | None = None
     """Limits the number of optimizer steps to run"""
-    max_time: Optional[float] = None
+    max_time: float | None = None
     """Limits the number of seconds to train for"""
-    max_seq_length: Optional[int] = None
+    max_seq_length: int | None = None
     """Limits the length of samples"""
-    tie_embeddings: Optional[bool] = None
+    tie_embeddings: bool | None = None
     """Whether to tie the embedding weights with the language modeling head weights"""
 
     # Optimization args
-    max_norm: Optional[float] = None
+    max_norm: float | None = None
     min_lr: float = 6e-5
 
     def __post_init__(self) -> None:
@@ -81,7 +80,7 @@ class EvalArgs:
 
     interval: int = 600
     """Number of optimizer steps between evaluation calls"""
-    max_new_tokens: Optional[int] = None
+    max_new_tokens: int | None = None
     """Number of tokens to generate"""
     max_iters: int = 100
     """Number of iterations"""
@@ -89,7 +88,7 @@ class EvalArgs:
     """Whether to evaluate on the validation set at the beginning of the training"""
     final_validation: bool = True
     """Whether to evaluate on the validation set at the end of the training"""
-    evaluate_example: Union[str, int] = "first"
+    evaluate_example: str | int = "first"
     """How to pick an example instruction to evaluate periodically during training.
        Can be "first", "random", or an integer index to pick a specific example."""
 
@@ -99,21 +98,21 @@ class LogArgs:
     """Logging-related arguments. Different loggers use different fields."""
 
     # === WandB Fields ===
-    project: Optional[str] = None
+    project: str | None = None
     """WandB project name"""
-    run: Optional[str] = None
+    run: str | None = None
     """WandB run name (defaults to generated name)"""
-    group: Optional[str] = None
+    group: str | None = None
     """WandB group name"""
 
     # === LitLogger Fields (Lightning.ai) ===
-    teamspace: Optional[str] = None
+    teamspace: str | None = None
     """Teamspace name where charts and artifacts will appear"""
-    metadata: Optional[Dict] = None
+    metadata: dict | None = None
     """Extra metadata to associate with the experiment as tags"""
     log_model: bool = False
     """If True, automatically log model checkpoints as artifacts"""
     save_logs: bool = True
     """If True, capture and upload terminal logs"""
-    checkpoint_name: Optional[str] = None
+    checkpoint_name: str | None = None
     """Override the base name for logged checkpoints"""
