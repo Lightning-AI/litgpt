@@ -4,7 +4,6 @@ import importlib.util
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from litgpt.config import configs
 from litgpt.constants import _HF_TRANSFER_AVAILABLE, _SAFETENSORS_AVAILABLE
@@ -13,12 +12,12 @@ from litgpt.scripts.convert_hf_checkpoint import convert_hf_checkpoint
 
 def download_from_hub(
     repo_id: str,
-    access_token: Optional[str] = os.getenv("HF_TOKEN"),
+    access_token: str | None = os.getenv("HF_TOKEN"),
     tokenizer_only: bool = False,
     convert_checkpoint: bool = True,
-    dtype: Optional[str] = None,
+    dtype: str | None = None,
     checkpoint_dir: Path = Path("checkpoints"),
-    model_name: Optional[str] = None,
+    model_name: str | None = None,
 ) -> None:
     """Download weights or tokenizer data from the Hugging Face Hub.
 
@@ -98,7 +97,7 @@ def download_from_hub(
         convert_hf_checkpoint(checkpoint_dir=directory, dtype=dtype, model_name=model_name)
 
 
-def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[str], List[str]]:
+def find_weight_files(repo_id: str, access_token: str | None) -> tuple[list[str], list[str]]:
     from huggingface_hub import repo_info
     from huggingface_hub.utils import filter_repo_objects
 
@@ -111,7 +110,7 @@ def find_weight_files(repo_id: str, access_token: Optional[str]) -> Tuple[List[s
 
 
 @contextmanager
-def gated_repo_catcher(repo_id: str, access_token: Optional[str]):
+def gated_repo_catcher(repo_id: str, access_token: str | None):
     try:
         yield
     except OSError as e:
