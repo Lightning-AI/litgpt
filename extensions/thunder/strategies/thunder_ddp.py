@@ -1,8 +1,8 @@
 """Fabric Strategy to support Thunder DDP: To be upstreamed into Fabric eventually."""
 
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, ContextManager, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
 import torch.distributed
@@ -36,15 +36,15 @@ if TYPE_CHECKING:
 class ThunderDDPStrategy(ParallelStrategy):
     def __init__(
         self,
-        accelerator: Optional[Accelerator] = None,
-        parallel_devices: Optional[List[torch.device]] = None,
-        cluster_environment: Optional[ClusterEnvironment] = None,
-        checkpoint_io: Optional[CheckpointIO] = None,
-        precision: Optional[Precision] = None,
+        accelerator: Accelerator | None = None,
+        parallel_devices: list[torch.device] | None = None,
+        cluster_environment: ClusterEnvironment | None = None,
+        checkpoint_io: CheckpointIO | None = None,
+        precision: Precision | None = None,
         jit: bool = True,
-        executors: Optional[Tuple[Union["Executor", str], ...]] = None,
-        process_group_backend: Optional[str] = None,
-        timeout: Optional[timedelta] = default_pg_timeout,
+        executors: tuple[Union["Executor", str], ...] | None = None,
+        process_group_backend: str | None = None,
+        timeout: timedelta | None = default_pg_timeout,
         **kwargs: Any,
     ):
         r"""Strategy for Replicated Data Parallel provided by Lightning Thunder.
@@ -65,15 +65,15 @@ class ThunderDDPStrategy(ParallelStrategy):
             raise ModuleNotFoundError(str(_THUNDER_AVAILABLE))
         super().__init__(accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision)
         self.parallel_devices = parallel_devices
-        self.cluster_environment: Optional[ClusterEnvironment] = cluster_environment
+        self.cluster_environment: ClusterEnvironment | None = cluster_environment
 
         if not jit and executors is not None:
             raise ValueError(f"Passing executors={executors} doesn't have an effect with `jit={jit}`")
         self.jit = jit
         self.executors = executors
         self._num_nodes = 1
-        self._process_group_backend: Optional[str] = process_group_backend
-        self._timeout: Optional[timedelta] = timeout
+        self._process_group_backend: str | None = process_group_backend
+        self._timeout: timedelta | None = timeout
         self._backward_sync_control = _ThunderDataParalellBackwardSyncControl()
         self._ddp_kwargs = kwargs
 
@@ -98,7 +98,7 @@ class ThunderDDPStrategy(ParallelStrategy):
 
     @property
     @override
-    def distributed_sampler_kwargs(self) -> Dict[str, Any]:
+    def distributed_sampler_kwargs(self) -> dict[str, Any]:
         return {"num_replicas": self.num_nodes * self.num_processes, "rank": self.global_rank}
 
     @override
@@ -108,7 +108,7 @@ class ThunderDDPStrategy(ParallelStrategy):
             self._launcher = _SubprocessScriptLauncher(self.cluster_environment, self.num_processes, self.num_nodes)
 
     @property
-    def process_group_backend(self) -> Optional[str]:
+    def process_group_backend(self) -> str | None:
         return self._process_group_backend
 
     @override
@@ -149,9 +149,7 @@ class ThunderDDPStrategy(ParallelStrategy):
         module.to(self.root_device)
 
     @override
-    def all_reduce(
-        self, tensor: Tensor, group: Optional[Any] = None, reduce_op: Optional[Union[ReduceOp, str]] = "mean"
-    ) -> Tensor:
+    def all_reduce(self, tensor: Tensor, group: Any | None = None, reduce_op: ReduceOp | str | None = "mean") -> Tensor:
         if isinstance(tensor, Tensor):
             return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
         return tensor
@@ -197,7 +195,7 @@ class _ThunderDataParalellBackwardSyncControl(_BackwardSyncControl):
         self._enabled = False
 
     @override
-    def no_backward_sync(self, module: Module, enabled: bool) -> ContextManager:
+    def no_backward_sync(self, module: Module, enabled: bool) -> AbstractContextManager:
         """
         In Thunder, we cannot use ``module.no_sync()`` because reduction happens at the end of the context manager.
         It assumes that the user will reuse it across all gradient accumulation iterations:

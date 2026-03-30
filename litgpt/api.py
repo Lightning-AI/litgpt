@@ -3,8 +3,9 @@
 # This file implements the LitGPT Python API
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 import lightning as L
 import numpy as np
@@ -42,13 +43,13 @@ class LLM(torch.nn.Module):
         model: GPT,
         preprocessor=None,
         prompt_style: PromptStyle = None,
-        devices: Union[int, List[int]] = None,
+        devices: int | list[int] = None,
         config: Config = None,
         checkpoint_dir: Path = None,
         fabric: L.Fabric = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
+        generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
         kv_cache_initialized: bool = False,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
+        fixed_kv_cache_size: int | Literal["max_model_supported"] | None = None,
     ) -> None:
         super().__init__()
         self.model = model
@@ -87,9 +88,9 @@ class LLM(torch.nn.Module):
     def forward(
         self,
         input_ids: torch.Tensor,
-        target_ids: Optional[torch.Tensor] = None,
-        loss_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        target_ids: torch.Tensor | None = None,
+        loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] | None = None,
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         logits = self.model(input_ids)
         if target_ids is not None:
             if loss_fn is None:
@@ -99,7 +100,7 @@ class LLM(torch.nn.Module):
         else:
             return logits
 
-    def trainer_setup(self, trainer_ckpt: Optional[Path] = None) -> None:
+    def trainer_setup(self, trainer_ckpt: Path | None = None) -> None:
         """Initializes the model checkpoint for PyTorch Lightning Trainer contexts"""
         self.model = GPT(self.config)
 
@@ -125,7 +126,7 @@ class LLM(torch.nn.Module):
                 "or ensure that `self.checkpoint_dir` points to a folder containing a `lit_model.pth` weight file."
             )
 
-    def save(self, out_dir: Optional[Path] = None, prompt_style: Optional[PromptStyle] = None) -> None:
+    def save(self, out_dir: Path | None = None, prompt_style: PromptStyle | None = None) -> None:
         out_dir = Path(out_dir)
         save_path = out_dir / "lit_model.pth"
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -150,10 +151,10 @@ class LLM(torch.nn.Module):
     def load(
         cls,
         model: str,
-        init: Optional[Literal["pretrained", "random"]] = "pretrained",
-        tokenizer_dir: Optional[Path] = None,
-        access_token: Optional[str] = None,
-        distribute: Optional[Literal["auto"]] = "auto",
+        init: Literal["pretrained", "random"] | None = "pretrained",
+        tokenizer_dir: Path | None = None,
+        access_token: str | None = None,
+        distribute: Literal["auto"] | None = "auto",
     ) -> "LLM":
         """
         Loads the LLM from a local directory or model hub.
@@ -258,11 +259,11 @@ class LLM(torch.nn.Module):
     def distribute(
         self,
         accelerator: Literal["cpu", "cuda", "auto"] = "auto",
-        devices: Union[int, Literal["auto"]] = "auto",
-        precision: Optional[Any] = None,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-        generate_strategy: Optional[Literal["sequential", "tensor_parallel"]] = None,
-        fixed_kv_cache_size: Union[int, Literal["max_model_supported"], None] = None,
+        devices: int | Literal["auto"] = "auto",
+        precision: Any | None = None,
+        quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+        generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
+        fixed_kv_cache_size: int | Literal["max_model_supported"] | None = None,
     ) -> None:
         """
         Moves the model onto specified devices for single-GPU or multi-GPU inference
@@ -467,14 +468,14 @@ class LLM(torch.nn.Module):
     def generate(
         self,
         prompt: str,
-        sys_prompt: Optional[str] = None,
+        sys_prompt: str | None = None,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
-        top_k: Optional[int] = None,
+        top_k: int | None = None,
         top_p: float = 1.0,
         return_as_token_ids: bool = False,
         stream: bool = False,
-    ) -> Union[str, torch.Tensor]:
+    ) -> str | torch.Tensor:
         """
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
@@ -573,7 +574,7 @@ class LLM(torch.nn.Module):
         else:
             return self.preprocessor.decode(outputs)
 
-    def _text_to_token_ids(self, prompt: str, sys_prompt: Optional[str] = None) -> torch.Tensor:
+    def _text_to_token_ids(self, prompt: str, sys_prompt: str | None = None) -> torch.Tensor:
         """Utility method to convert a prompt text to token IDs"""
         prompt = self.prompt_style.apply(prompt, sys_prompt=sys_prompt)
         input_ids = self.preprocessor.encode(prompt)

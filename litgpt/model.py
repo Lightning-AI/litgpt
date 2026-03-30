@@ -8,7 +8,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 
 import math
 from functools import partial
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -33,7 +33,7 @@ class GPT(nn.Module):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
     @property
@@ -85,10 +85,10 @@ class GPT(nn.Module):
     def forward(
         self,
         idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
         lm_head_chunk_size: int = 0,
-    ) -> Union[torch.Tensor, List[torch.Tensor]]:
+    ) -> torch.Tensor | list[torch.Tensor]:
         """
         If `input_pos` is provided, the KV cache uses K and V vectors for
         positions smaller than entries in `input_pos`. For efficiency, pass
@@ -184,7 +184,7 @@ class GPT(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def rope_cache(self, device: torch.device | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         if self.config.rope_adjustments is None:
             extra_config = None
 
@@ -274,10 +274,10 @@ class GPT(nn.Module):
     def set_kv_cache(
         self,
         batch_size: int,
-        max_seq_length: Optional[int] = None,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        max_seq_length: int | None = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         if rope_cache_length is None:
             rope_cache_length = self.rope_cache_length()
@@ -347,9 +347,9 @@ class Block(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
@@ -399,7 +399,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache: KVCache | None = None
         self.apply_sliding_window_attention = False
         if config.sliding_window_size is not None and config.sliding_window_indices is not None:
             self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
@@ -432,9 +432,9 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size
@@ -574,7 +574,7 @@ class CausalSelfAttention(nn.Module):
         return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
         scale = scale * self.mscale * self.mscale
@@ -599,9 +599,9 @@ class CausalSelfAttention(nn.Module):
         self,
         batch_size: int,
         max_seq_length: int,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> "KVCache":
         if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
             effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
@@ -667,7 +667,7 @@ class MultiheadLatentAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.n_head * config.v_head_dim, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache: KVCache | None = None
 
         if config.rope_adjustments is not None:
             mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
@@ -687,9 +687,9 @@ class MultiheadLatentAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size
@@ -761,7 +761,7 @@ class MultiheadLatentAttention(nn.Module):
         return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.qk_head_dim)
         scale = scale * self.mscale * self.mscale
@@ -786,9 +786,9 @@ class MultiheadLatentAttention(nn.Module):
         self,
         batch_size: int,
         max_seq_length: int,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> "KVCache":
         v_shape = (batch_size, self.config.n_head, max_seq_length, self.config.v_head_dim)
         k_shape = (batch_size, self.config.n_head, max_seq_length, self.config.qk_head_dim)
@@ -802,7 +802,7 @@ class MultiheadLatentAttention(nn.Module):
 
 
 class GptNeoxMLP(nn.Module):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         super().__init__()
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc = nn.Linear(config.n_embd, self.intermediate_size, bias=config.bias)
@@ -816,7 +816,7 @@ class GptNeoxMLP(nn.Module):
 
 
 class LLaMAMLP(nn.Module):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         super().__init__()
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc_1 = nn.Linear(config.n_embd, self.intermediate_size, bias=config.bias)
@@ -939,12 +939,12 @@ def yarn_get_mscale(scale=1, mscale=1):
 def build_rope_cache(
     seq_len: int,
     n_elem: int,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
     base: int = 10000,
     condense_ratio: int = 1,
-    extra_config: Optional[dict] = None,
-    rope_local_base_freq: Optional[float] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    extra_config: dict | None = None,
+    rope_local_base_freq: float | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Enhanced Transformer with Rotary Position Embedding.
 
@@ -1222,12 +1222,12 @@ class KVCache(nn.Module):
 
     def __init__(
         self,
-        k_shape: Tuple[int, int, int, int],
-        v_shape: Tuple[int, int, int, int],
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        k_shape: tuple[int, int, int, int],
+        v_shape: tuple[int, int, int, int],
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
         is_sliding_window: bool = False,
-        sliding_window_size: Optional[int] = None,
+        sliding_window_size: int | None = None,
     ) -> None:
         super().__init__()
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
@@ -1236,7 +1236,7 @@ class KVCache(nn.Module):
         self.sliding_window_size = sliding_window_size
         self.max_cache_len = k_shape[2]
 
-    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Writes new values `k` and `v` into the cache at the positions specified
         by `input_pos` along the sequence dimension (`max_seq_length`). The batch
@@ -1261,6 +1261,14 @@ class KVCache(nn.Module):
         bs = k.size(0)
         if self.is_sliding_window:
             # Circular buffer for sliding window
+            prefill_len = input_pos.shape[-1]
+            if prefill_len > self.max_cache_len:
+                raise ValueError(
+                    f"Prefill length ({prefill_len}) exceeds the sliding window size ({self.max_cache_len}). "
+                    f"This causes the ring-buffer KV cache to overwrite entries, but the attention mask is not "
+                    f"rebuilt to reflect the true positions, which silently violates causality. "
+                    f"Please use chunked prefill with chunk size <= {self.max_cache_len} to avoid this issue."
+                )
             cache_positions = input_pos % self.max_cache_len
             k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
@@ -1281,7 +1289,7 @@ class KVCache(nn.Module):
         torch.nn.init.zeros_(self.v)
 
 
-def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+def build_mask_cache(max_seq_length: int, device: torch.device | None = None) -> torch.Tensor:
     ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
     return torch.tril(ones).unsqueeze(0).unsqueeze(0)
 

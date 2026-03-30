@@ -5,7 +5,6 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, Optional, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
@@ -17,9 +16,9 @@ from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load
 
 def copy_weights_falcon(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "transformer.word_embeddings.weight",
@@ -65,9 +64,9 @@ def copy_weights_falcon(
 
 def copy_weights_gpt_neox(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "gpt_neox.embed_in.weight",
@@ -102,10 +101,10 @@ def copy_weights_gpt_neox(
 
 def copy_weights_llama(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = False,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -168,10 +167,10 @@ def copy_weights_llama(
 
 def copy_weights_gemma_2(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = True,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -217,10 +216,10 @@ def copy_weights_gemma_2(
 
 def copy_weights_gemma_3(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = True,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -268,9 +267,9 @@ def copy_weights_gemma_3(
 
 def copy_weights_phi(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -347,10 +346,10 @@ def copy_weights_phi(
 
 def copy_weights_qwen_2_5(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = False,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -395,10 +394,10 @@ def copy_weights_qwen_2_5(
 
 def copy_weights_olmo2(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = False,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -453,10 +452,10 @@ def copy_weights_olmo2(
 
 def copy_weights_qwen_3(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = False,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",
@@ -585,7 +584,7 @@ def copy_weights_deepseek_v3(
             state_dict[to_name] = param
 
 
-def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Config) -> torch.Tensor:
+def qkv_reassemble(param: torch.Tensor | NotYetLoadedTensor, config: Config) -> torch.Tensor:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, Q, ..., K, K, ..., V, V, ...] --> [Q, K, V, Q, K, V, ...]
     """
@@ -603,7 +602,7 @@ def qkv_reassemble(param: Union[torch.Tensor, NotYetLoadedTensor], config: Confi
     return torch.cat(interleaved)
 
 
-def check_conversion_supported(lit_weights: Dict[str, torch.Tensor]) -> None:
+def check_conversion_supported(lit_weights: dict[str, torch.Tensor]) -> None:
     if any("lora" in wn for wn in lit_weights):
         raise ValueError("Checkpoints with LoRA weights cannot be converted. Call `scripts/merge_lora.py` first.")
     if any("adapter" in wn or "gating_factor" in wn for wn in lit_weights):

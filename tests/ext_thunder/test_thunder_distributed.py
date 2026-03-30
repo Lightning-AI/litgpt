@@ -1,7 +1,6 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 import pytest
 import torch
@@ -209,7 +208,7 @@ class StatefulThing:
 
 
 class TensorLike:
-    def __init__(self, device: Optional[Union[str, torch.device]] = None, shape: Optional[Tuple[int, ...]] = None):
+    def __init__(self, device: str | torch.device | None = None, shape: tuple[int, ...] | None = None):
         self.device = torch.device(device) if device is not None else None
         self.shape = torch.Size(shape) if shape is not None else None
 

@@ -13,10 +13,11 @@ import shutil
 import subprocess
 import sys
 import warnings
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, is_dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import lightning as L
 import psutil
@@ -52,7 +53,7 @@ def init_out_dir(out_dir: Path) -> Path:
     return out_dir
 
 
-def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) -> Optional[Path]:
+def find_resume_path(resume: bool | Literal["auto"] | Path, out_dir: Path) -> Path | None:
     if not resume or isinstance(resume, Path):
         return resume
 
@@ -66,7 +67,7 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
     return resume_path
 
 
-def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
+def num_parameters(module: nn.Module, requires_grad: bool | None = None) -> int:
     total = 0
     for p in module.parameters():
         if requires_grad is None or p.requires_grad == requires_grad:
@@ -299,7 +300,7 @@ T = TypeVar("T")
 
 
 def chunked_cross_entropy(
-    logits: Union[torch.Tensor, List[torch.Tensor]],
+    logits: torch.Tensor | list[torch.Tensor],
     targets: torch.Tensor,
     chunk_size: int = 128,
     ignore_index: int = -100,
@@ -350,7 +351,7 @@ def chunked_cross_entropy(
     return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
-def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
+def map_old_state_dict_weights(state_dict: dict, mapping: Mapping, prefix: str) -> dict:
     for checkpoint_name, attribute_name in mapping.items():
         full_checkpoint_name = prefix + checkpoint_name
         if full_checkpoint_name in state_dict:
@@ -465,7 +466,7 @@ def load_checkpoint_update(
 
 def load_from_full_model_state_dict(
     model: torch.nn.Module,
-    full_sd: Dict[str, Any],
+    full_sd: dict[str, Any],
     device: torch.device,
     strict: bool = False,
     cpu_offload: bool = False,
@@ -583,7 +584,7 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     return CLI(*args, **kwargs)
 
 
-def capture_hparams() -> Dict[str, Any]:
+def capture_hparams() -> dict[str, Any]:
     """Captures the local variables ('hyperparameters') from where this function gets called."""
     caller_frame = inspect.currentframe().f_back
     locals_of_caller = caller_frame.f_locals
@@ -604,7 +605,7 @@ def save_config(config: "Config", checkpoint_dir: Path) -> None:
         yaml.dump(config_dict, fp)
 
 
-def parse_devices(devices: Union[str, int]) -> int:
+def parse_devices(devices: str | int) -> int:
     if devices in (-1, "auto"):
         return torch.cuda.device_count() or 1
     if isinstance(devices, int) and devices > 0:
@@ -617,8 +618,8 @@ def choose_logger(
     out_dir: Path,
     name: str,
     log_interval: int = 1,
-    log_args: Optional[Dict] = None,
-    resume: Optional[bool] = None,
+    log_args: dict | None = None,
+    resume: bool | None = None,
     **kwargs: Any,
 ):
     if logger_name == "csv":

@@ -10,7 +10,7 @@ from collections import OrderedDict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import List, Literal, Optional, Type
+from typing import Literal
 
 import lightning as L
 import torch
@@ -95,7 +95,7 @@ def sequential(model: GPT, root: torch.device, max_seq_length: int, devices: int
     return model
 
 
-def chunk_sizes(num_units: int, devices: int) -> List[int]:
+def chunk_sizes(num_units: int, devices: int) -> list[int]:
     cs = num_units // devices
     k = devices * (cs + 1) - num_units
     return [cs] * k + [cs + 1] * (devices - k)
@@ -103,8 +103,8 @@ def chunk_sizes(num_units: int, devices: int) -> List[int]:
 
 def layer_to_device(
     module: torch.nn.Module,
-    chunk_on: Type[torch.nn.Module],
-    chunk_sizes: List[int],
+    chunk_on: type[torch.nn.Module],
+    chunk_sizes: list[int],
 ) -> "OrderedDict[str, int]":
     """Create a mapping from layer (block) to device."""
     # this assumes that the definition order is the same as the execution order
@@ -149,14 +149,14 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"] | None = None,
+    precision: str | None = None,
     compile: bool = False,
 ) -> None:
     """Generation script that partitions layers across devices to be run sequentially.

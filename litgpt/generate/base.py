@@ -3,9 +3,10 @@
 import sys
 import time
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 import lightning as L
 import torch
@@ -51,7 +52,7 @@ def sample_top_p(logits: torch.Tensor, top_p: float) -> torch.Tensor:
 
 
 def sample(
-    logits: torch.Tensor, temperature: float = 1.0, top_k: Optional[int] = None, top_p: float = 1.0
+    logits: torch.Tensor, temperature: float = 1.0, top_k: int | None = None, top_p: float = 1.0
 ) -> torch.Tensor:
     if top_p < 0.0 or top_p > 1.0:
         raise ValueError(f"top_p must be in [0, 1], got {top_p}")
@@ -77,8 +78,8 @@ def next_token(
     model: GPT,
     input_pos: torch.Tensor,
     x: torch.Tensor,
-    input_pos_maxp1: Optional[int] = None,
-    **sample_kwargs: Dict[str, Any],
+    input_pos_maxp1: int | None = None,
+    **sample_kwargs: dict[str, Any],
 ) -> torch.Tensor:
     logits = model(x, input_pos, input_pos_maxp1=input_pos_maxp1)
     _next = sample(logits, **sample_kwargs).to(dtype=torch.int64)
@@ -92,9 +93,7 @@ def batched_sample(logits: list[torch.Tensor], kwargs: list[dict]) -> torch.Tens
     )
 
 
-def batched_next_token(
-    model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: Union[dict, list[dict]]
-) -> torch.Tensor:
+def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwargs: dict | list[dict]) -> torch.Tensor:
     # Where:
     # input_pos is a 1d tensor of shape [seq_length...]
     # x is context tokens to add to the kvcache.
@@ -133,9 +132,9 @@ def generate_fn(
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
+    top_k: int | None = None,
     top_p: float = 1.0,
-    stop_tokens: Tuple[List[int], ...] = (),
+    stop_tokens: tuple[list[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
 ) -> Iterator[torch.Tensor]:
@@ -243,11 +242,11 @@ def batched_generate_fn(
     prompts: torch.Tensor,
     max_returned_tokens: int,
     *,
-    sample_args: Union[list[dict], dict],
-    stop_tokens: Tuple[List[int], ...] = (),
+    sample_args: list[dict] | dict,
+    stop_tokens: tuple[list[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
-) -> Iterator[list[Union[torch.Tensor, None]]]:
+) -> Iterator[list[torch.Tensor | None]]:
     """
     Generates tokens for a batch of prompts.
 
@@ -377,9 +376,9 @@ def generate(
     max_returned_tokens: int,
     *,
     temperature: float = 1.0,
-    top_k: Optional[int] = None,
+    top_k: int | None = None,
     top_p: float = 1.0,
-    eos_id: Optional[int] = None,
+    eos_id: int | None = None,
     include_prompt: bool = True,
 ) -> torch.Tensor:
     """
@@ -432,14 +431,14 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+    precision: str | None = None,
     compile: bool = False,
 ) -> None:
     """Default generation option.
