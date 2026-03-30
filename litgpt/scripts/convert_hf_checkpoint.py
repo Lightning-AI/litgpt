@@ -725,14 +725,14 @@ def copy_weights_qwen_3(
 
 def copy_weights_deepseek_v3(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",

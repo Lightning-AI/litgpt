@@ -518,10 +518,10 @@ def copy_weights_qwen_3(
 
 def copy_weights_deepseek_v3(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    lit_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
     untie_weights: bool = False,
-    saver: Optional[incremental_save] = None,
+    saver: incremental_save | None = None,
 ) -> None:
     weight_map = {
         "transformer.wte.weight": "model.embed_tokens.weight",

@@ -380,7 +380,7 @@ def get_default_supported_precision(training: bool) -> str:
     return "bf16-mixed" if training else "bf16-true"
 
 
-def _has_fp8_weights(state_dict: Dict[str, Any]) -> bool:
+def _has_fp8_weights(state_dict: dict[str, Any]) -> bool:
     """Check if a state dict contains FP8 weight_scale_inv tensors."""
     return any(k.endswith(".weight_scale_inv") for k in state_dict)
 
