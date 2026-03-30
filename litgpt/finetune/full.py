@@ -191,9 +191,13 @@ def main(
     # Final evaluation
     if eval.final_validation:
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
-        metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
+        val_loss_tensor = val_loss.detach().clone().to(fabric.device)
+        fabric.all_reduce(val_loss_tensor, reduce_op="mean")
+        metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
         fabric.log_dict(metrics, step=state["iter_num"])
-        fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
+        fabric.print(
+            f"Final evaluation | val loss: {val_loss_tensor.item():.3f} | val ppl: {math.exp(val_loss_tensor):.3f}"
+        )
 
     # Save the final checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth"
@@ -241,7 +245,9 @@ def fit(
 
     if eval.initial_validation:
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
-        val_loss = f"{val_loss:.3f}"
+        val_loss_tensor = val_loss.detach().clone().to(fabric.device)
+        fabric.all_reduce(val_loss_tensor, reduce_op="mean")
+        val_loss = f"{val_loss_tensor.item():.3f}"
     else:
         fabric.print("Verifying settings ...")
         validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2), verbose=False)  # sanity check
