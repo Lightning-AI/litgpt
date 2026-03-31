@@ -265,7 +265,7 @@ class LoRAQKVLinear(LoRALinear):
     def lora_ind(self) -> torch.Tensor:
         """
         Recompute this index on the fly. When the index is cached as a buffer and
-        re-used, we obtain this error in situations where the same model is first
+        reused, we obtain this error in situations where the same model is first
         used for inference, then for training:
 
         RuntimeError: Inference tensors cannot be saved for backward. Please do not use Tensors created in inference mode in computation tracked by autograd. To work around this, you can make a clone to get a normal tensor and use it in autograd, or use `torch.no_grad()` instead of `torch.inference_mode()`.
