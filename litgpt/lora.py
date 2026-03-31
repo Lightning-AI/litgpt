@@ -263,24 +263,25 @@ class LoRAQKVLinear(LoRALinear):
 
     @property
     def lora_ind(self) -> torch.Tensor:
-        """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
-        # Indices are needed to properly pad weight updates with zeros.
-        if not hasattr(self, "_lora_ind"):
-            enable_q, enable_k, enable_v = self.enable_lora
-            q_embd_size = self.head_size * self.n_head
-            kv_embd_size = self.head_size * self.n_query_groups
-            lora_ind = []
-            if enable_q:
-                lora_ind.extend(range(0, q_embd_size))
-            if enable_k:
-                lora_ind.extend(range(q_embd_size, q_embd_size + kv_embd_size))
-            if enable_v:
-                lora_ind.extend(range(q_embd_size + kv_embd_size, self.linear.out_features))
-            self.register_buffer(
-                "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
-            )
+        """
+        Recompute this index on the fly. When the index is cached as a buffer and
+        reused, we obtain this error in situations where the same model is first
+        used for inference, then for training:
 
-        return self._lora_ind
+        RuntimeError: Inference tensors cannot be saved for backward. Please do not use Tensors created in inference mode in computation tracked by autograd. To work around this, you can make a clone to get a normal tensor and use it in autograd, or use `torch.no_grad()` instead of `torch.inference_mode()`.
+        """
+        # Indices are needed to properly pad weight updates with zeros.
+        enable_q, enable_k, enable_v = self.enable_lora
+        q_embd_size = self.head_size * self.n_head
+        kv_embd_size = self.head_size * self.n_query_groups
+        lora_ind = []
+        if enable_q:
+            lora_ind.extend(range(0, q_embd_size))
+        if enable_k:
+            lora_ind.extend(range(q_embd_size, q_embd_size + kv_embd_size))
+        if enable_v:
+            lora_ind.extend(range(q_embd_size + kv_embd_size, self.linear.out_features))
+        return torch.tensor(lora_ind, device=self.linear.weight.device)
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.
