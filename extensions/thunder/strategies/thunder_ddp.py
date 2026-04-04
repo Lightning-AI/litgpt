@@ -44,7 +44,7 @@ class ThunderDDPStrategy(ParallelStrategy):
         checkpoint_io: CheckpointIO | None = None,
         precision: Precision | None = None,
         jit: bool = True,
-        executors: tuple["Executor" | str, ...] | None = None,
+        executors: tuple[Executor | str, ...] | None = None,
         process_group_backend: str | None = None,
         timeout: timedelta | None = default_pg_timeout,
         **kwargs: Any,
