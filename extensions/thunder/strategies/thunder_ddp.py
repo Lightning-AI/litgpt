@@ -1,5 +1,7 @@
 """Fabric Strategy to support Thunder DDP: To be upstreamed into Fabric eventually."""
 
+from __future__ import annotations
+
 from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
