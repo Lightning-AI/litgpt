@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -263,13 +263,16 @@ class LoRAQKVLinear(LoRALinear):
 
     @property
     def lora_ind(self) -> torch.Tensor:
-        """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
+        """Lazily compute and cache LoRA indices as a non-persistent buffer for FSDP meta-device compatibility.
+
+        Returns a clone so that inference-mode tensors are never passed into autograd.
+        """
         # Indices are needed to properly pad weight updates with zeros.
         if not hasattr(self, "_lora_ind"):
             enable_q, enable_k, enable_v = self.enable_lora
             q_embd_size = self.head_size * self.n_head
             kv_embd_size = self.head_size * self.n_query_groups
-            lora_ind = []
+            lora_ind: list[int] = []
             if enable_q:
                 lora_ind.extend(range(0, q_embd_size))
             if enable_k:
@@ -280,7 +283,7 @@ class LoRAQKVLinear(LoRALinear):
                 "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
             )
 
-        return self._lora_ind
+        return cast(torch.Tensor, self._lora_ind).clone()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.

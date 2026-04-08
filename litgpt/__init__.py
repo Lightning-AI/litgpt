@@ -8,6 +8,7 @@ from litgpt.config import Config
 from litgpt.model import GPT  # needs to be imported before config
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
+from litgpt.utils import CheckpointValidationResult, estimate_model_memory, validate_checkpoint
 
 # Suppress excessive warnings, see https://github.com/pytorch/pytorch/issues/111632
 pattern = re.compile(".*Profiler function .* will be ignored")
@@ -17,4 +18,13 @@ logging.getLogger("torch._dynamo.variables.torch").addFilter(lambda record: not 
 logging.getLogger("torch.distributed.fsdp._optim_utils").disabled = True
 logging.getLogger("torch.distributed.fsdp._debug_utils").disabled = True
 
-__all__ = ["LLM", "GPT", "Config", "PromptStyle", "Tokenizer"]
+__all__ = [
+    "LLM",
+    "GPT",
+    "Config",
+    "PromptStyle",
+    "Tokenizer",
+    "CheckpointValidationResult",
+    "validate_checkpoint",
+    "estimate_model_memory",
+]
