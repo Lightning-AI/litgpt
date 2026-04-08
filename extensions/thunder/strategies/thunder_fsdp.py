@@ -1,9 +1,10 @@
 """Fabric Strategy to support Thunder FSDP: To be upstreamed into Fabric eventually."""
 
 import shutil
-from contextlib import ExitStack, nullcontext
+from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack, nullcontext
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 import torch
 from lightning.fabric.accelerators.accelerator import Accelerator
@@ -39,20 +40,20 @@ if TYPE_CHECKING:
     from thunder.distributed import FSDPBucketingStrategy, FSDPType
     from thunder.distributed.checkpoint import StateDictOptions
 
-    _FSDP_TYPE = Union[FSDPType, Literal["ZERO2", "ZERO3"]]
-    _BUCKETING_STRATEGY = Union[FSDPBucketingStrategy, Literal["NONE", "LAYER", "BLOCK"]]
+    _FSDP_TYPE = FSDPType | Literal["ZERO2", "ZERO3"]
+    _BUCKETING_STRATEGY = FSDPBucketingStrategy | Literal["NONE", "LAYER", "BLOCK"]
 
 
 class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     def __init__(
         self,
-        accelerator: Optional[Accelerator] = None,
-        parallel_devices: Optional[List[torch.device]] = None,
-        cluster_environment: Optional[ClusterEnvironment] = None,
-        checkpoint_io: Optional[CheckpointIO] = None,
-        precision: Optional[Precision] = None,
+        accelerator: Accelerator | None = None,
+        parallel_devices: list[torch.device] | None = None,
+        cluster_environment: ClusterEnvironment | None = None,
+        checkpoint_io: CheckpointIO | None = None,
+        precision: Precision | None = None,
         jit: bool = True,
-        executors: Optional[Tuple[Union["Executor", str], ...]] = None,
+        executors: tuple["Executor | str", ...] | None = None,
         sharding_strategy: "_FSDP_TYPE" = "ZERO3",
         bucketing_strategy: "_BUCKETING_STRATEGY" = "NONE",
         state_dict_type: Literal["full", "sharded"] = "sharded",
@@ -105,7 +106,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
             raise ModuleNotFoundError(str(_THUNDER_AVAILABLE))
         super().__init__(accelerator=accelerator, checkpoint_io=checkpoint_io, precision=precision)
         self.parallel_devices = parallel_devices
-        self.cluster_environment: Optional[ClusterEnvironment] = cluster_environment
+        self.cluster_environment: ClusterEnvironment | None = cluster_environment
         from thunder.distributed import FSDPBucketingStrategy, FSDPType
 
         self.sharding_strategy = (
@@ -140,7 +141,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
 
     @property
     @override
-    def distributed_sampler_kwargs(self) -> Dict[str, Any]:
+    def distributed_sampler_kwargs(self) -> dict[str, Any]:
         return {"num_replicas": self.num_nodes * self.num_processes, "rank": self.global_rank}
 
     @override
@@ -194,7 +195,7 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         pass
 
     @override
-    def module_init_context(self, empty_init: Optional[bool] = None) -> ContextManager:
+    def module_init_context(self, empty_init: bool | None = None) -> AbstractContextManager:
         precision_init_ctx = self.precision.module_init_context()
         module_sharded_ctx = self.module_sharded_context()
         stack = ExitStack()
@@ -206,13 +207,11 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         return stack
 
     @override
-    def module_sharded_context(self) -> ContextManager:
+    def module_sharded_context(self) -> AbstractContextManager:
         return nullcontext()
 
     @override
-    def all_reduce(
-        self, tensor: Tensor, group: Optional[Any] = None, reduce_op: Optional[Union[ReduceOp, str]] = "mean"
-    ) -> Tensor:
+    def all_reduce(self, tensor: Tensor, group: Any | None = None, reduce_op: ReduceOp | str | None = "mean") -> Tensor:
         if isinstance(tensor, Tensor):
             return _sync_ddp_if_available(tensor, group, reduce_op=reduce_op)
         return tensor
@@ -240,8 +239,8 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
         self,
         module: Module,
         optimizer: Optimizer,
-        max_norm: Union[float, int],
-        norm_type: Union[float, int] = 2.0,
+        max_norm: float | int,
+        norm_type: float | int = 2.0,
         error_if_nonfinite: bool = True,
     ) -> Tensor:
         raise NotImplementedError
@@ -250,9 +249,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     def save_checkpoint(
         self,
         path: _PATH,
-        state: Dict[str, Union[Module, Optimizer, Any]],
-        storage_options: Optional[Any] = None,
-        filter: Optional[Dict[str, Callable[[str, Any], bool]]] = None,
+        state: dict[str, Module | Optimizer | Any],
+        storage_options: Any | None = None,
+        filter: dict[str, Callable[[str, Any], bool]] | None = None,
     ) -> None:
         if storage_options is not None:
             raise TypeError(
@@ -310,9 +309,9 @@ class ThunderFSDPStrategy(ParallelStrategy, _Sharded):
     def load_checkpoint(
         self,
         path: _PATH,
-        state: Optional[Union[Module, Optimizer, Dict[str, Union[Module, Optimizer, Any]]]] = None,
+        state: Module | Optimizer | dict[str, Module | Optimizer | Any] | None = None,
         strict: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not state:
             raise ValueError(
                 f"Got `FSDPStrategy.load_checkpoint(..., state={state!r})` but a state with at least"
@@ -422,17 +421,17 @@ def _is_full_checkpoint(path: Path) -> bool:
 
 
 def _get_state_dict(
-    state: Dict[str, Any],
-    filter: Optional[Dict[str, Callable[[str, Any], bool]]],
+    state: dict[str, Any],
+    filter: dict[str, Callable[[str, Any], bool]] | None,
     options: "StateDictOptions",
     rank: int,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     from thunder.distributed.checkpoint import get_model_state_dict
 
     # replace the modules and optimizer objects in the state with their local state dict
     # and separate the user's metadata
-    converted_state: Dict[str, Any] = {}
-    metadata: Dict[str, Any] = {}
+    converted_state: dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     for key, obj in state.items():
         converted: Any
         if isinstance(obj, Module):

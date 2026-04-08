@@ -45,7 +45,7 @@ two matrices of a lower rank.
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -186,7 +186,7 @@ class LoRAQKVLinear(LoRALinear):
         r: int = 0,
         lora_alpha: int = 1,
         lora_dropout: float = 0.0,
-        enable_lora: Union[bool, Tuple[bool, bool, bool]] = False,
+        enable_lora: bool | tuple[bool, bool, bool] = False,
         **kwargs: Any,
     ):
         """LoRA wrapper around linear class that is used for calculation of q, k and v matrices.
@@ -263,13 +263,16 @@ class LoRAQKVLinear(LoRALinear):
 
     @property
     def lora_ind(self) -> torch.Tensor:
-        """Lazy creation of a buffer with LoRA indices to overcome the limitation when FSDP with meta device is used."""
+        """Lazily compute and cache LoRA indices as a non-persistent buffer for FSDP meta-device compatibility.
+
+        Returns a clone so that inference-mode tensors are never passed into autograd.
+        """
         # Indices are needed to properly pad weight updates with zeros.
         if not hasattr(self, "_lora_ind"):
             enable_q, enable_k, enable_v = self.enable_lora
             q_embd_size = self.head_size * self.n_head
             kv_embd_size = self.head_size * self.n_query_groups
-            lora_ind = []
+            lora_ind: list[int] = []
             if enable_q:
                 lora_ind.extend(range(0, q_embd_size))
             if enable_k:
@@ -280,7 +283,7 @@ class LoRAQKVLinear(LoRALinear):
                 "_lora_ind", torch.tensor(lora_ind, device=self.linear.weight.device), persistent=False
             )
 
-        return self._lora_ind
+        return cast(torch.Tensor, self._lora_ind).clone()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
         """Properly pad the last dimension of weight updates with zeros.
@@ -472,7 +475,7 @@ class Config(BaseConfig):
     lora_head: bool = False
 
     @property
-    def mlp_class(self) -> Type:
+    def mlp_class(self) -> type:
         return getattr(litgpt.lora, self.mlp_class_name)
 
 
@@ -497,7 +500,7 @@ class GPT(BaseModel):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
     @classmethod
@@ -510,7 +513,7 @@ class GPT(BaseModel):
         if isinstance(module, LoRALinear):
             module.reset_parameters()
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {"lm_head.weight": "lm_head.linear.weight", "lm_head.bias": "lm_head.linear.bias"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
@@ -550,7 +553,7 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             use_r=config.lora_projection,
         )
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base and/or legacy checkpoints."""
         mapping = {
             "qkv.weight": "qkv.linear.weight",
@@ -573,8 +576,8 @@ def create_lora_linear(
     config: Config,
     in_size: int,
     out_size: int,
-    bias: Optional[Union[float, bool]] = None,
-    use_r: Optional[bool] = None,
+    bias: float | bool | None = None,
+    use_r: bool | None = None,
 ) -> LoRALinear:
     if bias is None:
         bias = config.bias
@@ -597,7 +600,7 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
         self.proj = create_lora_linear(config, config.intermediate_size, config.n_embd)
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc.weight": "fc.linear.weight",
@@ -610,7 +613,7 @@ class GptNeoxMLP(litgpt.model.GptNeoxMLP):
 
 
 class LLaMAMLP(litgpt.model.LLaMAMLP):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         nn.Module.__init__(self)
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc_1 = create_lora_linear(config, config.n_embd, self.intermediate_size)
@@ -618,7 +621,7 @@ class LLaMAMLP(litgpt.model.LLaMAMLP):
         self.proj = create_lora_linear(config, self.intermediate_size, config.n_embd)
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
             "fc_1.weight": "fc_1.linear.weight",
@@ -649,7 +652,7 @@ class LLaMAMoE(litgpt.model.LLaMAMoE):
         )
         self.config = config
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+    def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {"gate.weight": "gate.linear.weight"}
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)

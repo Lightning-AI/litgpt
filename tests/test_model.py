@@ -1762,3 +1762,50 @@ def test_forward_with_without_input_pos_maxp1():
     logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
     logits_no_maxp1 = model(idx, input_pos)
     torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)
+
+
+@torch.inference_mode()
+def test_sliding_window_kv_cache_prefill_exceeds_window():
+    """Test that prefilling with more tokens than sliding_window_size raises an error.
+
+    When prefill length exceeds the sliding window size, the ring-buffer KV cache
+    overwrites entries but the attention mask (a global causal matrix truncated by
+    length) does not reflect the true absolute positions. This causes early query
+    tokens to attend to overwritten future KV entries, silently violating causality.
+
+    See: https://github.com/Lightning-AI/litgpt/issues/2182
+    """
+    from litgpt.model import KVCache
+
+    sliding_window_size = 4
+    batch_size = 1
+    n_query_groups = 2
+    head_size = 8
+
+    k_shape = (batch_size, n_query_groups, sliding_window_size, head_size)
+    v_shape = (batch_size, n_query_groups, sliding_window_size, head_size)
+
+    cache = KVCache(
+        k_shape,
+        v_shape,
+        is_sliding_window=True,
+        sliding_window_size=sliding_window_size,
+    )
+
+    # Prefill with more tokens than the sliding window size
+    prefill_len = sliding_window_size + 2  # 6 > 4
+    input_pos = torch.arange(prefill_len)
+    k = torch.randn(batch_size, n_query_groups, prefill_len, head_size)
+    v = torch.randn(batch_size, n_query_groups, prefill_len, head_size)
+
+    with pytest.raises(ValueError, match="Prefill length.*exceeds the sliding window size"):
+        cache(input_pos, k, v)
+
+    # Prefill within the window size should work fine
+    safe_len = sliding_window_size
+    input_pos_safe = torch.arange(safe_len)
+    k_safe = torch.randn(batch_size, n_query_groups, safe_len, head_size)
+    v_safe = torch.randn(batch_size, n_query_groups, safe_len, head_size)
+    k_out, v_out = cache(input_pos_safe, k_safe, v_safe)
+    assert k_out.shape == (batch_size, n_query_groups, safe_len, head_size)
+    assert v_out.shape == (batch_size, n_query_groups, safe_len, head_size)

@@ -13,10 +13,11 @@ import shutil
 import subprocess
 import sys
 import warnings
-from dataclasses import asdict, is_dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import asdict, dataclass, is_dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Mapping, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import lightning as L
 import psutil
@@ -52,7 +53,7 @@ def init_out_dir(out_dir: Path) -> Path:
     return out_dir
 
 
-def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) -> Optional[Path]:
+def find_resume_path(resume: bool | Literal["auto"] | Path, out_dir: Path) -> Path | None:
     if not resume or isinstance(resume, Path):
         return resume
 
@@ -66,7 +67,7 @@ def find_resume_path(resume: Union[bool, Literal["auto"], Path], out_dir: Path) 
     return resume_path
 
 
-def num_parameters(module: nn.Module, requires_grad: Optional[bool] = None) -> int:
+def num_parameters(module: nn.Module, requires_grad: bool | None = None) -> int:
     total = 0
     for p in module.parameters():
         if requires_grad is None or p.requires_grad == requires_grad:
@@ -299,7 +300,7 @@ T = TypeVar("T")
 
 
 def chunked_cross_entropy(
-    logits: Union[torch.Tensor, List[torch.Tensor]],
+    logits: torch.Tensor | list[torch.Tensor],
     targets: torch.Tensor,
     chunk_size: int = 128,
     ignore_index: int = -100,
@@ -350,7 +351,7 @@ def chunked_cross_entropy(
     return torch.cat(loss_chunks).sum() / non_masked_elems.maximum(torch.ones_like(non_masked_elems))
 
 
-def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
+def map_old_state_dict_weights(state_dict: dict, mapping: Mapping, prefix: str) -> dict:
     for checkpoint_name, attribute_name in mapping.items():
         full_checkpoint_name = prefix + checkpoint_name
         if full_checkpoint_name in state_dict:
@@ -412,7 +413,7 @@ def load_checkpoint_update(
 
 def load_from_full_model_state_dict(
     model: torch.nn.Module,
-    full_sd: Dict[str, Any],
+    full_sd: dict[str, Any],
     device: torch.device,
     strict: bool = False,
     cpu_offload: bool = False,
@@ -530,7 +531,7 @@ def CLI(*args: Any, **kwargs: Any) -> Any:
     return CLI(*args, **kwargs)
 
 
-def capture_hparams() -> Dict[str, Any]:
+def capture_hparams() -> dict[str, Any]:
     """Captures the local variables ('hyperparameters') from where this function gets called."""
     caller_frame = inspect.currentframe().f_back
     locals_of_caller = caller_frame.f_locals
@@ -551,7 +552,7 @@ def save_config(config: "Config", checkpoint_dir: Path) -> None:
         yaml.dump(config_dict, fp)
 
 
-def parse_devices(devices: Union[str, int]) -> int:
+def parse_devices(devices: str | int) -> int:
     if devices in (-1, "auto"):
         return torch.cuda.device_count() or 1
     if isinstance(devices, int) and devices > 0:
@@ -564,8 +565,8 @@ def choose_logger(
     out_dir: Path,
     name: str,
     log_interval: int = 1,
-    log_args: Optional[Dict] = None,
-    resume: Optional[bool] = None,
+    log_args: dict | None = None,
+    resume: bool | None = None,
     **kwargs: Any,
 ):
     if logger_name == "csv":
@@ -919,3 +920,199 @@ def kill_process_tree(pid: int):
         parent.kill()
     except psutil.NoSuchProcess:
         pass  # Process already exited
+
+
+@dataclass
+class CheckpointValidationResult:
+    """Result of validating a checkpoint against a model."""
+
+    is_valid: bool
+    missing_keys: list[str]
+    unexpected_keys: list[str]
+    shape_mismatches: list[str]
+    errors: list[str]
+
+    def summary(self) -> str:
+        """Return a human-readable summary of the validation result."""
+        if self.is_valid:
+            return "Checkpoint validation passed."
+        parts = ["Checkpoint validation failed:"]
+        if self.errors:
+            parts.append(f"  Errors: {'; '.join(self.errors)}")
+        if self.missing_keys:
+            parts.append(f"  Missing keys ({len(self.missing_keys)}): {self.missing_keys[:10]}")
+            if len(self.missing_keys) > 10:
+                parts.append(f"    ... and {len(self.missing_keys) - 10} more")
+        if self.unexpected_keys:
+            parts.append(f"  Unexpected keys ({len(self.unexpected_keys)}): {self.unexpected_keys[:10]}")
+            if len(self.unexpected_keys) > 10:
+                parts.append(f"    ... and {len(self.unexpected_keys) - 10} more")
+        if self.shape_mismatches:
+            parts.append(f"  Shape mismatches ({len(self.shape_mismatches)}):")
+            for m in self.shape_mismatches[:10]:
+                parts.append(f"    {m}")
+            if len(self.shape_mismatches) > 10:
+                parts.append(f"    ... and {len(self.shape_mismatches) - 10} more")
+        return "\n".join(parts)
+
+
+def validate_checkpoint(
+    checkpoint_path: Path,
+    model: nn.Module,
+    verbose: bool = True,
+) -> CheckpointValidationResult:
+    """Validate a checkpoint file against a model before loading.
+
+    Checks for:
+    - File existence and ability to load
+    - Missing or unexpected state_dict keys
+    - Tensor shape mismatches between checkpoint and model
+
+    Args:
+        checkpoint_path: Path to the ``.pth`` checkpoint file.
+        model: The model instance to validate against.
+        verbose: If ``True``, print the validation summary.
+
+    Returns:
+        A :class:`CheckpointValidationResult` with details.
+    """
+    checkpoint_path = Path(checkpoint_path)
+    errors: list[str] = []
+    missing_keys: list[str] = []
+    unexpected_keys: list[str] = []
+    shape_mismatches: list[str] = []
+
+    # 1. Check file exists
+    if not checkpoint_path.is_file():
+        errors.append(f"Checkpoint file not found: {checkpoint_path}")
+    else:
+        # 2. Try to load the state dict
+        try:
+            state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu", weights_only=True)
+            # Some checkpoints wrap the state_dict under a "model" key
+            if (
+                isinstance(state_dict, dict)
+                and "model" in state_dict
+                and not any(k.startswith("transformer.") or k.startswith("lm_head.") for k in state_dict.keys())
+            ):
+                state_dict = state_dict["model"]
+
+            if not isinstance(state_dict, dict):
+                errors.append(f"Checkpoint does not contain a state dict (got {type(state_dict).__name__})")
+            else:
+                # 3. Compare keys
+                model_sd = model.state_dict()
+                model_keys = set(model_sd.keys())
+                ckpt_keys = set(state_dict.keys())
+
+                missing_keys = sorted(model_keys - ckpt_keys)
+                unexpected_keys = sorted(ckpt_keys - model_keys)
+
+                # 4. Compare shapes for matching keys
+                for key in sorted(model_keys & ckpt_keys):
+                    model_shape = tuple(model_sd[key].shape)
+                    ckpt_tensor = state_dict[key]
+                    if hasattr(ckpt_tensor, "shape"):
+                        ckpt_shape = tuple(ckpt_tensor.shape)
+                        if model_shape != ckpt_shape:
+                            shape_mismatches.append(f"{key}: model={model_shape}, checkpoint={ckpt_shape}")
+        except Exception as e:
+            errors.append(f"Failed to load checkpoint: {e}")
+
+    is_valid = not errors and not missing_keys and not unexpected_keys and not shape_mismatches
+    result = CheckpointValidationResult(
+        is_valid=is_valid,
+        missing_keys=missing_keys,
+        unexpected_keys=unexpected_keys,
+        shape_mismatches=shape_mismatches,
+        errors=errors,
+    )
+    if verbose:
+        print(result.summary(), file=sys.stderr)
+    return result
+
+
+def estimate_model_memory(
+    config: "Config",
+    dtype: str | torch.dtype = torch.float32,
+    training: bool = False,
+) -> dict[str, Any]:
+    """Estimate the GPU memory required for a model based on its config.
+
+    This provides a rough lower-bound estimate. Actual usage will be higher due to
+    activations, optimizer states, gradients, CUDA overhead, etc.
+
+    Args:
+        config: The model's :class:`Config`.
+        dtype: The data type for model parameters.
+        training: If ``True``, applies a multiplier for optimizer states and gradients
+            (approximately 4x for Adam-style optimizers with fp32 master weights).
+
+    Returns:
+        A dict with ``param_memory_gb``, ``estimated_total_gb``,
+        ``available_gpu_memory_gb`` (or ``None``), and ``fits_in_memory`` (or ``None``).
+    """
+    # Estimate parameter count from config
+    if isinstance(dtype, str):
+        dtype_map = {
+            "float32": torch.float32,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+        }
+        dtype = dtype_map.get(dtype, torch.float32)
+
+    bytes_per_param = torch.tensor([], dtype=dtype).element_size()
+
+    # A rough parameter count: embedding + transformer layers + lm_head
+    vocab_size = config.padded_vocab_size or config.vocab_size
+    n_embd = config.n_embd
+    n_layer = config.n_layer
+    intermediate_size = config.intermediate_size
+
+    # Embedding: vocab_size * n_embd
+    emb_params = vocab_size * n_embd
+    # LM head: n_embd * vocab_size (often tied, but litgpt doesn't tie by default)
+    lm_head_params = n_embd * vocab_size
+
+    # Per-layer params (approximate):
+    #   attention: qkv projection + output projection
+    #   mlp: fc_1, fc_2, proj (for LLaMA-style)
+    #   norms: 2 * n_embd
+    head_size = config.head_size
+    n_head = config.n_head
+    n_query_groups = config.n_query_groups
+    attn_params = n_embd * (n_head + 2 * n_query_groups) * head_size + head_size * n_head * n_embd
+    if config.mlp_class_name in ("LLaMAMLP", "GemmaMLP", "LLaMAMoE"):
+        mlp_params = n_embd * intermediate_size * 3  # fc_1 + fc_2 + proj
+    else:
+        mlp_params = n_embd * intermediate_size * 2  # typically 2 layers
+    norm_params = 2 * n_embd
+    layer_params = attn_params + mlp_params + norm_params
+
+    total_params = emb_params + lm_head_params + n_layer * layer_params + n_embd  # final norm
+
+    param_memory_bytes = total_params * bytes_per_param
+    param_memory_gb = param_memory_bytes / (1024**3)
+
+    # Training multiplier: params + gradients + optimizer states (Adam ≈ 4x)
+    multiplier = 4.0 if training else 1.0
+    estimated_total_gb = param_memory_gb * multiplier
+
+    # Check GPU memory
+    available_gpu_memory_gb = None
+    fits_in_memory = None
+    if torch.cuda.is_available():
+        try:
+            total_mem = torch.cuda.get_device_properties(0).total_memory
+            available_gpu_memory_gb = total_mem / (1024**3)
+            fits_in_memory = estimated_total_gb < available_gpu_memory_gb
+        except Exception:
+            pass
+
+    return {
+        "param_count": total_params,
+        "param_memory_gb": round(param_memory_gb, 2),
+        "estimated_total_gb": round(estimated_total_gb, 2),
+        "available_gpu_memory_gb": round(available_gpu_memory_gb, 2) if available_gpu_memory_gb is not None else None,
+        "fits_in_memory": fits_in_memory,
+    }

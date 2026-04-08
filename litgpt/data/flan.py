@@ -3,7 +3,6 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -24,7 +23,7 @@ class FLAN(DataModule):
 
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    prompt_style: Union[str, PromptStyle] = "flan"
+    prompt_style: str | PromptStyle = "flan"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
@@ -36,14 +35,14 @@ class FLAN(DataModule):
     """The directory in which the downloaded dataset gets saved."""
     url: str = _URL
     """The URL from where to download the dataset."""
-    subsets: Optional[str] = None
+    subsets: str | None = None
     """A comma separated list of subsets to use. If None, all subsets are used."""
 
-    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
-    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
-    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    train_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
+    test_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         super().__init__()
@@ -60,7 +59,7 @@ class FLAN(DataModule):
             self.subsets = list(supported_subsets)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = None
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -105,7 +104,7 @@ class FLAN(DataModule):
         )
 
 
-def load_jsonl(filename: Path) -> List[Dict[str, str]]:
+def load_jsonl(filename: Path) -> list[dict[str, str]]:
     data = []
     with open(filename, encoding="utf-8") as f:
         for line in f:
@@ -119,7 +118,7 @@ def _transform(item: dict) -> dict:
     return item
 
 
-def _supported_subsets() -> Set[str]:
+def _supported_subsets() -> set[str]:
     return {
         "aeslc_10templates",
         "ag_news_subset_10templates",
