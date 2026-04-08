@@ -7,6 +7,7 @@ from itertools import product
 from unittest import mock
 from unittest.mock import Mock
 
+import litgpt.finetune.lora as module
 import pytest
 import torch
 import yaml
@@ -22,7 +23,6 @@ from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3TextConfig
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
 
 import litgpt.config as config_module
-import litgpt.finetune.lora as module
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.data import Alpaca
 from litgpt.lora import GPT as LoRAGPT
@@ -1088,6 +1088,7 @@ def test_parallelize_fn():
 @_RunIf(standalone=True, min_cuda_gpus=2)
 def test_load_from_full_model_state_dict():
     from litgpt.finetune.lora import parallelize_fn
+
     from litgpt.utils import load_from_full_model_state_dict
 
     config = Config(
