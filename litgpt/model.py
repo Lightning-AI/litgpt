@@ -17,7 +17,7 @@ from typing_extensions import Self
 
 from litgpt.config import Config
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
-from litgpt.vision import VisionEncoder, MultiModalProjector, merge_input_embeds
+from litgpt.vision import MultiModalProjector, VisionEncoder, merge_input_embeds
 
 
 class GPT(nn.Module):

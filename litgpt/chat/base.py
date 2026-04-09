@@ -78,7 +78,17 @@ def generate(
 
 
 def process_prompt(
-    prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens, pixel_values: torch.Tensor | None = None
+    prompt,
+    model,
+    tokenizer,
+    prompt_style,
+    fabric,
+    temperature,
+    max_new_tokens,
+    top_k,
+    top_p,
+    stop_tokens,
+    pixel_values: torch.Tensor | None = None,
 ):
     prompt = prompt_style.apply(prompt=prompt)
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
@@ -124,13 +134,26 @@ def process_prompt(
     fabric.print()
 
 
-def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens, initial_image: Path | None = None):
+def interact(
+    multiline,
+    model,
+    tokenizer,
+    prompt_style,
+    fabric,
+    temperature,
+    max_new_tokens,
+    top_k,
+    top_p,
+    stop_tokens,
+    initial_image: Path | None = None,
+):
     pixel_values = None
     if initial_image is not None:
         if not model.config.is_multimodal:
             fabric.print("Warning: An image was provided but the model is not multimodal.", file=sys.stderr)
         else:
             from litgpt.vision import ImagePreprocessor
+
             preprocessor = ImagePreprocessor(image_size=model.config.vision_image_size or 224)
             pixel_values = preprocessor(initial_image, device=fabric.device)
             fabric.print(f">> Loaded image: {initial_image}")
@@ -157,7 +180,17 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max
             break
 
         process_prompt(
-            prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens, pixel_values
+            prompt,
+            model,
+            tokenizer,
+            prompt_style,
+            fabric,
+            temperature,
+            max_new_tokens,
+            top_k,
+            top_p,
+            stop_tokens,
+            pixel_values,
         )
 
 

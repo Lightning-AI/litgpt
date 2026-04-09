@@ -115,12 +115,12 @@ class Config:
     # `len(rope_indices) > n_layer`, we only use the initial part.
     rope_indices: list[int] | None = None
     # Vision encoder config (optional, for multimodal models)
-    vision_feature_dim: int | None = None       # Output dim of vision encoder (e.g. 1152 for SigLIP)
-    vision_start_token_id: int | None = None    # Token ID for <image> placeholder
-    vision_patch_size: int | None = None        # Patch size (e.g. 14)
-    vision_image_size: int | None = None        # Input image size (e.g. 224)
-    mm_projector_type: str | None = None        # "linear" or "mlp2x"
-    vision_model_name: str | None = None        # HF model name for the vision encoder
+    vision_feature_dim: int | None = None  # Output dim of vision encoder (e.g. 1152 for SigLIP)
+    vision_start_token_id: int | None = None  # Token ID for <image> placeholder
+    vision_patch_size: int | None = None  # Patch size (e.g. 14)
+    vision_image_size: int | None = None  # Input image size (e.g. 224)
+    mm_projector_type: str | None = None  # "linear" or "mlp2x"
+    vision_model_name: str | None = None  # HF model name for the vision encoder
 
     @property
     def is_multimodal(self) -> bool:

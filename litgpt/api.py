@@ -4,10 +4,8 @@
 import sys
 import time
 from collections.abc import Callable
-from typing import Any, Literal
-from typing import List, Optional, Tuple, Union
-
 from pathlib import Path
+from typing import Any, Literal
 
 import lightning as L
 import numpy as np

@@ -5,11 +5,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from litgpt.config import Config
 
@@ -25,14 +24,14 @@ class VisionEncoder(nn.Module):
             loads weights from HuggingFace ``transformers``.
     """
 
-    def __init__(self, config: Config, pretrained_model_name: Optional[str] = None) -> None:
+    def __init__(self, config: Config, pretrained_model_name: str | None = None) -> None:
         super().__init__()
         if config.vision_feature_dim is None:
             raise ValueError("VisionEncoder requires config.vision_feature_dim to be set.")
 
         self.config = config
         self.vision_feature_dim = config.vision_feature_dim
-        self._encoder: Optional[nn.Module] = None
+        self._encoder: nn.Module | None = None
 
         if pretrained_model_name is not None:
             self._load_hf_encoder(pretrained_model_name)
@@ -43,8 +42,11 @@ class VisionEncoder(nn.Module):
             num_patches = (image_size // patch_size) ** 2
             # Simple conv-based patch embedding as fallback
             self.patch_embed = nn.Conv2d(
-                3, self.vision_feature_dim,
-                kernel_size=patch_size, stride=patch_size, bias=False,
+                3,
+                self.vision_feature_dim,
+                kernel_size=patch_size,
+                stride=patch_size,
+                bias=False,
             )
             self._num_patches = num_patches
 
@@ -54,8 +56,7 @@ class VisionEncoder(nn.Module):
             from transformers import AutoModel
         except ImportError:
             raise ImportError(
-                "Loading a pretrained vision encoder requires `transformers`. "
-                "Install it with: pip install transformers"
+                "Loading a pretrained vision encoder requires `transformers`. Install it with: pip install transformers"
             )
         self._encoder = AutoModel.from_pretrained(model_name)
         # Freeze the vision encoder
@@ -123,10 +124,7 @@ class MultiModalProjector(nn.Module):
                 nn.Linear(text_dim, text_dim, bias=True),
             )
         else:
-            raise ValueError(
-                f"Unknown projector type: {projector_type!r}. "
-                "Supported: 'linear', 'mlp2x'."
-            )
+            raise ValueError(f"Unknown projector type: {projector_type!r}. Supported: 'linear', 'mlp2x'.")
 
     def forward(self, image_features: torch.Tensor) -> torch.Tensor:
         """
@@ -174,8 +172,7 @@ def merge_input_embeds(
     counts = image_mask.sum(dim=1)  # (B,)
     if not (counts == N_patches).all():
         raise ValueError(
-            f"Expected {N_patches} <image> placeholder tokens per sequence, "
-            f"but got counts: {counts.tolist()}"
+            f"Expected {N_patches} <image> placeholder tokens per sequence, but got counts: {counts.tolist()}"
         )
 
     # Clone so we don't modify the original
@@ -208,8 +205,8 @@ class ImagePreprocessor:
     def __init__(
         self,
         image_size: int = 224,
-        mean: Tuple[float, ...] = IMAGENET_MEAN,
-        std: Tuple[float, ...] = IMAGENET_STD,
+        mean: tuple[float, ...] = IMAGENET_MEAN,
+        std: tuple[float, ...] = IMAGENET_STD,
     ) -> None:
         self.image_size = image_size
         self.mean = mean
@@ -217,8 +214,8 @@ class ImagePreprocessor:
 
     def __call__(
         self,
-        image: Union[str, Path, "PIL.Image.Image"],  # type: ignore[name-defined]
-        device: Union[str, torch.device] = "cpu",
+        image: str | Path | Any,
+        device: str | torch.device = "cpu",
     ) -> torch.Tensor:
         """Preprocess an image into a normalized tensor.
 
@@ -232,10 +229,7 @@ class ImagePreprocessor:
         try:
             from PIL import Image as PILImage
         except ImportError:
-            raise ImportError(
-                "Image preprocessing requires Pillow. "
-                "Install it with: pip install Pillow"
-            )
+            raise ImportError("Image preprocessing requires Pillow. Install it with: pip install Pillow")
 
         if isinstance(image, (str, Path)):
             img = PILImage.open(image).convert("RGB")
@@ -247,9 +241,8 @@ class ImagePreprocessor:
 
         # Convert to tensor: (H, W, C) -> (C, H, W), scale to [0, 1]
         import numpy as np
-        pixel_values = torch.from_numpy(
-            np.array(img, dtype=np.float32) / 255.0
-        ).permute(2, 0, 1)
+
+        pixel_values = torch.from_numpy(np.array(img, dtype=np.float32) / 255.0).permute(2, 0, 1)
 
         # Normalize
         mean = torch.tensor(self.mean, dtype=pixel_values.dtype).view(3, 1, 1)
