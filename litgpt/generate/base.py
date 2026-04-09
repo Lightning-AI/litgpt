@@ -138,7 +138,7 @@ def generate_fn(
     stop_tokens: tuple[list[int], ...] = (),
     include_prompt: bool,
     include_eos: bool,
-    pixel_values: Optional[torch.Tensor] = None,
+    pixel_values: torch.Tensor | None = None,
 ) -> Iterator[torch.Tensor]:
     """
     Generates tokens for a single prompt.
@@ -384,7 +384,7 @@ def generate(
     top_p: float = 1.0,
     eos_id: int | None = None,
     include_prompt: bool = True,
-    pixel_values: Optional[torch.Tensor] = None,
+    pixel_values: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """
     Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
