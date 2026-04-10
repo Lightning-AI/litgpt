@@ -214,9 +214,7 @@ def test_tokenizer_json_warning(tmp_path):
     invalid_json = '{\n  "bos_token_id": 1,\n  "eos_token_id": 2,\n}'  # trailing comma
 
     (checkpoint_dir / "generation_config.json").write_text(invalid_json)
-    (checkpoint_dir / "tokenizer_config.json").write_text(
-        json.dumps({"tokenizer_class": "GPT2Tokenizer"})
-    )
+    (checkpoint_dir / "tokenizer_config.json").write_text(json.dumps({"tokenizer_class": "GPT2Tokenizer"}))
 
     # Create a minimal tokenizer.json that the HF tokenizer can load
     minimal_tokenizer_json = {
