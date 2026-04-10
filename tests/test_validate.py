@@ -170,12 +170,12 @@ class TestEstimateModelMemory:
         assert result["param_memory_gb"] < 1.0
 
     def test_training_multiplier(self):
-        """Training should use ~3× multiplier."""
+        """Training should use ~4× multiplier (params + gradients + Adam optimizer states)."""
         config = Config.from_name("pythia-14m")
         inference = estimate_model_memory(config, dtype=torch.float32, training=False)
         training = estimate_model_memory(config, dtype=torch.float32, training=True)
         assert training["estimated_total_gb"] > inference["estimated_total_gb"]
-        # Should be approximately 3×
+        # Should be approximately 4× (params + gradients + Adam optimizer states)
         ratio = training["estimated_total_gb"] / inference["estimated_total_gb"]
         assert 3.5 < ratio < 4.5
 
