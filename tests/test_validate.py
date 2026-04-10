@@ -175,7 +175,8 @@ class TestEstimateModelMemory:
         inference = estimate_model_memory(config, dtype=torch.float32, training=False)
         training = estimate_model_memory(config, dtype=torch.float32, training=True)
         assert training["estimated_total_gb"] > inference["estimated_total_gb"]
-        # Should be approximately 4× (params + gradients + Adam optimizer states)
+        # Should be approximately 4× (params + gradients + Adam optimizer states).
+        # Bounds are loose (3.5–4.5) to absorb rounding from the two round() calls in the function.
         ratio = training["estimated_total_gb"] / inference["estimated_total_gb"]
         assert 3.5 < ratio < 4.5
 
