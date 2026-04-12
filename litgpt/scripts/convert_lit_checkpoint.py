@@ -120,10 +120,7 @@ def copy_weights_llama(
     if config.mlp_class_name == "LLaMAMoE":
         weight_map.update(
             {
-                "transformer.h.{}.mlp.gate.weight": "model.layers.{}.block_sparse_moe.gate.weight",
-                "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.block_sparse_moe.experts.{}.w1.weight",
-                "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.block_sparse_moe.experts.{}.w3.weight",
-                "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{}.block_sparse_moe.experts.{}.w2.weight",
+                "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
             }
         )
     elif config.mlp_class_name in ("LLaMAMLP", "GemmaMLP"):
@@ -136,6 +133,13 @@ def copy_weights_llama(
         )
     else:
         raise NotImplementedError
+
+    # For MoE models, collect per-expert weights to batch them into the new
+    # transformers 5.x stacked layout: experts.gate_up_proj [n_expert, 2*intermediate, hidden]
+    # and experts.down_proj [n_expert, hidden, intermediate].
+    moe_fc1: dict[int, dict[int, torch.Tensor]] = {}  # layer -> expert -> weight
+    moe_fc2: dict[int, dict[int, torch.Tensor]] = {}
+    moe_proj: dict[int, dict[int, torch.Tensor]] = {}
 
     for from_name, param in lit_weights.items():
         if from_name == "lm_head.weight" and untie_weights:
@@ -155,11 +159,42 @@ def copy_weights_llama(
                     config.n_query_groups * config.head_size,
                 )
             )
+        elif config.mlp_class_name == "LLaMAMoE" and name_template in (
+            "transformer.h.{}.mlp.experts.{}.fc_1.weight",
+            "transformer.h.{}.mlp.experts.{}.fc_2.weight",
+            "transformer.h.{}.mlp.experts.{}.proj.weight",
+        ):
+            # Defer MoE expert weights — we will batch them layer by layer.
+            layer_idx, expert_idx = int(ids[0]), int(ids[1])
+            if name_template.endswith(".fc_1.weight"):
+                moe_fc1.setdefault(layer_idx, {})[expert_idx] = param
+            elif name_template.endswith(".fc_2.weight"):
+                moe_fc2.setdefault(layer_idx, {})[expert_idx] = param
+            else:  # .proj.weight
+                moe_proj.setdefault(layer_idx, {})[expert_idx] = param
+            continue
         else:
             to_names = (weight_map[name_template].format(*ids),)
             params = (param,)
 
         for to_name, param in zip(to_names, params):
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+
+    # Flush batched MoE expert weights (transformers 5.x stacked layout)
+    for layer_idx in sorted(moe_fc1):
+        n_exp = len(moe_fc1[layer_idx])
+        # gate_up_proj: stack [fc_1, fc_2] per expert then stack across experts
+        # shape: [n_expert, 2 * intermediate_size, hidden_size]
+        gate_up = torch.stack(
+            [torch.cat([moe_fc1[layer_idx][e], moe_fc2[layer_idx][e]], dim=0) for e in range(n_exp)]
+        )
+        down = torch.stack([moe_proj[layer_idx][e] for e in range(n_exp)])
+        for to_name, param in (
+            (f"model.layers.{layer_idx}.mlp.experts.gate_up_proj", gate_up),
+            (f"model.layers.{layer_idx}.mlp.experts.down_proj", down),
+        ):
             if saver is not None:
                 param = saver.store_early(param)
             state_dict[to_name] = param

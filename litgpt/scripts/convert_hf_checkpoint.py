@@ -162,8 +162,13 @@ def copy_weights_hf_llama(
         "lm_head.weight": "lm_head.weight",
     }
     if config.mlp_class_name == "LLaMAMoE":
+        # transformers 5.x renamed block_sparse_moe -> mlp and uses batched expert tensors.
+        # We support both layouts and detect at runtime which one is present.
         weight_map.update(
             {
+                # New transformers 5.x keys (preferred)
+                "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+                # Old transformers 4.x per-expert keys (kept for backward compat)
                 "model.layers.{}.block_sparse_moe.gate.weight": "transformer.h.{}.mlp.gate.weight",
                 "model.layers.{}.block_sparse_moe.experts.{}.w1.weight": "transformer.h.{}.mlp.experts.{}.fc_1.weight",
                 "model.layers.{}.block_sparse_moe.experts.{}.w3.weight": "transformer.h.{}.mlp.experts.{}.fc_2.weight",
@@ -186,8 +191,30 @@ def copy_weights_hf_llama(
 
     for from_name, param in hf_weights.items():
         name_template, *ids = layer_template(from_name, num_matches=2)
-        to_name = weight_map[name_template]
         param = load_param(param, from_name, dtype, verbose=debug_mode)
+
+        # Handle transformers 5.x batched MoE expert tensors:
+        #   experts.gate_up_proj: [n_expert, 2*intermediate, hidden] -> split to fc_1/fc_2 per expert
+        #   experts.down_proj:    [n_expert, hidden, intermediate]   -> split to proj per expert
+        if config.mlp_class_name == "LLaMAMoE" and "mlp.experts.gate_up_proj" in from_name:
+            layer_idx = ids[0]
+            n_exp, double_inter, hidden = param.shape
+            fc_1, fc_2 = param.split(double_inter // 2, dim=1)
+            for e in range(n_exp):
+                state_dict[f"transformer.h.{layer_idx}.mlp.experts.{e}.fc_1.weight"] = fc_1[e]
+                state_dict[f"transformer.h.{layer_idx}.mlp.experts.{e}.fc_2.weight"] = fc_2[e]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+        if config.mlp_class_name == "LLaMAMoE" and "mlp.experts.down_proj" in from_name:
+            layer_idx = ids[0]
+            for e, expert_weight in enumerate(param):
+                state_dict[f"transformer.h.{layer_idx}.mlp.experts.{e}.proj.weight"] = expert_weight
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        to_name = weight_map.get(name_template)
         if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
             qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
             weight_name, weight_type = from_name.split(".")[-2:]
