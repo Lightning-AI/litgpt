@@ -307,15 +307,27 @@ def copy_weights_gemma_3(
         else "language_model.model"
     )
 
-    GEMMA3_VISION_MODEL_PREFIX = (
-        "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
-    )
+    # Detect vision encoder prefix: older HF uses "vision_tower" / "model.vision_tower",
+    # newer Gemma3ForConditionalGeneration uses "vision_encoder" / "model.vision_encoder".
+    if any(k.startswith("model.vision_tower") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower"
+    elif any(k.startswith("vision_tower") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "vision_tower"
+    elif any(k.startswith("model.vision_encoder") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "model.vision_encoder"
+    else:
+        GEMMA3_VISION_MODEL_PREFIX = "vision_encoder"
 
-    GEMMA3_MM_PROJECTOR_PREFIX = (
-        "model.multi_modal_projector"
-        if any(k.startswith("model.multi_modal_projector") for k in hf_weights)
-        else "multi_modal_projector"
-    )
+    # Detect mm-projector prefix: older HF uses "multi_modal_projector" / "model.multi_modal_projector",
+    # newer Gemma3ForConditionalGeneration uses "mm_projector" / "model.mm_projector".
+    if any(k.startswith("model.multi_modal_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector"
+    elif any(k.startswith("multi_modal_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "multi_modal_projector"
+    elif any(k.startswith("model.mm_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "model.mm_projector"
+    else:
+        GEMMA3_MM_PROJECTOR_PREFIX = "mm_projector"
 
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
