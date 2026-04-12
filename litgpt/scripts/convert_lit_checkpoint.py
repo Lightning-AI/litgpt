@@ -187,9 +187,7 @@ def copy_weights_llama(
         n_exp = len(moe_fc1[layer_idx])
         # gate_up_proj: stack [fc_1, fc_2] per expert then stack across experts
         # shape: [n_expert, 2 * intermediate_size, hidden_size]
-        gate_up = torch.stack(
-            [torch.cat([moe_fc1[layer_idx][e], moe_fc2[layer_idx][e]], dim=0) for e in range(n_exp)]
-        )
+        gate_up = torch.stack([torch.cat([moe_fc1[layer_idx][e], moe_fc2[layer_idx][e]], dim=0) for e in range(n_exp)])
         down = torch.stack([moe_proj[layer_idx][e] for e in range(n_exp)])
         for to_name, param in (
             (f"model.layers.{layer_idx}.mlp.experts.gate_up_proj", gate_up),
