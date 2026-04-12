@@ -170,14 +170,15 @@ class TestEstimateModelMemory:
         assert result["param_memory_gb"] < 1.0
 
     def test_training_multiplier(self):
-        """Training should use ~3× multiplier."""
+        """Training should use ~4× multiplier (params + gradients + Adam optimizer states)."""
         config = Config.from_name("pythia-14m")
         inference = estimate_model_memory(config, dtype=torch.float32, training=False)
         training = estimate_model_memory(config, dtype=torch.float32, training=True)
         assert training["estimated_total_gb"] > inference["estimated_total_gb"]
-        # Should be approximately 3×
+        # Should be approximately 4× (params + gradients + Adam optimizer states).
+        # Bounds are loose (3.5–4.5) to absorb rounding from the two round() calls in the function.
         ratio = training["estimated_total_gb"] / inference["estimated_total_gb"]
-        assert 2.5 < ratio < 3.5
+        assert 3.5 < ratio < 4.5
 
     def test_dtype_affects_memory(self):
         """Half precision should use ~half the parameter memory."""
@@ -214,9 +215,7 @@ def test_tokenizer_json_warning(tmp_path):
     invalid_json = '{\n  "bos_token_id": 1,\n  "eos_token_id": 2,\n}'  # trailing comma
 
     (checkpoint_dir / "generation_config.json").write_text(invalid_json)
-    (checkpoint_dir / "tokenizer_config.json").write_text(
-        json.dumps({"tokenizer_class": "GPT2Tokenizer", "bos_token": "<s>", "eos_token": "</s>"})
-    )
+    (checkpoint_dir / "tokenizer_config.json").write_text(json.dumps({"tokenizer_class": "GPT2Tokenizer"}))
 
     # Create a minimal tokenizer.json that the HF tokenizer can load
     minimal_tokenizer_json = {
