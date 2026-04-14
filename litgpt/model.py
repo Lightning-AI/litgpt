@@ -586,6 +586,9 @@ class CausalSelfAttention(nn.Module):
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            elif mask.dtype == torch.bool:
+                # build_mask_cache returns a boolean mask (True=keep); convert to additive float mask
+                mask = torch.zeros_like(mask, dtype=q.dtype).masked_fill_(~mask, torch.finfo(q.dtype).min)
             scores = scores + mask
             scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
             y = scores @ v
@@ -773,6 +776,9 @@ class MultiheadLatentAttention(nn.Module):
             if mask is None:
                 mask = torch.ones(q.size(2), q.size(2), dtype=q.dtype, device=q.device).triu(diagonal=1)
                 mask.masked_fill_(mask.bool(), torch.finfo(q.dtype).min)
+            elif mask.dtype == torch.bool:
+                # build_mask_cache returns a boolean mask (True=keep); convert to additive float mask
+                mask = torch.zeros_like(mask, dtype=q.dtype).masked_fill_(~mask, torch.finfo(q.dtype).min)
             scores = scores + mask
             scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
             y = scores @ v
