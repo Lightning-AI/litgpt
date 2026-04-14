@@ -1816,7 +1816,6 @@ def test_attention_mask_bool_to_float_with_softcapping():
     """Boolean mask_cache must be converted to an additive float mask before being added to
     softcapped attention scores (issue #1672).  Without the fix, True/False (1/0) are added
     instead of 0/-inf, breaking causal masking during KV-cache generation."""
-    from litgpt.model import build_mask_cache
 
     dtype = torch.float32
     batch_size, n_head, seq_len, head_size = 1, 2, 4, 8
