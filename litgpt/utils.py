@@ -679,7 +679,9 @@ def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
     return new_checkpoint_dir if should_return_new_dir else checkpoint_dir
 
 
-def check_file_size_on_cpu_and_warn(checkpoint_path: Path | str, device: torch.device | str, size_limit: int = 4_509_715_660) -> float:
+def check_file_size_on_cpu_and_warn(
+    checkpoint_path: Path | str, device: torch.device | str, size_limit: int = 4_509_715_660
+) -> float:
     """
     Checks the file size and raises a warning if it exceeds the size_limit.
     The default size limit is 4.2 GB, the size of TinyLlama 1.1B: 4.2 * 1024 * 1024 * 1024 = 4_509_715_660
@@ -695,7 +697,9 @@ def check_file_size_on_cpu_and_warn(checkpoint_path: Path | str, device: torch.d
     return size
 
 
-def auto_download_checkpoint(model_name: str, access_token: str | None = None, ignore_tokenizer_files: bool = False) -> Path:
+def auto_download_checkpoint(
+    model_name: str, access_token: str | None = None, ignore_tokenizer_files: bool = False
+) -> Path:
     from litgpt.scripts.download import download_from_hub  # moved here due to circular import issue
 
     checkpoint_dir = extend_checkpoint_dir(Path(model_name))
