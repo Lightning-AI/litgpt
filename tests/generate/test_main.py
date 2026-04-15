@@ -134,9 +134,9 @@ def test_sample_temperature_zero_is_greedy():
 
     for top_p in (0.0, 0.5, 1.0):
         results = [sample(logits, temperature=0.0, top_p=top_p).item() for _ in range(10)]
-        assert all(
-            r == expected for r in results
-        ), f"temperature=0 with top_p={top_p} should always return argmax ({expected}), got {results}"
+        assert all(r == expected for r in results), (
+            f"temperature=0 with top_p={top_p} should always return argmax ({expected}), got {results}"
+        )
 
 
 def test_sample_top_p_zero_is_greedy():
@@ -146,9 +146,9 @@ def test_sample_top_p_zero_is_greedy():
 
     for temperature in (0.0, 0.5, 1.0):
         results = [sample(logits, temperature=temperature, top_p=0.0).item() for _ in range(10)]
-        assert all(
-            r == expected for r in results
-        ), f"top_p=0 with temperature={temperature} should always return argmax ({expected}), got {results}"
+        assert all(r == expected for r in results), (
+            f"top_p=0 with temperature={temperature} should always return argmax ({expected}), got {results}"
+        )
 
 
 def test_generate_different_results_with_different_top_p():
