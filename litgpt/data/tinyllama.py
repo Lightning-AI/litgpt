@@ -1,7 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
 
 from torch.utils.data import DataLoader
 
@@ -16,7 +15,7 @@ class TinyLlama(DataModule):
     Provides training and validation streaming dataloaders that return batches of tokens.
     """
 
-    data_path: Union[str, Path] = Path("data/")
+    data_path: str | Path = Path("data/")
     """The path to the data directory, containing two folders 'slimpajama' and 'starcoder'
     which are the output of the preprocessing step done in advance. See the `tutorial/pretrain_tinyllama.md`
     for instructions. The path can also be a remote path (e.g., s3://)."""
@@ -42,7 +41,7 @@ class TinyLlama(DataModule):
             self.required_paths += [self.starcoder_train]
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = None
     ) -> None:
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well

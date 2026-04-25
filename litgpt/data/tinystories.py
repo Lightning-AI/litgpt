@@ -5,7 +5,6 @@ import os
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Optional
 
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -31,7 +30,7 @@ class TinyStories(DataModule):
     num_workers: int = 8
     """The number of workers to use for the dataloaders."""
 
-    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
 
@@ -40,7 +39,7 @@ class TinyStories(DataModule):
         self.data_path_train = self.data_path / "train"
         self.data_path_val = self.data_path / "val"
 
-    def connect(self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
+    def connect(self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int = -1) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.max_seq_length = max_seq_length + 1  # Increase by one because we need the next token as well

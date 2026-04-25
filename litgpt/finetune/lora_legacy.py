@@ -6,7 +6,7 @@ import time
 import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Literal
 
 import lightning as L
 import torch
@@ -17,6 +17,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torchmetrics import RunningMean
 
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
 from litgpt.lora import GPT, Block, Config, lora_filter, mark_only_lora_as_trainable
@@ -24,8 +25,8 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
 from litgpt.tokenizer import Tokenizer
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     CycleIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
@@ -48,9 +49,9 @@ from litgpt.utils import (
 def setup(
     checkpoint_dir: Path,
     out_dir: Path = Path("out/finetune/lora"),
-    precision: Optional[str] = None,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"]] = None,
-    devices: Union[int, str] = 1,
+    precision: str | None = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8-training"] | None = None,
+    devices: int | str = 1,
     num_nodes: int = 1,
     lora_r: int = 8,
     lora_alpha: int = 16,
@@ -61,7 +62,7 @@ def setup(
     lora_projection: bool = False,
     lora_mlp: bool = False,
     lora_head: bool = False,
-    data: Optional[DataModule] = None,
+    data: DataModule | None = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -73,10 +74,10 @@ def setup(
     ),
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
-    optimizer: Union[str, Dict] = "AdamW",
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "csv",
+    optimizer: str | dict = "AdamW",
+    logger_name: LoggerChoice = "csv",
     seed: int = 1337,
-    access_token: Optional[str] = None,
+    access_token: str | None = None,
 ) -> None:
     """Finetune a model using the LoRA method.
 
@@ -189,7 +190,7 @@ def main(
     out_dir: Path,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer: Union[str, Dict],
+    optimizer: str | dict,
     num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval)
@@ -483,7 +484,7 @@ def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
 
 def get_dataloaders(
     fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=train.max_seq_length)
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -494,7 +495,7 @@ def get_dataloaders(
     return train_dataloader, val_dataloader
 
 
-def get_longest_seq_length(data: List[Dict]) -> Tuple[int, int]:
+def get_longest_seq_length(data: list[dict]) -> tuple[int, int]:
     # find out the minimum max_seq_length required during fine-tuning (saves memory!)
     lengths = [len(d["input_ids"]) for d in data]
     longest_seq_length = max(lengths)

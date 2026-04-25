@@ -3,7 +3,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader
@@ -19,7 +18,7 @@ class Deita(DataModule):
 
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    prompt_style: Union[str, PromptStyle] = "alpaca"
+    prompt_style: str | PromptStyle = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
@@ -34,11 +33,11 @@ class Deita(DataModule):
     repo_id: str = "HuggingFaceH4/deita-10k-v0-sft"
     """The repo from where the data is downloaded"""
 
-    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
-    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
-    test_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    train_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
+    test_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__init__()
@@ -46,7 +45,7 @@ class Deita(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = None
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -101,7 +100,7 @@ class Deita(DataModule):
         )
 
 
-def format_dataset(dataset: List[dict], include_multi_turn_conversations: bool) -> List[dict]:
+def format_dataset(dataset: list[dict], include_multi_turn_conversations: bool) -> list[dict]:
     formatted = []
 
     for entry in dataset:

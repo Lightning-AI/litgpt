@@ -4,7 +4,6 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 import pytest
 import torch
@@ -81,7 +80,7 @@ class MockTokenizer:
     bos_id = 0
     eos_id = 1
 
-    def encode(self, text: str, bos: Optional[bool] = None, eos: bool = False, max_length: int = -1) -> torch.Tensor:
+    def encode(self, text: str, bos: bool | None = None, eos: bool = False, max_length: int = -1) -> torch.Tensor:
         output = []
         if bos:
             output.append(self.bos_id)
@@ -125,7 +124,7 @@ def longform_path(tmp_path):
 
 
 # https://github.com/Lightning-AI/lightning/blob/6e517bd55b50166138ce6ab915abd4547702994b/tests/tests_fabric/conftest.py#L140
-def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.Config) -> None:
+def pytest_collection_modifyitems(items: list[pytest.Function], config: pytest.Config) -> None:
     initial_size = len(items)
     conditions = []
     filtered, skipped = 0, 0

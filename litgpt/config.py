@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Type, Union
+from typing import Any, Literal
 
 import yaml
 from typing_extensions import Self
@@ -32,7 +32,7 @@ class Config:
     n_embd: int = 4096
     vocab_size: int = 50254
     padding_multiple: int = 512
-    padded_vocab_size: Optional[int] = None
+    padded_vocab_size: int | None = None
     # Transformer block (structure, normalizations)
     norm_class_name: Literal["LayerNorm", "RMSNorm"] = "LayerNorm"
     norm_eps: float = 1e-5
@@ -44,7 +44,7 @@ class Config:
     shared_attention_norm: bool = False
     # Transformer block (self-attention)
     n_head: int = 32
-    head_size: Optional[int] = None
+    head_size: int | None = None
     # to use multi-head attention (MHA), set this to `n_head` (default)
     # to use multi-query attention (MQA), set this to 1
     # to use grouped-query attention (GQA), set this to a value in between
@@ -65,54 +65,55 @@ class Config:
     #   n_query_groups=4       n_query_groups=2      n_query_groups=1
     #
     # credit https://arxiv.org/pdf/2305.13245.pdf
-    n_query_groups: Optional[int] = None
+    n_query_groups: int | None = None
     attn_bias: bool = False
-    attention_scores_scalar: Optional[int] = None
+    attention_scores_scalar: int | None = None
     # If `sliding_window_size` is given, sliding window attention with this
     # size is used in layers where `sliding_window_indices` has a 1. The
     # default is all 1, so that sliding window attention is used in all
     # layers. If `len(sliding_window_indices) > n_layer`, we only use the
     # initial part.
-    sliding_window_size: Optional[int] = None
-    sliding_window_indices: Optional[List[int]] = None
+    sliding_window_size: int | None = None
+    sliding_window_indices: list[int] | None = None
     # if `attention_logit_softcapping` is used, cannot use optimized
     # `torch.nn.functional.scaled_dot_product_attention` (which implements
     # Flash attention), may result in higher memory and runtime footprint.
-    attention_logit_softcapping: Optional[float] = None
+    attention_logit_softcapping: float | None = None
     # Rotary position embedding (RoPE)
     rope_base: int = 10000
     rotary_percentage: float = 0.25
     rope_condense_ratio: int = 1
-    rope_adjustments: Optional[dict] = None
+    rope_adjustments: dict | None = None
+    rope_interleave: bool = False
     # Transformer block (MLP)
-    intermediate_size: Optional[int] = None
-    moe_intermediate_size: Optional[int] = None
+    intermediate_size: int | None = None
+    moe_intermediate_size: int | None = None
     bias: bool = True
     mlp_class_name: Literal["GptNeoxMLP", "LLaMAMLP", "GemmaMLP", "LLaMAMoE"] = "GptNeoxMLP"
     gelu_approximate: str = "none"
     n_expert: int = 0
-    n_shared_expert: Optional[int] = None
-    n_expert_groups: Optional[int] = None
-    n_topk_groups: Optional[int] = None
-    n_topk_scores_per_group: Optional[int] = None
+    n_shared_expert: int | None = None
+    n_expert_groups: int | None = None
+    n_topk_groups: int | None = None
+    n_topk_scores_per_group: int | None = None
     n_expert_per_token: int = 0
-    first_k_dense_replace: Optional[int] = None
+    first_k_dense_replace: int | None = None
     routed_scaling_factor: float = 1.0
     norm_topk_prob: bool = False
     # GPT before/after blocks
     scale_embeddings: bool = False
     lm_head_bias: bool = False
-    final_logit_softcapping: Optional[float] = None
+    final_logit_softcapping: float | None = None
     norm_1: bool = True
     norm_2: bool = True
-    latent_attention: Optional[dict] = None
+    latent_attention: dict | None = None
     # The base period of the RoPE embeddings for local attention.
     # If not provided, `rope_base` will be used for both local and global attention.
-    rope_local_base_freq: Optional[float] = None
+    rope_local_base_freq: float | None = None
     # If provided, must have `>= n_layer` entries, either 0 or 1. For 0,
     # `rope_base` is used, for 1 `rope_local_base_freq` is used. If
     # `len(rope_indices) > n_layer`, we only use the initial part.
-    rope_indices: Optional[List[int]] = None
+    rope_indices: list[int] | None = None
 
     def __post_init__(self):
         if not self.name:
@@ -182,7 +183,7 @@ class Config:
             assert self.n_topk_scores_per_group is not None and self.n_topk_scores_per_group <= experts_per_group
 
     @classmethod
-    def from_name(cls, name: str, **kwargs: Any) -> Optional[Self]:
+    def from_name(cls, name: str, **kwargs: Any) -> Self | None:
         if name not in name_to_config:
             # search through all `config['hf_config']['name']`
             try:
@@ -202,7 +203,7 @@ class Config:
         return cls(**conf_dict)
 
     @classmethod
-    def from_file(cls, path: Union[str, Path], **kwargs: Any) -> Self:
+    def from_file(cls, path: str | Path, **kwargs: Any) -> Self:
         with open(path, encoding="utf-8") as fp:
             file_kwargs = yaml.safe_load(fp)
             if file_kwargs is None:
@@ -220,14 +221,14 @@ class Config:
         raise FileNotFoundError(f"For {str(path)!r} neither 'model_config.yaml' nor matching config exists.")
 
     @property
-    def mlp_class(self) -> Type:
+    def mlp_class(self) -> type:
         # `self.mlp_class_name` cannot be the type to keep the config serializable
         import litgpt.model
 
         return getattr(litgpt.model, self.mlp_class_name)
 
     @property
-    def norm_class(self) -> Type:
+    def norm_class(self) -> type:
         # `self.norm_class_name` cannot be the type to keep the config serializable
 
         from functools import partial
@@ -249,12 +250,12 @@ class Config:
 
 
 def check_indicator_and_length(
-    params: Optional[List[int]],
+    params: list[int] | None,
     name: str,
     required_length: int,
     use_initial_part: bool = True,
     def_val: int = 1,
-) -> List[int]:
+) -> list[int]:
     if params is None:
         return [def_val] * required_length
     if len(params) != required_length:
@@ -1980,6 +1981,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
         sliding_window_size=4096,
     )
 )
@@ -2065,6 +2067,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2083,6 +2086,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2101,6 +2105,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2119,6 +2124,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=14336,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2139,6 +2145,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=1000000,
     )
 )
 configs.append(
@@ -2159,6 +2166,7 @@ configs.append(
         norm_eps=1e-05,
         mlp_class_name="LLaMAMLP",
         intermediate_size=28672,
+        rope_base=1000000,
     )
 )
 

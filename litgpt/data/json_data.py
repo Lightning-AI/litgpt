@@ -1,9 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import json
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader, random_split
@@ -23,10 +24,10 @@ class JSON(DataModule):
     and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
-    val_split_fraction: Optional[float] = None
+    val_split_fraction: float | None = None
     """The fraction of the dataset to use for the validation dataset. The rest is used for training.
     Only applies if you passed in a single file to `json_path`."""
-    prompt_style: Union[str, PromptStyle] = "alpaca"
+    prompt_style: str | PromptStyle = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -100
     """The index to use for elements to be ignored in the label."""
@@ -35,18 +36,22 @@ class JSON(DataModule):
     num_workers: int = 4
     """How many DataLoader processes to use for loading."""
 
-    tokenizer: Optional[Tokenizer] = field(default=None, init=False, repr=False)
+    tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
     max_seq_length: int = field(default=-1, init=False, repr=False)
-    train_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
-    val_dataset: Optional[SFTDataset] = field(default=None, init=False, repr=False)
+    train_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
+    val_dataset: SFTDataset | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         super().__init__()
         if self.json_path.is_file() and self.val_split_fraction is None:
-            raise ValueError(
-                "If `json_path` is a file, you must set `val_split_fraction` to a value between 0 and 1 to split the"
-                " data into train and validation sets."
+            self.val_split_fraction = 0.05
+            warnings.warn(
+                "The `json_path` points to a single file and `val_split_fraction` was not set. "
+                "Defaulting to `val_split_fraction=0.05`. Set `val_split_fraction` explicitly "
+                "to use a different split percentage.",
+                UserWarning,
+                stacklevel=2,
             )
         if self.json_path.is_dir() and self.val_split_fraction is not None:
             raise ValueError(
@@ -62,7 +67,7 @@ class JSON(DataModule):
             self.prompt_style = PromptStyle.from_name(self.prompt_style)
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = None
     ) -> None:
         self.tokenizer = tokenizer
         self.batch_size = batch_size
@@ -107,7 +112,7 @@ class JSON(DataModule):
             collate_fn=get_sft_collate_fn(max_seq_length=self.max_seq_length, ignore_index=self.ignore_index),
         )
 
-    def get_splits(self) -> Tuple:
+    def get_splits(self) -> tuple:
         # A single file (gets split into train and test)
         if self.json_path.is_file():
             data = load_split(self.json_path)
@@ -130,7 +135,7 @@ class JSON(DataModule):
             "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
         )
 
-    def find_split(self, split_name: str) -> Optional[Path]:
+    def find_split(self, split_name: str) -> Path | None:
         for suffix in (".json", ".jsonl"):
             if (file := self.json_path / f"{split_name}{suffix}").is_file():
                 return file

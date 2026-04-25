@@ -1,14 +1,14 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 import pytest
 import torch
 from lightning.fabric import Fabric
 from lightning.fabric.utilities.imports import _TORCH_GREATER_EQUAL_2_3
 
-from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
+from litgpt.constants import _THUNDER_AVAILABLE
+from litgpt.utils import _RunIf
 
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
@@ -208,7 +208,7 @@ class StatefulThing:
 
 
 class TensorLike:
-    def __init__(self, device: Optional[Union[str, torch.device]] = None, shape: Optional[Tuple[int, ...]] = None):
+    def __init__(self, device: str | torch.device | None = None, shape: tuple[int, ...] | None = None):
         self.device = torch.device(device) if device is not None else None
         self.shape = torch.Size(shape) if shape is not None else None
 

@@ -3,11 +3,12 @@
 import math
 import pprint
 import time
+import warnings
 from dataclasses import asdict
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Literal
 
 import lightning as L
 import torch
@@ -16,17 +17,16 @@ from lightning.fabric.strategies import FSDPStrategy
 from lightning.fabric.utilities.throughput import ThroughputMonitor, measure_flops
 from torch.utils.data import DataLoader
 from torchmetrics.aggregation import RunningMean
-from typing_extensions import Literal
 
 from litgpt import Tokenizer
 from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.config import name_to_config
+from litgpt.constants import _TORCH_EQUAL_2_7, _TORCH_EQUAL_2_8
 from litgpt.data import DataModule, TinyLlama
 from litgpt.model import GPT, Block, CausalSelfAttention, Config, LLaMAMLP
 from litgpt.parser_config import save_hyperparameters
+from litgpt.types import LoggerChoice
 from litgpt.utils import (
-    _TORCH_EQUAL_2_7,
-    _TORCH_EQUAL_2_8,
     CycleIterator,
     capture_hparams,
     check_nvlink_connectivity,
@@ -47,12 +47,12 @@ from litgpt.utils import (
 
 def setup(
     model_name: str,
-    model_config: Optional[Config] = None,
+    model_config: Config | None = None,
     out_dir: Path = Path("out/pretrain"),
     precision: Literal["bf16-true", "bf16-mixed", "32-true", None] = None,
-    initial_checkpoint_dir: Optional[Path] = None,
-    resume: Union[bool, Literal["auto"], Path] = False,
-    data: Optional[DataModule] = None,
+    initial_checkpoint_dir: Path | None = None,
+    resume: bool | Literal["auto"] | Path = False,
+    data: DataModule | None = None,
     train: TrainArgs = TrainArgs(
         save_interval=1000,
         log_interval=1,
@@ -66,11 +66,11 @@ def setup(
     ),
     eval: EvalArgs = EvalArgs(interval=1000, max_iters=100),
     log: LogArgs = LogArgs(),
-    optimizer: Union[str, Dict] = "AdamW",
-    devices: Union[int, str] = "auto",
+    optimizer: str | dict = "AdamW",
+    devices: int | str = "auto",
     num_nodes: int = 1,
-    tokenizer_dir: Optional[Path] = None,
-    logger_name: Literal["wandb", "tensorboard", "csv", "mlflow"] = "tensorboard",
+    tokenizer_dir: Path | None = None,
+    logger_name: LoggerChoice = "tensorboard",
     seed: int = 42,
 ):
     """Pretrain a model.
@@ -177,16 +177,16 @@ def main(
     fabric: L.Fabric,
     devices: int,
     seed: int,
-    initial_checkpoint_dir: Optional[Path],
-    resume: Union[bool, Literal["auto"], Path],
+    initial_checkpoint_dir: Path | None,
+    resume: bool | Literal["auto"] | Path,
     config: Config,
     data: DataModule,
     out_dir: Path,
-    tokenizer_dir: Optional[Path],
-    tokenizer: Optional[Tokenizer],
+    tokenizer_dir: Path | None,
+    tokenizer: Tokenizer | None,
     train: TrainArgs,
     eval: EvalArgs,
-    optimizer: Union[str, Dict],
+    optimizer: str | dict,
     num_nodes: int = 1,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
@@ -291,7 +291,7 @@ def fit(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     out_dir: Path,
-    tokenizer_dir: Optional[Path],
+    tokenizer_dir: Path | None,
     train: TrainArgs,
     eval: EvalArgs,
     num_nodes: int = 1,
@@ -449,7 +449,7 @@ def validate(
 
 def get_dataloaders(
     fabric: L.Fabric, data: DataModule, tokenizer: Tokenizer, train: TrainArgs, block_size: int
-) -> Tuple[DataLoader, DataLoader]:
+) -> tuple[DataLoader, DataLoader]:
     data.connect(tokenizer=tokenizer, batch_size=train.micro_batch_size, max_seq_length=block_size)
     with fabric.rank_zero_first():
         data.prepare_data()
@@ -510,11 +510,17 @@ def save_checkpoint(fabric, state, tokenizer_dir, checkpoint_file):
 
 def validate_args(train: TrainArgs, eval: EvalArgs, initial_checkpoint_dir, resume) -> None:
     issues = []
-    unsupported = [(train, ["max_steps", "epochs"]), (eval, ["max_new_tokens"])]
+    unsupported = [(train, ["epochs"]), (eval, ["max_new_tokens"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:
                 issues.append(f"{__file__} doesn't support the {name!r} argument. This is set in {args}")
+    if train.max_steps is not None:
+        warnings.warn(
+            "`train.max_steps` is intended for profiling or debug runs only. "
+            "For full pretraining runs, prefer `train.max_tokens` or `train.max_time`.",
+            UserWarning,
+        )
     required = [(train, ["max_tokens", "max_norm"])]
     for args, names in required:
         for name in names:

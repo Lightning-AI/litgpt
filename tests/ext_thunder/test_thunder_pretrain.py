@@ -8,7 +8,8 @@ from torch.utils.data import DataLoader
 
 from litgpt import Config
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.utils import _THUNDER_AVAILABLE, _RunIf
+from litgpt.constants import _THUNDER_AVAILABLE
+from litgpt.utils import _RunIf
 
 if _THUNDER_AVAILABLE:
     import extensions.thunder.pretrain as thunder_pretrain

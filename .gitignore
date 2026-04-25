@@ -6,7 +6,9 @@ __pycache__
 build
 dist
 .venv
+.venv/
 .vscode
+uv.lock
 
 # data
 data

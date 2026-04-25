@@ -1,10 +1,8 @@
-import sys
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
 
 import pytest
-from packaging.version import Version
 
 from litgpt.__main__ import main
 
@@ -19,7 +17,7 @@ def test_cli():
         "{download,chat,finetune,finetune_lora,finetune_full,finetune_adapter,finetune_adapter_v2,"
         "pretrain,generate,generate_full,generate_adapter,generate_adapter_v2,generate_sequentially,"
         "generate_speculatively,generate_tp,convert_to_litgpt,convert_from_litgpt,convert_pretrained_checkpoint,"
-        "merge_lora,evaluate,serve}" in out
+        "merge_lora,evaluate,serve,validate}" in out
     )
     assert (
         """Available subcommands:
@@ -40,10 +38,6 @@ def test_cli():
         in out
     )
 
-    if Version(f"{sys.version_info.major}.{sys.version_info.minor}") < Version("3.9"):
-        # python 3.8 prints `Union[int, null]` instead of `Optional[int]`
-        return
-
     out = StringIO()
     with pytest.raises(SystemExit), redirect_stdout(out), mock.patch("sys.argv", ["litgpt", "pretrain", "-h"]):
         main()
@@ -51,10 +45,29 @@ def test_cli():
     print(out)
     assert (
         """--train.max_tokens MAX_TOKENS
-                        Total number of tokens to train on (type:
-                        Optional[int], default: 3000000000000)"""
+                        Total number of tokens to train on (type: int | None,
+                        default: 3000000000000)"""
         in out
     )
+
+
+def test_pretrain_allows_max_steps():
+    # Ensure --train.max_steps is accepted by the CLI for pretrain
+    # and only emits a warning instead of raising a validation error.
+    args = [
+        "litgpt",
+        "pretrain",
+        "pythia-14m",
+        "--train.max_steps=1",
+        "--out_dir=out/test-cli",
+    ]
+
+    with pytest.warns(UserWarning, match="max_steps"):
+        try:
+            with mock.patch("sys.argv", args):
+                main()
+        except Exception:
+            pass
 
 
 def test_rewrite_finetune_command():

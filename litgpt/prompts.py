@@ -4,7 +4,7 @@ import re
 from abc import abstractmethod
 from json import dumps
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -18,10 +18,10 @@ class PromptStyle:
     """Base interface for prompt styles."""
 
     @abstractmethod
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return prompt
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return ([tokenizer.eos_id],)
 
     @classmethod
@@ -34,15 +34,15 @@ class PromptStyle:
 
 
 class Default(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return prompt
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return ([tokenizer.eos_id],)
 
 
 class Alpaca(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         if kwargs.get("input"):
             sys_prompt = sys_prompt or (
                 "Below is an instruction that describes a task, paired with an input that provides further context. "
@@ -58,7 +58,7 @@ class Alpaca(PromptStyle):
 
 
 class FLAN(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or (
             "Below is an instruction that describes a task. "
             "Write a response that appropriately completes the request.\n\n"
@@ -67,7 +67,7 @@ class FLAN(PromptStyle):
 
 
 class Longform(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
             "Write a response that appropriately completes the request.\n\n"
@@ -76,7 +76,7 @@ class Longform(PromptStyle):
 
 
 class StableLMAlpha(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or (
             "# StableLM Tuned (Alpha version)\n- StableLM is a helpful and harmless open-source AI language"
             " model developed by StabilityAI.\n- StableLM is excited to be able to help the user, but will refuse to do"
@@ -86,7 +86,7 @@ class StableLMAlpha(PromptStyle):
         )
         return f"<|SYSTEM|>{sys_prompt}<|USER|>{prompt}<|ASSISTANT|>"
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("<|SYSTEM|>")],
@@ -96,15 +96,15 @@ class StableLMAlpha(PromptStyle):
 
 
 class StableLMZephyr(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
 
 
 class Falcon(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"{prompt}\nAnswer:"
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             # the model rarely emits the eos token and instead outputs newlines, but we cannot use them
@@ -115,10 +115,10 @@ class Falcon(PromptStyle):
 
 
 class Falcon3(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("<|endoftext|>")],
@@ -126,7 +126,7 @@ class Falcon3(PromptStyle):
 
 
 class Llama2FunctionCalling(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         # Has to be before the llama config
         b_func, e_func = "<FUNCTIONS>", "</FUNCTIONS>\n\n"
         b_inst, e_inst = "[INST]", "[/INST]"
@@ -153,7 +153,7 @@ class Llama2FunctionCalling(PromptStyle):
 
 
 class Llama2(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         b_inst, e_inst = "[INST]", "[/INST]"
         b_sys, e_sys = "<<SYS>>\n", "\n<</SYS>>\n\n"
         sys_prompt = sys_prompt or (
@@ -168,9 +168,7 @@ class Llama2(PromptStyle):
 
 
 class Llama3(PromptStyle):
-    def apply(
-        self, prompt: Union[str, List[Dict[str, str]]], *, sys_prompt: Optional[str] = None, **kwargs: str
-    ) -> str:
+    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
         default_system_prompt = sys_prompt or "You are a helpful assistant."
 
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
@@ -184,17 +182,17 @@ class Llama3(PromptStyle):
             )
         elif isinstance(prompt, list):
 
-            def encode_header(role: str) -> List[str]:
+            def encode_header(role: str) -> list[str]:
                 return [f"<|start_header_id|>{role}<|end_header_id|>\n\n"]
 
-            def encode_message(message: Dict[str, str]) -> List[str]:
+            def encode_message(message: dict[str, str]) -> list[str]:
                 tokens = encode_header(message["role"])
                 # NOTE: Meta stripped this. I'm not sure I agree, but who am I to argue?
                 tokens.append(message["content"].strip())
                 tokens.append("<|eot_id|>")
                 return tokens
 
-            def has_system_prompt(messages: List[Dict[str, str]]) -> bool:
+            def has_system_prompt(messages: list[dict[str, str]]) -> bool:
                 return messages[0].get("role", "") == "system" if len(messages) else False
 
             tokens = ["<|begin_of_text|>"]
@@ -213,7 +211,7 @@ class Llama3(PromptStyle):
         else:
             raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("<|eot_id|>")],
@@ -221,9 +219,7 @@ class Llama3(PromptStyle):
 
 
 class R1Base(PromptStyle):
-    def apply(
-        self, prompt: Union[str, List[Dict[str, str]]], *, sys_prompt: Optional[str] = None, **kwargs: str
-    ) -> str:
+    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
         default_system_prompt = sys_prompt or ""
 
         bos_token = "<｜begin▁of▁sentence｜>"
@@ -233,7 +229,7 @@ class R1Base(PromptStyle):
             return f"{default_system_prompt}<｜User｜>{prompt}<｜Assistant｜>"  # Prepares for assistant response
         elif isinstance(prompt, list):
 
-            def encode_message(message: Dict[str, str]) -> str:
+            def encode_message(message: dict[str, str]) -> str:
                 role = message["role"]
                 content = message["content"].strip()
 
@@ -248,7 +244,7 @@ class R1Base(PromptStyle):
 
             # Extract system prompt (if any)
             system_prompt = ""
-            if prompt[0].get("role") == "system":
+            if prompt and prompt[0].get("role") == "system":
                 system_prompt = prompt[0]["content"]
                 prompt = prompt[1:]  # Remove system message from the list
 
@@ -262,7 +258,7 @@ class R1Base(PromptStyle):
         else:
             raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("<｜end▁of▁sentence｜>")],
@@ -270,23 +266,23 @@ class R1Base(PromptStyle):
 
 
 class FreeWilly2(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or "This is a system prompt, please behave and help the user."
         return f"### System:\n{sys_prompt}\n\n### User:\n{prompt}\n\n### Assistant:\n"
 
 
 class Platypus(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"### Instruction:\n\n{prompt}\n\n### Response:\n"
 
 
 class StableCode(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"###Instruction\n{prompt}###Response\n"
 
 
 class CodeLlama(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         # for CodeLLama, we don't set a default system prompt, but it is supported:
         # https://huggingface.co/blog/codellama#conversational-instructions
         # Mistral does not: https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1#instruction-format
@@ -298,10 +294,10 @@ class CodeLlama(PromptStyle):
 
 
 class Phi1(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"{prompt}\n\nAnswer:"
 
-    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+    def stop_tokens(self, tokenizer: "Tokenizer") -> tuple[list[int], ...]:
         return (
             [tokenizer.eos_id],
             [tokenizer.token_to_id("Answer"), tokenizer.token_to_id(":")],
@@ -313,18 +309,18 @@ class Phi1(PromptStyle):
 
 
 class Phi2(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"Instruct: {prompt}\nOutput:"
 
 
 class Phi3(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or "You are a helpful assistant."
         return f"<|system|>\n{sys_prompt}<|end|>\n<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
 
 
 class Phi4(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         res = ""
         if sys_prompt:
             res += f"<|im_start|>system<|im_sep|>{sys_prompt}<|im_end|>"
@@ -333,7 +329,7 @@ class Phi4(PromptStyle):
 
 
 class Phi4Reasoning(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = (
             sys_prompt
             or "You are Phi, a language model trained by Microsoft to help users. Your role as an assistant involves thoroughly exploring questions through a systematic thinking process before providing the final precise and accurate solutions. This requires engaging in a comprehensive cycle of analysis, summarizing, exploration, reassessment, reflection, backtracing, and iteration to develop well-considered thinking process. Please structure your response into two main sections: Thought and Solution using the specified format: <think> {Thought section} </think> {Solution section}. In the Thought section, detail your reasoning process in steps. Each step should include detailed considerations such as analysing questions, summarizing relevant findings, brainstorming new ideas, verifying the accuracy of the current steps, refining any errors, and revisiting previous steps. In the Solution section, based on various attempts, explorations, and reflections from the Thought section, systematically present the final solution that you deem correct. The Solution section should be logical, accurate, and concise and detail necessary steps needed to reach the conclusion. Now, try to solve the following question through the above guidelines:"
@@ -342,7 +338,7 @@ class Phi4Reasoning(PromptStyle):
 
 
 class Phi4Mini(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         res = ""
         if sys_prompt:
             res += f"<|system|>{sys_prompt}<|end|>"
@@ -351,32 +347,32 @@ class Phi4Mini(PromptStyle):
 
 
 class Phi4MiniReasoning(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or "Your name is Phi, an AI math expert developed by Microsoft."
         return f"<|system|>{sys_prompt}<|end|><|user|>{prompt}<|end|><|assistant|>"
 
 
 class TinyLlama(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or "You are a friendly chatbot who always gives helpful, detailed, and polite answers."
         return f"<|system|>\n{sys_prompt}</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
 
 
 class Gemma(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"<start_of_turn>user\n{prompt}<end_of_turn>\n<start_of_turn>model\n"
 
 
 class OLMo(PromptStyle):
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"<|endoftext|><|user|>\n{prompt}\n<|assistant|>\n"
 
 
 class ChatML(PromptStyle):
-    def __init__(self, system_message: Optional[str] = None):
+    def __init__(self, system_message: str | None = None):
         self.system_message = system_message
 
-    def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs: str) -> str:
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or self.system_message
         return (
             f"<|im_start|>system\n{sys_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
@@ -418,7 +414,7 @@ class Salamandra(ChatML):
 
 
 # Maps prompt style names to PromptStyle classes
-prompt_styles: Dict[str, Type[PromptStyle]] = {
+prompt_styles: dict[str, type[PromptStyle]] = {
     # Dataset-specific prompt styles
     "alpaca": Alpaca,
     "flan": FLAN,
@@ -517,7 +513,7 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
     return Default()
 
 
-def save_prompt_style(style: Union[str, PromptStyle], checkpoint_dir: Path) -> None:
+def save_prompt_style(style: str | PromptStyle, checkpoint_dir: Path) -> None:
     style = PromptStyle.from_name(style) if isinstance(style, str) else style
     cls = type(style)
     # Allow saving the full module path for user-defined prompt classes

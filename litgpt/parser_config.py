@@ -1,11 +1,10 @@
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 from litgpt.utils import CLI
 
 
-def parser_commands() -> List[str]:
+def parser_commands() -> list[str]:
     return [
         "download",
         "chat",
@@ -28,13 +27,14 @@ def parser_commands() -> List[str]:
         "merge_lora",
         "evaluate",
         "serve",
+        "validate",
     ]
 
 
 def save_hyperparameters(
     function: callable,
     checkpoint_dir: Path,
-    known_commands: Optional[List[str]] = None,
+    known_commands: list[str] | None = None,
 ) -> None:
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
     from jsonargparse import capture_parser

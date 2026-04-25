@@ -501,7 +501,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_gemma_2(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_gemma_2(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = Gemma2ForCausalLM(theirs_config).to(device)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys
@@ -574,7 +574,7 @@ def test_against_original_gemma_3(model_name, device, dtype):
     ours_model.lm_head.weight = ours_model.transformer.wte.weight
     ours_state_dict = ours_model.state_dict()
     theirs_state_dict = {}
-    copy_weights_gemma_3(ours_config, theirs_state_dict, ours_state_dict, untie_weights=True)
+    copy_weights_gemma_3(ours_config, theirs_state_dict, ours_state_dict)
     theirs_model = Gemma3ForCausalLM(theirs_config).to(device)
     keys = theirs_model.load_state_dict(theirs_state_dict, strict=False)
     assert not keys.unexpected_keys

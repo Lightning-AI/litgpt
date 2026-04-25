@@ -28,6 +28,7 @@ from litgpt.scripts.convert_pretrained_checkpoint import (
 )
 from litgpt.scripts.download import download_from_hub as download_fn
 from litgpt.scripts.merge_lora import merge_lora as merge_lora_fn
+from litgpt.scripts.validate import validate_setup as validate_fn
 
 PARSER_DATA = {
     "download": download_fn,
@@ -51,6 +52,7 @@ PARSER_DATA = {
     "merge_lora": merge_lora_fn,
     "evaluate": evaluate_fn,
     "serve": serve_fn,
+    "validate": validate_fn,
 }
 
 
