@@ -34,3 +34,21 @@ def test_compute_warmup_iters():
     assert train.warmup_iters(devices=1, num_nodes=1, max_iters=20, train_dataloader=range(100)) == 20
     # lr_warmup_fraction rounds up
     assert train.warmup_iters(devices=1, num_nodes=1, max_iters=1000, train_dataloader=range(5)) == 2
+
+
+def test_lr_warmup_fraction_works_without_overriding_default_steps():
+    """Setting only `lr_warmup_fraction` must succeed even though `lr_warmup_steps` defaults to 100.
+
+    Previously a user passing `--train.lr_warmup_fraction 0.1` would hit a ValueError because the
+    mutually-exclusive validation considered the default `lr_warmup_steps=100` as user-provided.
+    """
+    # only lr_warmup_fraction is provided
+    train = TrainArgs(global_batch_size=1, micro_batch_size=1, lr_warmup_fraction=0.3)
+    # lr_warmup_fraction must be honored, not silently overridden by the default lr_warmup_steps
+    assert train.warmup_iters(devices=1, num_nodes=1, max_iters=1000, train_dataloader=range(100)) == 30
+
+
+def test_lr_warmup_conflict_only_when_both_explicitly_set():
+    """Passing both lr_warmup_steps and lr_warmup_fraction explicitly must still raise."""
+    with pytest.raises(ValueError, match="Can't provide both `--train.lr_warmup_fraction`"):
+        TrainArgs(lr_warmup_steps=50, lr_warmup_fraction=0.2)

@@ -16,8 +16,9 @@ class TrainArgs:
     """Number of samples between optimizer steps across data-parallel ranks"""
     micro_batch_size: int = 4
     """Number of samples per data-parallel rank"""
-    lr_warmup_steps: int | None = 100
-    """Number of iterations with learning rate warmup active"""
+    lr_warmup_steps: int | None = None
+    """Number of iterations with learning rate warmup active. Defaults to 100 when
+    ``lr_warmup_fraction`` is not set; ignored when ``lr_warmup_fraction`` is set."""
     lr_warmup_fraction: float | None = None
     """The fraction of an epoch to use for learning rate warmup"""
     epochs: int | None = None
@@ -45,6 +46,12 @@ class TrainArgs:
             )
         if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
+
+        # Apply the documented default for ``lr_warmup_steps`` only when the user did not
+        # provide ``lr_warmup_fraction``. This keeps a sensible default (100 steps) without
+        # conflicting with users who explicitly opt into fraction-based warmup.
+        if self.lr_warmup_steps is None:
+            self.lr_warmup_steps = 0 if self.lr_warmup_fraction else 100
 
         if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
             warnings.warn(
