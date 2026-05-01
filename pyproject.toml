@@ -26,7 +26,7 @@ classifiers = [
 dependencies = [
   # download models:
   "huggingface-hub>=0.30,<1.4",
-  "jsonargparse[signatures]>=4.37,<=4.48.0; python_version>='3.10'", # required to work with Python >=3.10
+  "jsonargparse[signatures]>=4.37,<=4.48; python_version>='3.10'", # required to work with Python >=3.10
   "lightning>=2.6.1",
   "psutil==7.2.2",
   "safetensors>=0.4.3",
