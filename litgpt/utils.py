@@ -668,6 +668,57 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
     return optimizer
 
 
+def create_lora_plus_optimizer(
+    optimizer: "str | dict",
+    model: "torch.nn.Module",
+    lr_ratio: float,
+) -> "torch.optim.Optimizer":
+    """Create an optimizer with differentiated learning rates for LoRA A and B matrices.
+
+    LoRA+ (Hayou et al., 2024, https://arxiv.org/abs/2402.12354) proposes setting the
+    learning rate of lora_B parameters to ``lr_ratio`` times the base learning rate, while
+    lora_A and all other trainable parameters use the base learning rate. This asymmetry
+    improves feature learning efficiency, typically yielding 1-2% accuracy gains and up
+    to 2× faster convergence with no extra compute cost.
+
+    Args:
+        optimizer: An optimizer name (e.g. ``"AdamW"``) or a config dict, as accepted by
+            :func:`instantiate_torch_optimizer`.
+        model: The model whose trainable parameters will be split into two param groups.
+        lr_ratio: Learning-rate multiplier applied to ``lora_B`` parameters relative to
+            the base learning rate. The paper recommends ``16.0`` for standard fine-tuning.
+
+    Returns:
+        An optimizer instance with two param groups: ``lora_B`` parameters at
+        ``lr * lr_ratio`` and all other trainable parameters at ``lr``.
+
+    Example::
+
+        optimizer = create_lora_plus_optimizer("AdamW", model, lr_ratio=16.0)
+    """
+    # Create the base optimizer with all parameters to get default lr/kwargs
+    base_optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
+    base_lr = base_optimizer.param_groups[0]["lr"]
+    base_defaults = {
+        k: v for k, v in base_optimizer.param_groups[0].items() if k not in ("params", "lr")
+    }
+
+    lora_b_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" in n]
+    other_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" not in n]
+
+    param_groups = []
+    if other_params:
+        param_groups.append({"params": other_params, "lr": base_lr, **base_defaults})
+    if lora_b_params:
+        param_groups.append({"params": lora_b_params, "lr": base_lr * lr_ratio, **base_defaults})
+
+    if not param_groups:
+        raise ValueError("No trainable parameters found in model.")
+
+    # Re-instantiate with split param groups
+    return instantiate_torch_optimizer(optimizer, param_groups)
+
+
 def extend_checkpoint_dir(checkpoint_dir: Path) -> Path:
     new_checkpoint_dir = "checkpoints" / checkpoint_dir
     should_return_new_dir = (
