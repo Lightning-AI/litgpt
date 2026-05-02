@@ -6,10 +6,10 @@ the full litgpt package (which requires model weights, safetensors, etc.).
 """
 
 import inspect
+
 import pytest
 import torch
 from torch import nn
-
 
 # ---------------------------------------------------------------------------
 # Inline the function under test to avoid the heavy litgpt import chain in CI.
@@ -47,9 +47,7 @@ def create_lora_plus_optimizer(optimizer, model, lr_ratio):
     """Inline copy of litgpt.utils.create_lora_plus_optimizer for testing."""
     base_optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     base_lr = base_optimizer.param_groups[0]["lr"]
-    base_defaults = {
-        k: v for k, v in base_optimizer.param_groups[0].items() if k not in ("params", "lr")
-    }
+    base_defaults = {k: v for k, v in base_optimizer.param_groups[0].items() if k not in ("params", "lr")}
 
     lora_b_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" in n]
     other_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" not in n]

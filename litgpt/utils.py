@@ -699,9 +699,7 @@ def create_lora_plus_optimizer(
     # Create the base optimizer with all parameters to get default lr/kwargs
     base_optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
     base_lr = base_optimizer.param_groups[0]["lr"]
-    base_defaults = {
-        k: v for k, v in base_optimizer.param_groups[0].items() if k not in ("params", "lr")
-    }
+    base_defaults = {k: v for k, v in base_optimizer.param_groups[0].items() if k not in ("params", "lr")}
 
     lora_b_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" in n]
     other_params = [p for n, p in model.named_parameters() if p.requires_grad and "lora_B" not in n]
