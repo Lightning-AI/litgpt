@@ -53,6 +53,14 @@ def merge_lora(
         pretrained_checkpoint_dir = meta_pretrained_checkpoint_dir
         pretrained_checkpoint_dir = extend_checkpoint_dir(pretrained_checkpoint_dir)
 
+    # ``Fabric(accelerator="cpu", precision="16-mixed")`` emits a warning and silently downgrades
+    # to ``bf16-mixed`` because AMP fp16 is not supported on CPU. The merge step only loads weights
+    # and overrides their dtype on L75 (``model.to(dtype=lora_dtype, device="cpu")``), so the
+    # precision value here has no effect on the saved checkpoint — do the downgrade ourselves to
+    # avoid the false-positive warning that confuses users (#1242).
+    if precision == "16-mixed":
+        precision = "bf16-mixed"
+
     fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
