@@ -175,3 +175,13 @@ def pytest_collection_modifyitems(items: list[pytest.Function], config: pytest.C
                     reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
                 )
             )
+        # TODO: remove once thunder supports torch>=2.12
+        # DynamoThunder tests fail with torch>=2.12 due to MappingKeysView/generator having no len()
+        # in thunder's interpreter.
+        if "DynamoThunder" in test.nodeid and torch.__version__ >= "2.12":
+            test.add_marker(
+                pytest.mark.xfail(
+                    reason="DynamoThunder tests incompatible with torch>=2.12, see thunder upstream",
+                    strict=False,
+                )
+            )
