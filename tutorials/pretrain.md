@@ -97,7 +97,7 @@ litgpt pretrain pythia-14m \
 
 Often, it makes sense to adopt an existing pretrained model and further pretrain it on our own custom data. The existing pretrained model can be either our own pretrained model or a model downloaded from a model hub.
 
-The following subsections illustrate three typical scenarioes:
+The following subsections illustrate three typical scenarios:
 
 1. Starting from a downloaded base model
 2. Continuing the pretraining after interruption
@@ -177,6 +177,55 @@ litgpt pretrain pythia-160m \
    --data.train_data_path custom_pretraining_data_2 \
    --train.max_tokens 1_000_000
 ```
+
+
+&nbsp;
+## Pretrain on TinyStories
+
+[TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) is a small dataset of short stories written in simple English. At ~2 GB it is ideal for quickly testing a pretraining setup end-to-end without requiring large compute resources.
+
+&nbsp;
+
+> [!TIP]
+> TinyStories is a great starting point if you want to verify your training pipeline before committing to a full-scale run on a larger dataset.
+
+&nbsp;
+
+**Step 1 – Download the tokenizer**
+
+```bash
+litgpt download EleutherAI/pythia-14m \
+  --tokenizer_only true
+```
+
+**Step 2 – Pretrain using the built-in `debug.yaml` config**
+
+The [debug.yaml](https://github.com/Lightning-AI/litgpt/blob/main/config_hub/pretrain/debug.yaml) config pretrains a small `pythia-14m` model on TinyStories. Data preprocessing (download + tokenization) is handled automatically on the first run.
+
+```bash
+litgpt pretrain pythia-14m \
+  --config https://raw.githubusercontent.com/Lightning-AI/litgpt/main/config_hub/pretrain/debug.yaml
+```
+
+The config trains for 100 million tokens with a global batch size of 125 and a learning-rate warmup of 100 steps. Checkpoints are saved to `out/pretrain/debug/` by default.
+
+**Step 2 (alternative) – Configure manually**
+
+You can also specify the `TinyStories` data module directly without using the config file:
+
+```bash
+litgpt pretrain pythia-14m \
+  --tokenizer_dir checkpoints/EleutherAI/pythia-14m \
+  --data TinyStories \
+  --train.max_tokens 100_000_000 \
+  --train.global_batch_size 125 \
+  --train.micro_batch_size 5
+```
+
+&nbsp;
+> [!TIP]
+> Use `litgpt pretrain --data.help TinyStories` to list all available dataset options such as `data_path`, `seed`, and `num_workers`.
+&nbsp;
 
 
 &nbsp;
