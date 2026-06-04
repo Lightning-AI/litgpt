@@ -369,7 +369,7 @@ class OLMo(PromptStyle):
 
 
 class ChatML(PromptStyle):
-    def __init__(self, system_message: str | None = None):
+    def __init__(self, system_message: str | None = None) -> None:
         self.system_message = system_message
 
     def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
@@ -380,34 +380,34 @@ class ChatML(PromptStyle):
 
 
 class Qwen2_5(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("You are Qwen, created by Alibaba Cloud. You are a helpful assistant.")
 
 
 class Qwen2_5_Math(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("Please reason step by step, and put your final answer within \\boxed{}.")
 
 
 class QwQ(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "You are a helpful and harmless assistant. You are Qwen developed by Alibaba. You should think step-by-step."
         )
 
 
 class Qwen3(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
 
 class SmolLM2(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("You are a helpful AI assistant named SmolLM, trained by Hugging Face")
 
 
 class Salamandra(ChatML):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             "I am Salamandra, an AI language model developed at the Barcelona Supercomputing Centre (BSC) by the Language Technologies Unit. My knowledge base was last updated on August 2023. Today Date: 2024-09-30\nSoy Salamandra, un modelo lingüístico de IA desarrollado en el Barcelona Supercomputing Centre (BSC) por la Language Technologies Unit. Mi base de conocimientos se actualizó por última vez en agosto de 2023.\nSoc Salamandra, un model de llenguatge d'IA desenvolupat al Barcelona Supercomputing Centre (BSC) per la Language Technologies Unit."
         )
