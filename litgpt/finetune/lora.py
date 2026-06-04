@@ -339,11 +339,13 @@ def fit(
         iter_t0 = time.perf_counter()
         batch = next(train_iterator)
         if train_iterator.epoch >= train.epochs:
-            generate_example(fabric, model, tokenizer, eval, data)
+            if fabric.global_rank == 0:
+                generate_example(fabric, model, tokenizer, eval, data)
             fabric.print(f"Number of epochs {train.epochs} reached, stopping training...")
             break
         if iter_t0 - total_t0 > max_time:
-            generate_example(fabric, model, tokenizer, eval, data)
+            if fabric.global_rank == 0:
+                generate_example(fabric, model, tokenizer, eval, data)
             fabric.print(f"Max time ({max_time / 60.0:.2f}m) reached, stopping training...")
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
@@ -402,7 +404,9 @@ def fit(
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
             val_loss = validate(fabric, model, val_dataloader, eval)
-            generate_example(fabric, model, tokenizer, eval, data)
+            if fabric.global_rank == 0:
+                generate_example(fabric, model, tokenizer, eval, data)
+            fabric.barrier()
             t1 = time.perf_counter() - t0
 
             val_loss_tensor = val_loss.detach().clone().to(fabric.device)

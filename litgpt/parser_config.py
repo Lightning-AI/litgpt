@@ -27,6 +27,7 @@ def parser_commands() -> list[str]:
         "merge_lora",
         "evaluate",
         "serve",
+        "validate",
     ]
 
 

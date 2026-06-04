@@ -47,7 +47,7 @@ def sample(
         fill_value = float("-inf") if apply_softmax else float(0)
         logits = torch.full_like(logits, fill_value).scatter_(-1, i, v)
     # optionally scale the logits and sample from a probability distribution
-    if temperature > 0.0 or top_p > 0.0:
+    if temperature > 0.0 and top_p > 0.0:
         if temperature > 0.0:
             logits = logits / temperature
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p

@@ -126,6 +126,31 @@ def test_sample(temperature):
     assert token.tolist() == [0]
 
 
+def test_sample_temperature_zero_is_greedy():
+    """Regression test: temperature=0 must always produce greedy (argmax) decoding,
+    regardless of the top_p value. See https://github.com/Lightning-AI/litgpt/issues/2238"""
+    logits = torch.tensor([[[0.5, -1.2, 3.1, 0.8, -0.3, 2.7, -0.9, 1.4]]])
+    expected = torch.argmax(logits[0, -1], dim=-1).item()  # index 2 (value 3.1)
+
+    for top_p in (0.0, 0.5, 1.0):
+        results = [sample(logits, temperature=0.0, top_p=top_p).item() for _ in range(10)]
+        assert all(r == expected for r in results), (
+            f"temperature=0 with top_p={top_p} should always return argmax ({expected}), got {results}"
+        )
+
+
+def test_sample_top_p_zero_is_greedy():
+    """top_p=0 must also produce greedy decoding regardless of temperature."""
+    logits = torch.tensor([[[0.5, -1.2, 3.1, 0.8, -0.3, 2.7, -0.9, 1.4]]])
+    expected = torch.argmax(logits[0, -1], dim=-1).item()
+
+    for temperature in (0.0, 0.5, 1.0):
+        results = [sample(logits, temperature=temperature, top_p=0.0).item() for _ in range(10)]
+        assert all(r == expected for r in results), (
+            f"top_p=0 with temperature={temperature} should always return argmax ({expected}), got {results}"
+        )
+
+
 def test_generate_different_results_with_different_top_p():
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = GPT(config)
