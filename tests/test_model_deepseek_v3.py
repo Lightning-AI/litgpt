@@ -3,6 +3,7 @@
 
 import pytest
 import torch
+import transformers
 from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
 from litgpt import GPT, Config
@@ -13,6 +14,10 @@ from litgpt.utils import _RunIf
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(
+    transformers.__version__ < "4.56.0",
+    reason="YaRN RoPE factor bug fixed in transformers 4.56.0 (prior versions override explicit factor with max_pos/original_max_pos)",
+)
 @pytest.mark.parametrize("model_name", ["DeepSeek-V3"])
 @pytest.mark.parametrize(
     ("device", "dtype"),
