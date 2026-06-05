@@ -23,6 +23,7 @@ from litgpt.model import GPT
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style, save_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
+    _has_fp8_weights,
     auto_download_checkpoint,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
@@ -31,6 +32,7 @@ from litgpt.utils import (
     extend_checkpoint_dir,
     get_default_supported_precision,
     load_checkpoint,
+    patch_linear_for_fp8,
     save_config,
 )
 
@@ -397,6 +399,8 @@ class LLM(torch.nn.Module):
                 state_dict = torch.load(
                     str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False
                 )
+                if _has_fp8_weights(state_dict):
+                    patch_linear_for_fp8(model)
                 model.load_state_dict(state_dict, assign=True)
                 model = fabric.setup_module(model, move_to_device=False)
 
@@ -421,6 +425,8 @@ class LLM(torch.nn.Module):
                             map_location="cpu",
                             weights_only=False,
                         )
+                        if _has_fp8_weights(state_dict):
+                            patch_linear_for_fp8(model)
                         model.load_state_dict(state_dict, assign=True)
 
                         # cannot use `.setup_module` because it will wrap with DDP
