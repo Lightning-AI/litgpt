@@ -33,7 +33,7 @@ env:
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
-  TORCH_URL: "https://download.pytorch.org/whl/cpu/"
+  UV_TORCH_BACKEND: cpu
 
 jobs:
   testing-imports:
@@ -47,14 +47,17 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
       - name: Install minimal dependencies
         run: |
-          pip install . -U --extra-index-url="${TORCH_URL}"
-          pip list
+          uv sync --no-dev
+          uv pip list
 
       - name: Testing package imports
         # make sure all modules are still importable with only the minimal dependencies available
@@ -66,6 +69,9 @@ jobs:
           )
           echo "$modules"
           python -c "$modules"
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   pytester:
     runs-on: ${{ matrix.os }}
@@ -83,11 +89,12 @@ jobs:
     steps:
       - name: Checkout generic
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
-          cache-dependency-path: pyproject.toml
-          cache: "pip"
+          enable-cache: true
 
       # Add caching for HF models and tokenizers
       - name: HF cache
@@ -103,13 +110,12 @@ jobs:
 
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
-        run: |
-          pip install 'lightning-utilities[cli]>=0.15.1'
-          python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+        run: uv run --no-project --with 'lightning-utilities[cli]>=0.15.1' python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager --extra-index-url="${TORCH_URL}"
-          pip list
+          uv sync --all-extras
+          uv pip list
 
       - name: Run tests
         env:
@@ -117,9 +123,10 @@ jobs:
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
-        run: |
-          pip install -q py-tree
-          python -m py_tree -d 1 .cache-HF
+        run: uvx py-tree -d 1 .cache-HF
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   testing-guardian:
     runs-on: ubuntu-latest
