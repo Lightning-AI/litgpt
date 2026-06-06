@@ -307,15 +307,27 @@ def copy_weights_gemma_3(
         else "language_model.model"
     )
 
-    GEMMA3_VISION_MODEL_PREFIX = (
-        "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
-    )
+    # Detect vision encoder prefix: older HF uses "vision_tower" / "model.vision_tower",
+    # newer Gemma3ForConditionalGeneration uses "vision_encoder" / "model.vision_encoder".
+    if any(k.startswith("model.vision_tower") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower"
+    elif any(k.startswith("vision_tower") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "vision_tower"
+    elif any(k.startswith("model.vision_encoder") for k in hf_weights):
+        GEMMA3_VISION_MODEL_PREFIX = "model.vision_encoder"
+    else:
+        GEMMA3_VISION_MODEL_PREFIX = "vision_encoder"
 
-    GEMMA3_MM_PROJECTOR_PREFIX = (
-        "model.multi_modal_projector"
-        if any(k.startswith("model.multi_modal_projector") for k in hf_weights)
-        else "multi_modal_projector"
-    )
+    # Detect mm-projector prefix: older HF uses "multi_modal_projector" / "model.multi_modal_projector",
+    # newer Gemma3ForConditionalGeneration uses "mm_projector" / "model.mm_projector".
+    if any(k.startswith("model.multi_modal_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "model.multi_modal_projector"
+    elif any(k.startswith("multi_modal_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "multi_modal_projector"
+    elif any(k.startswith("model.mm_projector") for k in hf_weights):
+        GEMMA3_MM_PROJECTOR_PREFIX = "model.mm_projector"
+    else:
+        GEMMA3_MM_PROJECTOR_PREFIX = "mm_projector"
 
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -341,7 +353,7 @@ def copy_weights_gemma_3(
     # gemma3 4b+ are multimodel models, but we are only loading the text weights
     is_multimodal = any(k.startswith(GEMMA3_LANGUAGE_MODEL_PREFIX) for k in hf_weights)
     if is_multimodal:
-        warnings.warn("For Gemma3 models only the text component is supported.")
+        warnings.warn("Gemma3 multimodal model detected. Converting both text and vision components.")
         new_weight_map = dict()
         prefix = "model"
         for k, v in weight_map.items():
@@ -350,8 +362,25 @@ def copy_weights_gemma_3(
             new_weight_map[k] = v
         weight_map = new_weight_map
     for from_name, param in hf_weights.items():
-        if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX) or from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
+        if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX):
+            to_name = from_name.replace(GEMMA3_VISION_MODEL_PREFIX, "vision_encoder._encoder")
+            param = load_param(param, from_name, dtype, verbose=debug_mode)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
             continue
+        if from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
+            to_name = from_name.replace(GEMMA3_MM_PROJECTOR_PREFIX, "mm_projector.proj")
+            param = load_param(param, from_name, dtype, verbose=debug_mode)
+            if saver is not None:
+                param = saver.store_early(param)
+            state_dict[to_name] = param
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
         name_template, *ids = layer_template(from_name, num_matches=2)
         to_name = weight_map.get(name_template)
         param = load_param(param, from_name, dtype, verbose=debug_mode)

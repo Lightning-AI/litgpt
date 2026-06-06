@@ -35,6 +35,7 @@ def generate(
     top_k: int | None = None,
     top_p: float = 1.0,
     stop_tokens: tuple[list[int], ...] = (),
+    pixel_values: torch.Tensor | None = None,
 ) -> Iterator[torch.Tensor]:
     """Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as possible.
 
@@ -72,11 +73,22 @@ def generate(
         top_k=top_k,
         top_p=top_p,
         stop_tokens=stop_tokens,
+        pixel_values=pixel_values,
     )
 
 
 def process_prompt(
-    prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens
+    prompt,
+    model,
+    tokenizer,
+    prompt_style,
+    fabric,
+    temperature,
+    max_new_tokens,
+    top_k,
+    top_p,
+    stop_tokens,
+    pixel_values: torch.Tensor | None = None,
 ):
     prompt = prompt_style.apply(prompt=prompt)
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
@@ -98,6 +110,7 @@ def process_prompt(
         top_k=top_k,
         top_p=top_p,
         stop_tokens=stop_tokens,
+        pixel_values=pixel_values,
     )
     token_generator: Iterator[str] = tokenizer.decode_stream(y, device=fabric.device)
 
@@ -121,7 +134,30 @@ def process_prompt(
     fabric.print()
 
 
-def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens):
+def interact(
+    multiline,
+    model,
+    tokenizer,
+    prompt_style,
+    fabric,
+    temperature,
+    max_new_tokens,
+    top_k,
+    top_p,
+    stop_tokens,
+    initial_image: Path | None = None,
+):
+    pixel_values = None
+    if initial_image is not None:
+        if not model.config.is_multimodal:
+            fabric.print("Warning: An image was provided but the model is not multimodal.", file=sys.stderr)
+        else:
+            from litgpt.vision import ImagePreprocessor
+
+            preprocessor = ImagePreprocessor(image_size=model.config.vision_image_size or 224)
+            pixel_values = preprocessor(initial_image, device=fabric.device)
+            fabric.print(f">> Loaded image: {initial_image}")
+
     while True:
         try:
             if not multiline:
@@ -144,7 +180,17 @@ def interact(multiline, model, tokenizer, prompt_style, fabric, temperature, max
             break
 
         process_prompt(
-            prompt, model, tokenizer, prompt_style, fabric, temperature, max_new_tokens, top_k, top_p, stop_tokens
+            prompt,
+            model,
+            tokenizer,
+            prompt_style,
+            fabric,
+            temperature,
+            max_new_tokens,
+            top_k,
+            top_p,
+            stop_tokens,
+            pixel_values,
         )
 
 
@@ -161,6 +207,7 @@ def main(
     compile: bool = False,
     multiline: bool = False,
     access_token: str | None = None,
+    image: Path | None = None,
 ) -> None:
     """Chat with a model.
 
@@ -267,6 +314,7 @@ def main(
         top_k=top_k,
         top_p=top_p,
         stop_tokens=stop_tokens,
+        initial_image=image,
     )
 
     if fabric.device.type == "cuda":

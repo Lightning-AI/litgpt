@@ -17,6 +17,7 @@ from typing_extensions import Self
 
 from litgpt.config import Config
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
+from litgpt.vision import MultiModalProjector, VisionEncoder, merge_input_embeds
 
 
 class GPT(nn.Module):
@@ -35,6 +36,18 @@ class GPT(nn.Module):
         )
         self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
+
+        # Optional vision encoder for multimodal models
+        if config.is_multimodal:
+            self.vision_encoder = VisionEncoder(config, pretrained_model_name=config.vision_model_name)
+            self.mm_projector = MultiModalProjector(
+                vision_dim=config.vision_feature_dim,
+                text_dim=config.n_embd,
+                projector_type=config.mm_projector_type or "linear",
+            )
+        else:
+            self.vision_encoder = None
+            self.mm_projector = None
 
     @property
     def max_seq_length(self) -> int:
@@ -88,6 +101,7 @@ class GPT(nn.Module):
         input_pos: torch.Tensor | None = None,
         input_pos_maxp1: int | None = None,
         lm_head_chunk_size: int = 0,
+        pixel_values: torch.Tensor | None = None,
     ) -> torch.Tensor | list[torch.Tensor]:
         """
         If `input_pos` is provided, the KV cache uses K and V vectors for
@@ -155,6 +169,12 @@ class GPT(nn.Module):
         x = self.transformer.wte(idx)  # token embeddings of shape (B, T, n_embd)
         if self.config.scale_embeddings:
             x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
+
+        # Merge image embeddings if pixel_values are provided
+        if pixel_values is not None and self.vision_encoder is not None:
+            image_features = self.vision_encoder(pixel_values)
+            image_embeds = self.mm_projector(image_features)
+            x = merge_input_embeds(x, image_embeds, self.config.vision_start_token_id, idx)
 
         for block_idx, block in enumerate(self.transformer.h):
             if self.config.rope_indices is not None:
