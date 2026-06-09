@@ -63,9 +63,7 @@ jobs:
     if: startsWith(github.event.ref, 'refs/tags') || github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment:
-      name: pypi
-      url: https://pypi.org/p/litgpt
+    environment: pypi
     permissions:
       id-token: write
 
