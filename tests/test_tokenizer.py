@@ -1,15 +1,11 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
-import os
-import shutil
-import warnings
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from _fixtures import prepare_reference_tokenizer
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
-from transformers import AutoTokenizer
-from transformers.utils import cached_file
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
@@ -22,28 +18,12 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
-    # create a checkpoint directory that points to the HF files
-    hf_files = {}
-    for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-        try:  # download the HF tokenizer config
-            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename)
-            hf_files[filename] = str(hf_file)
-        except Exception as ex:
-            warnings.warn(str(ex), RuntimeWarning)
-    if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
-        raise ConnectionError("Unable to download any tokenizer files from HF")
-
-    # Create a clean, model-specific subdirectory for this test run.
-    # This avoids errors if previous runs or retries left files behind, ensuring the directory is always ready for fresh downloads and comparisons.
+    # Populate a clean, model-specific subdirectory with tokenizer/config files and get the
+    # reference HF tokenizer. Falls back to the Lightning Model Registry for gated repos
+    # without HF_TOKEN (e.g. fork PRs), and skips when no mirror exists for a gated repo.
     model_dir = tmp_path / config.hf_config["name"]
-    if model_dir.exists():
-        shutil.rmtree(model_dir)
-    os.makedirs(model_dir, exist_ok=True)
-
-    for filename, hf_file in hf_files.items():
-        shutil.copy(hf_file, model_dir / filename)
+    theirs = prepare_reference_tokenizer(repo_id, model_dir)
 
     ours = Tokenizer(model_dir)
 
