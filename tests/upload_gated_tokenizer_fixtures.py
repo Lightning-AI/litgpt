@@ -39,9 +39,7 @@ def upload_fixture(repo_id: str, staging_root: Path) -> str:
     )
 
     (fixture_dir / "LITGPT_FIXTURE_SOURCE.txt").write_text(
-        f"source_repo={repo_id}\n"
-        f"created_at={datetime.now(timezone.utc).isoformat()}\n"
-        "files=tokenizer/config only\n",
+        f"source_repo={repo_id}\ncreated_at={datetime.now(timezone.utc).isoformat()}\nfiles=tokenizer/config only\n",
         encoding="utf-8",
     )
 
