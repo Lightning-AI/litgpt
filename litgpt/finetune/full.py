@@ -191,6 +191,7 @@ def main(
     # Final evaluation
     if eval.final_validation:
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = fabric.all_reduce(val_loss.detach().clone().to(fabric.device), reduce_op="mean")
         metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
         fabric.log_dict(metrics, step=state["iter_num"])
         fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
@@ -241,6 +242,7 @@ def fit(
 
     if eval.initial_validation:
         val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = fabric.all_reduce(val_loss.detach().clone().to(fabric.device), reduce_op="mean")
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
@@ -328,16 +330,16 @@ def fit(
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
 
-            val_loss_tensor = val_loss.detach().clone().to(fabric.device)
             val_time_tensor = torch.tensor(t1, device=fabric.device, dtype=torch.float32)
 
-            fabric.all_reduce(val_loss_tensor, reduce_op="mean")
-            fabric.all_reduce(val_time_tensor, reduce_op="mean")
+            # reassign so that the training progress lines also report the reduced loss
+            val_loss = fabric.all_reduce(val_loss.detach().clone().to(fabric.device), reduce_op="mean")
+            val_time_tensor = fabric.all_reduce(val_time_tensor, reduce_op="mean")
 
             fabric.print(
-                f"iter {state['iter_num']}: val loss {val_loss_tensor.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
+                f"iter {state['iter_num']}: val loss {val_loss.item():.4f}, val time: {val_time_tensor.item() * 1000:.2f} ms"
             )
-            metrics = {"val_loss": val_loss_tensor, "val_ppl": math.exp(val_loss_tensor)}
+            metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
             fabric.log_dict(metrics, step=state["iter_num"])
             fabric.barrier()
         if train.save_interval is not None and not is_accumulating and state["step_count"] % train.save_interval == 0:
