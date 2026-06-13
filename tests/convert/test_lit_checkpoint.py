@@ -51,13 +51,52 @@ def test_convert_lit_checkpoint(tmp_path, model_name):
 
     convert_lit_checkpoint(checkpoint_path.parent, output_dir)
     assert set(os.listdir(tmp_path)) == {"lit_model.pth", "model_config.yaml", "out_dir"}
-    assert os.path.isfile(output_dir / "model.pth")
+    assert os.path.isfile(output_dir / "pytorch_model.bin")
+    # config files available in the checkpoint dir are copied to make the output loadable with HF transformers
+    assert os.path.isfile(output_dir / "model_config.yaml")
 
     # check checkpoint is unwrapped
     torch.save({"model": ours_model.state_dict()}, checkpoint_path)
     convert_lit_checkpoint(checkpoint_path.parent, output_dir)
-    converted_sd = torch.load(output_dir / "model.pth")
+    converted_sd = torch.load(output_dir / "pytorch_model.bin", weights_only=True)
     assert "model" not in converted_sd
+
+
+def test_convert_lit_checkpoint_loads_with_automodel(tmp_path):
+    """Regression test for https://github.com/Lightning-AI/litgpt/issues/1871"""
+    ours_config = Config.from_name("pythia-14m", block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
+    theirs_config = GPTNeoXConfig(
+        hidden_act="gelu",
+        hidden_size=ours_config.n_embd,
+        num_attention_heads=ours_config.n_head,
+        num_hidden_layers=ours_config.n_layer,
+        initializer_range=0.02,
+        intermediate_size=ours_config.intermediate_size,
+        layer_norm_eps=1e-05,
+        max_position_embeddings=ours_config.block_size,
+        rotary_emb_base=10000,
+        rotary_pct=ours_config.rotary_percentage,
+        vocab_size=ours_config.padded_vocab_size,
+        use_parallel_residual=ours_config.parallel_residual,
+    )
+
+    checkpoint_dir = tmp_path / "checkpoint_dir"
+    checkpoint_dir.mkdir()
+    ours_model = GPT(ours_config)
+    torch.save(ours_model.state_dict(), checkpoint_dir / "lit_model.pth")
+    with open(checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
+        yaml.dump(asdict(ours_config), fp)
+    # checkpoint dirs from `litgpt download/pretrain/finetune` also contain the HF `config.json`
+    theirs_config.to_json_file(checkpoint_dir / "config.json")
+
+    output_dir = tmp_path / "out_dir"
+    convert_lit_checkpoint(checkpoint_dir, output_dir)
+
+    theirs_model = AutoModelForCausalLM.from_pretrained(output_dir, local_files_only=True)
+    x = torch.randint(0, ours_config.padded_vocab_size, size=(2, ours_config.block_size), dtype=torch.int64)
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"]
+    torch.testing.assert_close(ours_y, theirs_y)
 
 
 @torch.inference_mode()
