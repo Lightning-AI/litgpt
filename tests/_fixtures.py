@@ -144,6 +144,7 @@ def _populate_from_lightning_registry(repo_id: str, model_dir: Path) -> None:
         # This path is only reached on runs without HF_TOKEN (e.g. fork PRs). A missing or
         # unreachable mirror should skip gracefully rather than fail the job; internal/main
         # runs have HF_TOKEN and never get here.
+        print(f"[fixtures] {repo_id}: failed to resolve from Lightning Model Registry fallback ({fixture}): {ex}", flush=True)
         pytest.skip(f"Could not fetch Lightning Model Registry fixture '{fixture}' for {repo_id}: {ex}")
 
 
