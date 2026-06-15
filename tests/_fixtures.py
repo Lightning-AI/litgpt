@@ -32,7 +32,7 @@ TOKENIZER_FILES = (
 # At least one of these is required to build a tokenizer.
 _REQUIRED_TOKENIZER_FILES = ("tokenizer.json", "tokenizer.model")
 
-_FIXTURE_TEAMSPACE = "lightning-ai/litgpt-ci"
+_FIXTURE_TEAMSPACE = "lightning-ai/oss-litgpt"
 _FIXTURE_VERSION = "v1"
 
 # Hugging Face repos that are public but gated behind license acceptance
