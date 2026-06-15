@@ -118,6 +118,7 @@ def _populate_from_hf(repo_id: str, model_dir: Path) -> None:
     present = {p.name for p in model_dir.iterdir()}
     if not any(name in present for name in _REQUIRED_TOKENIZER_FILES):
         raise ConnectionError(f"Unable to download any tokenizer files from HF for {repo_id}")
+    print(f"[fixtures] {repo_id}: resolved via Hugging Face", flush=True)
 
 
 def _populate_from_lightning_registry(repo_id: str, model_dir: Path) -> None:
@@ -138,6 +139,7 @@ def _populate_from_lightning_registry(repo_id: str, model_dir: Path) -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
     try:
         download_model(name=fixture, download_dir=str(model_dir))
+        print(f"[fixtures] {repo_id}: resolved via Lightning Model Registry fallback ({fixture})", flush=True)
     except Exception as ex:
         # This path is only reached on runs without HF_TOKEN (e.g. fork PRs). A missing or
         # unreachable mirror should skip gracefully rather than fail the job; internal/main
