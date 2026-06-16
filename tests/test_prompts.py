@@ -11,6 +11,7 @@ from litgpt.prompts import (
     Default,
     Llama3,
     Phi3,
+    Phi4Reasoning,
     PromptStyle,
     has_prompt_style,
     load_prompt_style,
@@ -202,3 +203,12 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     output = style.apply(msgs)
     simple_output = style.apply(content)
     assert output == simple_output
+
+
+def test_phi4_reasoning_uses_well_formed_im_start_token():
+    # Regression test: the first turn previously emitted a malformed "<|im_start>"
+    # token (missing the closing pipe), unlike every other ChatML/Phi-4 template.
+    output = Phi4Reasoning().apply("What is 2 + 2?")
+    assert "<|im_start>" not in output
+    assert output.startswith("<|im_start|>system<|im_sep|>")
+    assert output.count("<|im_start|>") == 3
