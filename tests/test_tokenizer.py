@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from huggingface_hub.errors import GatedRepoError
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
@@ -15,6 +16,13 @@ import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
 
 
+def _is_gated_hf_error(ex: Exception) -> bool:
+    if isinstance(ex, GatedRepoError):
+        return True
+    status = getattr(getattr(ex, "response", None), "status_code", None)
+    return status in (401, 403)
+
+
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
 @pytest.mark.flaky(reruns=3, reruns_delay=120)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
@@ -22,18 +30,25 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
-    # create a checkpoint directory that points to the HF files
-    hf_files = {}
-    for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-        try:  # download the HF tokenizer config
-            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename)
-            hf_files[filename] = str(hf_file)
-        except Exception as ex:
-            warnings.warn(str(ex), RuntimeWarning)
-    if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
-        raise ConnectionError("Unable to download any tokenizer files from HF")
+    try:
+        theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
+
+        # create a checkpoint directory that points to the HF files
+        hf_files = {}
+        for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
+            try:  # download the HF tokenizer config
+                hf_file = cached_file(path_or_repo_id=repo_id, filename=filename)
+                hf_files[filename] = str(hf_file)
+            except Exception as ex:
+                warnings.warn(str(ex), RuntimeWarning)
+        if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
+            raise ConnectionError("Unable to download any tokenizer files from HF")
+    except Exception as ex:
+        # TODO: Resolve with Lightning Registry model for gated HF tokenizer tests.
+        if not _is_gated_hf_error(ex):
+            raise
+        pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded in this environment.")
 
     # Create a clean, model-specific subdirectory for this test run.
     # This avoids errors if previous runs or retries left files behind, ensuring the directory is always ready for fresh downloads and comparisons.
