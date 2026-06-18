@@ -23,11 +23,16 @@ _TOKENIZER_FILES = (
 )
 
 
-def _is_gated_hf_error(ex: Exception) -> bool:
+def _is_hf_skip_error(ex: Exception) -> bool:
+    """Returns True for errors that should skip the test rather than fail it.
+
+    Covers gated repos (401/403) and anonymous rate-limits (429) that occur when
+    fork PRs have no HF_TOKEN and multiple CI jobs download concurrently.
+    """
     if isinstance(ex, GatedRepoError):
         return True
     status = getattr(getattr(ex, "response", None), "status_code", None)
-    return status in (401, 403)
+    return status in (401, 403, 429)
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
@@ -47,7 +52,7 @@ def test_tokenizer_against_hf(config):
         theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
     except Exception as ex:
         # TODO: Resolve with Lightning Registry model for gated HF tokenizer tests.
-        if not _is_gated_hf_error(ex):
+        if not _is_hf_skip_error(ex):
             raise
         pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
 
