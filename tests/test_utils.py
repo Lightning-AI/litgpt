@@ -943,53 +943,24 @@ def test_select_sft_generate_example():
         select_sft_generate_example(eval_mock, data_mock)
 
 
-def test_chunked_cross_entropy_chunking_and_shift_T129():
-    """Test chunking and shift logic for T=129, ensuring last chunk becomes empty."""
+@pytest.mark.parametrize("T", (129, 257))
+def test_chunked_cross_entropy_empty_last_chunk_chunking_shift_and_loss(T):
+    """Test empty-last-chunk handling after shift for sequence lengths just over a chunk boundary."""
     B, V = 2, 100
     lm_head_chunk_size = 128
-    T = 129
     regular_logits = torch.randn(B, T, V)
     targets = torch.randint(0, V, (B, T))
 
-    # Simulate chunking
     chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
-    assert len(chunked_logits) == 2
+    assert len(chunked_logits) == (T + lm_head_chunk_size - 1) // lm_head_chunk_size
     assert chunked_logits[-1].size(1) == 1
 
-    # Apply shift
     chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
     assert chunked_logits[-1].size(1) == 0
 
-
-def test_chunked_cross_entropy_empty_removal_T129():
-    """Test empty chunk removal for T=129, resulting in a single remaining chunk."""
-    B, V = 2, 100
-    lm_head_chunk_size = 128
-    T = 129
-    regular_logits = torch.randn(B, T, V)
-
-    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
-    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]  # Shift to make empty
-
-    # Apply removal
     if chunked_logits[-1].size(1) == 0:
         chunked_logits = chunked_logits[:-1]
-    assert len(chunked_logits) == 1
-
-
-def test_chunked_cross_entropy_loss_computation_T129():
-    """Test loss computation for T=129 after empty chunk removal."""
-    B, V = 2, 100
-    lm_head_chunk_size = 128
-    T = 129
-    regular_logits = torch.randn(B, T, V)
-    targets = torch.randint(0, V, (B, T))
-
-    chunked_logits = list(regular_logits.split(lm_head_chunk_size, dim=1))
-    chunked_logits[-1] = chunked_logits[-1][..., :-1, :]
-    if chunked_logits[-1].size(1) == 0:
-        chunked_logits = chunked_logits[:-1]
-
+    assert len(chunked_logits) == T // lm_head_chunk_size
     shifted_targets = targets[..., 1:]
     loss = chunked_cross_entropy(chunked_logits, shifted_targets, chunk_size=0)
     assert loss.numel() == 1
