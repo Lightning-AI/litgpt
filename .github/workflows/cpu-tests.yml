@@ -3,10 +3,12 @@ name: CPU tests
 on:
   push:
     branches: [main]
-  pull_request_target:
+  # Note: using `pull_request` (not `pull_request_target`) for security reasons.
+  # This means PRs from external forks will NOT have access to secrets (e.g. HF_TOKEN)
+  # and some tests may fail or be skipped on fork PRs until we find a better solution.
+  pull_request:
     branches: [main]
     types: [opened, reopened, ready_for_review, labeled, synchronize]
-  pull_request: {} # todo
   workflow_dispatch: {}
 
 # lock down all permissions by default
@@ -31,12 +33,11 @@ env:
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
-  TORCH_URL: "https://download.pytorch.org/whl/cpu/"
+  UV_TORCH_BACKEND: cpu
 
 jobs:
   testing-imports:
     runs-on: ${{ matrix.os }}
-    if: github.event_name != 'pull_request_target'
     strategy:
       fail-fast: false
       matrix:
@@ -45,15 +46,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout generic
-        uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
+          enable-cache: true
 
       - name: Install minimal dependencies
         run: |
-          pip install . -U --extra-index-url="${TORCH_URL}"
-          pip list
+          uv sync --no-dev
+          uv pip list
 
       - name: Testing package imports
         # make sure all modules are still importable with only the minimal dependencies available
@@ -66,15 +70,10 @@ jobs:
           echo "$modules"
           python -c "$modules"
 
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+
   pytester:
-    # Route PRs based on contributor type to avoid duplicate runs:
-    # - Collaborators: use pull_request (tests workflow changes from PR)
-    # - External forks: use pull_request_target (uses trusted workflow from main)
-    # - Always run for push to main and workflow_dispatch
-    if: |
-      (github.event_name == 'pull_request' && contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
-      (github.event_name == 'pull_request_target' && !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
-      (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -89,22 +88,17 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Checkout generic
-        uses: actions/checkout@v6
-        if: github.event_name != 'pull_request_target'
-      - name: Checkout for `pull_request_target`
-        uses: actions/checkout@v6
-        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-python@v6
-        with:
+          activate-environment: true
           python-version: ${{ matrix.python-version }}
-          cache-dependency-path: pyproject.toml
-          cache: "pip"
+          enable-cache: true
 
       # Add caching for HF models and tokenizers
       - name: HF cache
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         continue-on-error: true
         with:
           path: .cache-HF
@@ -116,13 +110,12 @@ jobs:
 
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
-        run: |
-          pip install 'lightning-utilities[cli]>=0.15.1'
-          python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+        run: uv run --no-project --with 'lightning-utilities[cli]>=0.15.1' python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+
       - name: Install dependencies
         run: |
-          pip install '.[extra,compiler,test]' -U --upgrade-strategy eager --extra-index-url="${TORCH_URL}"
-          pip list
+          uv sync --all-extras
+          uv pip list
 
       - name: Run tests
         env:
@@ -130,16 +123,15 @@ jobs:
         run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
-        run: |
-          pip install -q py-tree
-          python -m py_tree -d 1 .cache-HF
+        run: uvx py-tree -d 1 .cache-HF
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
 
   testing-guardian:
     runs-on: ubuntu-latest
     needs: [pytester, testing-imports]
-    if: |
-      (github.event_name == 'pull_request_target' && !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) ||
-      (github.event_name == 'pull_request' && contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association))
+    if: github.event_name == 'pull_request'
     steps:
       - run: echo "${{ needs.pytester.result }}"
       - name: failing...
