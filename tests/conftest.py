@@ -21,9 +21,13 @@ else:
 
 @pytest.fixture(autouse=True)
 def reclaim_cuda_memory():
-    """Free GPU memory after each test to avoid accumulation across CUDA tests (e.g. the serve suite)."""
+    """Free GPU memory after a test that actually used it, to avoid accumulation across CUDA tests.
+
+    Gated on ``memory_allocated`` (a cheap counter read) so the expensive ``gc.collect`` is skipped
+    for the many CPU-only tests that never touch the GPU.
+    """
     yield
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and torch.cuda.memory_allocated() > 0:
         gc.collect()
         torch.cuda.empty_cache()
 

@@ -253,15 +253,6 @@ def test_serve_with_openai_spec(tmp_path):
     finally:
         if process:
             kill_process_tree(process.pid)
-            # Surface the server's captured output so failures (e.g. a 500) are debuggable in CI.
-            try:
-                stdout, stderr = process.communicate(timeout=10)
-            except (subprocess.TimeoutExpired, ValueError):
-                stdout, stderr = None, None
-            if stdout:
-                print(f"Server stdout:\n{stdout}")
-            if stderr:
-                print(f"Server stderr:\n{stderr}")
         server_thread.join()
 
 
