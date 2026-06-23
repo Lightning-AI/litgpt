@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -58,12 +59,15 @@ def test_tokenizer_against_hf(config, tmp_path):
         pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
 
     # litgpt's Tokenizer infers BOS behavior from the directory name (e.g. `SmolLM2-*-Instruct`,
-    # `Llama-3*`), so expose the files under a model-named dir rather than the HF cache's
+    # `Llama-3*`), so copy the files into a model-named dir rather than pointing at the HF cache's
     # commit-hash snapshot path — otherwise the heuristic misfires and BOS handling diverges.
+    # We copy (not symlink) because CI sets a relative HF_HOME, so the cache path is relative and
+    # symlinks from the test's tmp_path would dangle.
     model_dir = tmp_path / config.hf_config["name"]
     model_dir.mkdir(parents=True, exist_ok=True)
     for file in Path(cache_dir).iterdir():
-        (model_dir / file.name).symlink_to(file)
+        if file.is_file():
+            shutil.copy(file, model_dir / file.name)
 
     ours = Tokenizer(model_dir)
 
