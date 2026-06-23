@@ -24,8 +24,7 @@ jobs:
 
       - name: Install dependencies
         # a newer version of mistune is incompatible with nbconvert
-        # pytest>=9 removed the `path` arg from pytest_collect_file; pytest-check-links still uses it
-        run: uv pip install "mistune<3.1" "pytest<9" pytest-check-links
+        run: uv pip install "mistune<3.1" pytest pytest-check-links
 
       - name: Check links
         run: pytest --check-links README.md tutorials --check-links-ignore "http*"

@@ -120,8 +120,7 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        # TODO: temporary — scoped to tokenizer tests for faster iteration; restore full suite before merge.
-        run: pytest -sv -rs tests/test_tokenizer.py --timeout=180 --durations=100
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
 
       - name: Show cache
         run: uvx py-tree -d 1 .cache-HF

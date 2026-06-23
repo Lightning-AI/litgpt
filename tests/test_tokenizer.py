@@ -46,10 +46,9 @@ def test_tokenizer_against_hf(config, tmp_path):
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
 
     try:
-        # Fetch tokenizer/config files only (no weights) into the default HF cache, so retries
-        # and CI cache reuse the download. `snapshot_download` raises a typed `GatedRepoError`
-        # for gated repos, so we skip cleanly instead of failing — and retrying for minutes —
-        # on fork PRs that have no HF_TOKEN.
+        # Download only tokenizer/config files (no weights). `snapshot_download` raises a typed
+        # `GatedRepoError`, so we skip gated repos cleanly instead of retrying for minutes on
+        # fork PRs that have no HF_TOKEN.
         cache_dir = snapshot_download(repo_id, allow_patterns=list(_TOKENIZER_FILES), token=os.getenv("HF_TOKEN"))
         theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
     except Exception as ex:
@@ -58,11 +57,9 @@ def test_tokenizer_against_hf(config, tmp_path):
             raise
         pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
 
-    # litgpt's Tokenizer infers BOS behavior from the directory name (e.g. `SmolLM2-*-Instruct`,
-    # `Llama-3*`), so copy the files into a model-named dir rather than pointing at the HF cache's
-    # commit-hash snapshot path — otherwise the heuristic misfires and BOS handling diverges.
-    # We copy (not symlink) because CI sets a relative HF_HOME, so the cache path is relative and
-    # symlinks from the test's tmp_path would dangle.
+    # litgpt's Tokenizer infers BOS from the directory name (e.g. `SmolLM2-*-Instruct`, `Llama-3*`),
+    # so copy the files into a model-named dir, not the cache's commit-hash snapshot path.
+    # Copy, not symlink: CI's relative HF_HOME makes the cache path relative, so symlinks would dangle.
     model_dir = tmp_path / config.hf_config["name"]
     model_dir.mkdir(parents=True, exist_ok=True)
     for file in Path(cache_dir).iterdir():
