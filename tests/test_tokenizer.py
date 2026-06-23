@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -38,7 +39,7 @@ def _is_hf_skip_error(ex: Exception) -> bool:
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
 @pytest.mark.flaky(reruns=3, reruns_delay=120)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
-def test_tokenizer_against_hf(config):
+def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
@@ -48,13 +49,21 @@ def test_tokenizer_against_hf(config):
         # and CI cache reuse the download. `snapshot_download` raises a typed `GatedRepoError`
         # for gated repos, so we skip cleanly instead of failing — and retrying for minutes —
         # on fork PRs that have no HF_TOKEN.
-        model_dir = snapshot_download(repo_id, allow_patterns=list(_TOKENIZER_FILES), token=os.getenv("HF_TOKEN"))
+        cache_dir = snapshot_download(repo_id, allow_patterns=list(_TOKENIZER_FILES), token=os.getenv("HF_TOKEN"))
         theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
     except Exception as ex:
         # TODO: Resolve with Lightning Registry model for gated HF tokenizer tests.
         if not _is_hf_skip_error(ex):
             raise
         pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
+
+    # litgpt's Tokenizer infers BOS behavior from the directory name (e.g. `SmolLM2-*-Instruct`,
+    # `Llama-3*`), so expose the files under a model-named dir rather than the HF cache's
+    # commit-hash snapshot path — otherwise the heuristic misfires and BOS handling diverges.
+    model_dir = tmp_path / config.hf_config["name"]
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for file in Path(cache_dir).iterdir():
+        (model_dir / file.name).symlink_to(file)
 
     ours = Tokenizer(model_dir)
 
