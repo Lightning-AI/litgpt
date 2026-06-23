@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import gc
 import os
 import shutil
 import sys
@@ -16,6 +17,15 @@ else:
     import warnings
 
     warnings.warn(f"Could not find extensions directory at {wd}")
+
+
+@pytest.fixture(autouse=True)
+def reclaim_cuda_memory():
+    """Free GPU memory after each test to avoid accumulation across CUDA tests (e.g. the serve suite)."""
+    yield
+    if torch.cuda.is_available():
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 @pytest.fixture()

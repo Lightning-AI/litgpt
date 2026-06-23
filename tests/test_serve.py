@@ -253,6 +253,15 @@ def test_serve_with_openai_spec(tmp_path):
     finally:
         if process:
             kill_process_tree(process.pid)
+            # Surface the server's captured output so failures (e.g. a 500) are debuggable in CI.
+            try:
+                stdout, stderr = process.communicate(timeout=10)
+            except (subprocess.TimeoutExpired, ValueError):
+                stdout, stderr = None, None
+            if stdout:
+                print(f"Server stdout:\n{stdout}")
+            if stderr:
+                print(f"Server stderr:\n{stderr}")
         server_thread.join()
 
 
@@ -278,6 +287,8 @@ def test_serve_with_generate_strategy(tmp_path, generate_strategy):
 
     # Test with generate strategy
     run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", generate_strategy]
+    if generate_strategy == "tensor_parallel":
+        run_command += ["--devices", "2"]
 
     process = None
 
