@@ -120,7 +120,10 @@ jobs:
       - name: Run tests
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
+        # TEMP: scoped to test_tokenizer.py only to iterate on the fixture fallback in CI.
+        # `-rs` prints skip reasons; `-s` surfaces the [fixtures] resolution markers.
+        # Revert to `pytest -v litgpt/ tests/ --timeout=180 --durations=100` before merging.
+        run: pytest -sv -rs tests/test_tokenizer.py --timeout=180 --durations=100
 
       - name: Show cache
         run: uvx py-tree -d 1 .cache-HF

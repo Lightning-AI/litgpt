@@ -24,3 +24,6 @@ events.out.tfevents*
 **/custom_finetuning_dataset.json
 client.py
 **/custom_texts/
+
+# staging dir for tests/publish_fixtures.py
+litgpt-ci-fixtures/
