@@ -55,7 +55,7 @@ run: |
 
   if [ "${dependency}" == "" ]; then
     # Run the tokenizer tests (CPU-only, so excluded above) with the registry fallback for gated repos.
-    RUN_ONLY_CUDA_TESTS=0 LITGPT_TOKENIZER_REGISTRY_FALLBACK=1 pytest tests/test_tokenizer.py -v
+    RUN_ONLY_CUDA_TESTS=0 LITGPT_TOKENIZER_REGISTRY_FALLBACK=1 pytest tests/test_tokenizer.py -v -s -rs
   fi
 
   wget https://raw.githubusercontent.com/Lightning-AI/utilities/main/scripts/run_standalone_tests.sh

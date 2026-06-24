@@ -51,14 +51,18 @@ def _download_gated_tokenizer_mirror(repo_id: str, dest: Path) -> Path | None:
         return None
     try:
         from litmodels import download_model
-    except ImportError:
+    except ImportError as ex:
+        print(f"[registry-fallback] {repo_id}: litmodels not available: {ex!r}")
         return None
     slug = repo_id.lower().replace("/", "--").replace(".", "-")
     name = f"{_TOKENIZER_REGISTRY_TEAMSPACE}/{slug}-tokenizer"
+    print(f"[registry-fallback] {repo_id}: trying mirror {name}")
     try:
-        download_model(name, download_dir=str(dest), progress_bar=False)
-    except Exception:
+        files = download_model(name, download_dir=str(dest), progress_bar=False)
+    except Exception as ex:
+        print(f"[registry-fallback] {repo_id}: mirror download failed: {ex!r}")
         return None
+    print(f"[registry-fallback] {repo_id}: downloaded {files}")
     return dest
 
 
