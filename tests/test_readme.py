@@ -76,7 +76,13 @@ def test_download_books():
         ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt"),
     ]
     for url, filename in books:
-        subprocess.run(["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename)], check=True)
+        dest = CUSTOM_TEXTS_DIR / filename
+        if dest.exists():
+            continue
+        subprocess.run(
+            ["curl", url, "--output", str(dest), "--retry", "2", "--retry-delay", "10", "--connect-timeout", "30", "--max-time", "120"],
+            check=True,
+        )
         # Verify each book is downloaded
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
