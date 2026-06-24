@@ -10,7 +10,7 @@ name = "litgpt"
 version = "0.5.12"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = { file = "LICENSE.md" }
 authors = [
   { name = "Lightning AI", email = "contact@lightning.ai" },
 ]
@@ -87,7 +87,7 @@ scripts.litgpt = "litgpt.__main__:main"
 
 [tool.setuptools]
 package-data.litgpt = [
-  "LICENSE",
+  "LICENSE.md",
   "README.md",
 ]
 packages.find.include = [
