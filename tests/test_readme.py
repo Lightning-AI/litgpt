@@ -71,9 +71,11 @@ def test_download_model():
 def test_download_books():
     CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Use the gutenberg.pglaf.org mirror: www.gutenberg.org blocks datacenter/CI IPs,
+    # so curl times out (exit 28) on GitHub runners. The mirror serves the same paths.
     books = [
-        ("https://www.gutenberg.org/cache/epub/24440/pg24440.txt", "book1.txt"),
-        ("https://www.gutenberg.org/cache/epub/26393/pg26393.txt", "book2.txt"),
+        ("https://gutenberg.pglaf.org/cache/epub/24440/pg24440.txt", "book1.txt"),
+        ("https://gutenberg.pglaf.org/cache/epub/26393/pg26393.txt", "book2.txt"),
     ]
     for url, filename in books:
         dest = CUSTOM_TEXTS_DIR / filename
