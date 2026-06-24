@@ -78,7 +78,20 @@ def test_download_books():
     ]
     for url, filename in books:
         subprocess.run(
-            ["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename), "--retry", "2", "--retry-delay", "10", "--connect-timeout", "30", "--max-time", "120"],
+            [
+                "curl",
+                url,
+                "--output",
+                str(CUSTOM_TEXTS_DIR / filename),
+                "--retry",
+                "2",
+                "--retry-delay",
+                "10",
+                "--connect-timeout",
+                "30",
+                "--max-time",
+                "120",
+            ],
             check=True,
         )
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
