@@ -71,34 +71,16 @@ def test_download_model():
 def test_download_books():
     CUSTOM_TEXTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Use the gutenberg.pglaf.org mirror: www.gutenberg.org blocks datacenter/CI IPs,
-    # so curl times out (exit 28) on GitHub runners. The mirror serves the same paths.
+    # gutenberg.pglaf.org is the official high-speed US mirror (see gutenberg.org/MIRRORS.ALL)
     books = [
         ("https://gutenberg.pglaf.org/cache/epub/24440/pg24440.txt", "book1.txt"),
         ("https://gutenberg.pglaf.org/cache/epub/26393/pg26393.txt", "book2.txt"),
     ]
     for url, filename in books:
-        dest = CUSTOM_TEXTS_DIR / filename
-        if dest.exists():
-            continue
         subprocess.run(
-            [
-                "curl",
-                url,
-                "--output",
-                str(dest),
-                "--retry",
-                "2",
-                "--retry-delay",
-                "10",
-                "--connect-timeout",
-                "30",
-                "--max-time",
-                "120",
-            ],
+            ["curl", url, "--output", str(CUSTOM_TEXTS_DIR / filename), "--retry", "2", "--retry-delay", "10", "--connect-timeout", "30", "--max-time", "120"],
             check=True,
         )
-        # Verify each book is downloaded
         assert (CUSTOM_TEXTS_DIR / filename).exists(), f"{filename} not downloaded"
 
 

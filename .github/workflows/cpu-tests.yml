@@ -108,13 +108,6 @@ jobs:
             hf-cache_${{ runner.os }}-
             hf-cache_
 
-      - name: Gutenberg books cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        continue-on-error: true
-        with:
-          path: custom_texts
-          key: gutenberg-books
-
       - name: Set min. dependencies
         if: matrix.requires == 'oldest'
         run: uv run --no-project --with 'lightning-utilities[cli]>=0.15.1' python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
