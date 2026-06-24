@@ -80,7 +80,20 @@ def test_download_books():
         if dest.exists():
             continue
         subprocess.run(
-            ["curl", url, "--output", str(dest), "--retry", "2", "--retry-delay", "10", "--connect-timeout", "30", "--max-time", "120"],
+            [
+                "curl",
+                url,
+                "--output",
+                str(dest),
+                "--retry",
+                "2",
+                "--retry-delay",
+                "10",
+                "--connect-timeout",
+                "30",
+                "--max-time",
+                "120",
+            ],
             check=True,
         )
         # Verify each book is downloaded
