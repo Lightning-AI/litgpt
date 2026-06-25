@@ -2,19 +2,20 @@
 
 # These owners will be the default owners for everything in the repo. Unless a later match takes precedence,
 # @global-owner1 and @global-owner2 will be requested for review when someone opens a pull request.
-* @lianakoleva @KaelanDt @k223kim @andyland @t-vi
+* @lianakoleva @k223kim @andyland @t-vi
 
 # Core source
-/litgpt/                             @lianakoleva @KaelanDt @k223kim @andyland
+/litgpt/                             @lianakoleva @k223kim @andyland
 
 # CI/CD and configs
-/.github/                            @lianakoleva @KaelanDt @k223kim
-*.yml                                @lianakoleva @KaelanDt @k223kim
+/.github/                            @lianakoleva @k223kim
+*.yml                                @lianakoleva @k223kim
 
 # Docs
-/README.md                           @williamfalcon @lantiga @lianakoleva
+/README.md                           @williamfalcon @lianakoleva
 
 # Retired committers
-#   @rasbt    (Sebastian Raschka)
+#   @lantiga    (Luca Antiga)
+#   @rasbt      (Sebastian Raschka)
 #   @awaelchli  (Adrian Wälchli)
-#   @borda    (Jirka Borovec)
+#   @borda      (Jirka Borovec)
