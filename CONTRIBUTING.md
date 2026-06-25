@@ -14,13 +14,24 @@ We welcome all contributions, regardless of your level of experience or hardware
 ```bash
 git clone https://github.com/<your-username>/litgpt
 cd litgpt
+```
+
+Install the package in editable mode with pip:
+
+```bash
 pip install -e ".[extra,test]"
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync --extra extra --extra test
 ```
 
 Install pre-commit hooks to catch style issues before pushing:
 
 ```bash
-pip install pre-commit
+pip install pre-commit  # or: uv tool install pre-commit
 pre-commit install
 ```
 
