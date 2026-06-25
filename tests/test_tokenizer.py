@@ -37,6 +37,35 @@ def _is_hf_skip_error(ex: Exception) -> bool:
     return status in (401, 403, 429)
 
 
+# Teamspace holding the tokenizer mirrors. The mirror name is derived from the HF repo id.
+_TOKENIZER_REGISTRY_TEAMSPACE = "lightning-ai/oss-litgpt"
+
+
+def _download_gated_tokenizer_mirror(repo_id: str, dest: Path) -> Path | None:
+    """Download a gated repo's tokenizer files from the Lightning Model Registry mirror.
+
+    Returns the download directory, or ``None`` if the fallback is disabled or the mirror is
+    unavailable. Enabled with ``LITGPT_TOKENIZER_REGISTRY_FALLBACK=1``.
+    """
+    if os.getenv("LITGPT_TOKENIZER_REGISTRY_FALLBACK", "0") != "1":
+        return None
+    try:
+        from litmodels import download_model
+    except ImportError as ex:
+        print(f"[registry-fallback] {repo_id}: litmodels not available: {ex!r}")
+        return None
+    slug = repo_id.lower().replace("/", "--").replace(".", "-")
+    name = f"{_TOKENIZER_REGISTRY_TEAMSPACE}/{slug}-tokenizer"
+    print(f"[registry-fallback] {repo_id}: trying mirror {name}")
+    try:
+        files = download_model(name, download_dir=str(dest), progress_bar=False)
+    except Exception as ex:
+        print(f"[registry-fallback] {repo_id}: mirror download failed: {ex!r}")
+        return None
+    print(f"[registry-fallback] {repo_id}: downloaded {files}")
+    return dest
+
+
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
 @pytest.mark.flaky(reruns=3, reruns_delay=120)
 @pytest.mark.parametrize("config", config_module.configs, ids=[c["hf_config"]["name"] for c in config_module.configs])
@@ -47,15 +76,19 @@ def test_tokenizer_against_hf(config, tmp_path):
 
     try:
         # Download only tokenizer/config files (no weights). `snapshot_download` raises a typed
-        # `GatedRepoError`, so we skip gated repos cleanly instead of retrying for minutes on
+        # `GatedRepoError`, so we handle gated repos cleanly instead of retrying for minutes on
         # fork PRs that have no HF_TOKEN.
         cache_dir = snapshot_download(repo_id, allow_patterns=list(_TOKENIZER_FILES), token=os.getenv("HF_TOKEN"))
         theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
     except Exception as ex:
-        # TODO: Resolve with Lightning Registry model for gated HF tokenizer tests.
         if not _is_hf_skip_error(ex):
             raise
-        pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
+        # No HF_TOKEN: fall back to the registry mirror and load the tokenizer from local files.
+        # Skip if the fallback is disabled or there is no mirror for this repo.
+        cache_dir = _download_gated_tokenizer_mirror(repo_id, tmp_path / "registry")
+        if cache_dir is None:
+            pytest.skip(f"{repo_id} is gated on Hugging Face and has no registry mirror.")
+        theirs = AutoTokenizer.from_pretrained(cache_dir)
 
     # litgpt's Tokenizer infers BOS from the directory name (e.g. `SmolLM2-*-Instruct`, `Llama-3*`),
     # so copy the files into a model-named dir, not the cache's commit-hash snapshot path.
