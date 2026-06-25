@@ -1,25 +1,20 @@
 # Each line is a file pattern followed by one or more owners.
-# Owners are automatically requested for review when someone opens a pull
-# request that modifies the matching files. For details, see:
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# ----------------------------------------------------------------------------
-# Current project owners
-# ----------------------------------------------------------------------------
-# These owners are the default reviewers for everything in the repository.
-# Unless a later match takes precedence, they are requested for review when
-# someone opens a pull request.
+# These owners will be the default owners for everything in the repo. Unless a later match takes
+# precedence, they will be requested for review when someone opens a pull request.
 * @lantiga @t-vi @lianakoleva @KaelanDt @k223kim @andyland
 
+# Core source
+/litgpt/                             @lantiga @t-vi @lianakoleva @KaelanDt @k223kim @andyland
+
+# CI/CD and configs
+/.github/                            @lantiga @t-vi
+*.yml                                @lantiga @t-vi
+
+# Docs
 /README.md                           @williamfalcon @lantiga @lianakoleva
 
-# ----------------------------------------------------------------------------
 # Retired committers
-# ----------------------------------------------------------------------------
-# Past maintainers who made significant contributions to the project and are
-# no longer active. Kept here for historical credit only; they are intentionally
-# not assigned as code owners above so they are not requested for review.
-#   @carmocca      (Carlos Mocholí)
-#   @awaelchli     (Adrian Wälchli)
-#   @apaz-cli      (apaz)
-#   @JustinGoheen  (Justin Goheen)
+#   @rasbt    (Sebastian Raschka)
+#   @awaelchli  (Adrian Wälchli)
+#   @borda    (Jirka Borovec)
