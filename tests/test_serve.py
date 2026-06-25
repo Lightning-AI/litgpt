@@ -278,6 +278,8 @@ def test_serve_with_generate_strategy(tmp_path, generate_strategy):
 
     # Test with generate strategy
     run_command = ["litgpt", "serve", tmp_path, "--generate_strategy", generate_strategy]
+    if generate_strategy == "tensor_parallel":
+        run_command += ["--devices", "2"]
 
     process = None
 

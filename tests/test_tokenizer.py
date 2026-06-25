@@ -1,18 +1,40 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
 import shutil
-import warnings
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from huggingface_hub import snapshot_download
+from huggingface_hub.errors import GatedRepoError
 from tokenizers import Tokenizer as HFTokenizer
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
-from transformers.utils import cached_file
 
 import litgpt.config as config_module
 from litgpt import PromptStyle, Tokenizer
+
+# Tokenizer/config assets only — never weights, so `*.safetensors`/`*.bin` are skipped.
+_TOKENIZER_FILES = (
+    "tokenizer.json",
+    "tokenizer.model",
+    "tokenizer_config.json",
+    "generation_config.json",
+    "special_tokens_map.json",
+)
+
+
+def _is_hf_skip_error(ex: Exception) -> bool:
+    """Returns True for errors that should skip the test rather than fail it.
+
+    Covers gated repos (401/403) and anonymous rate-limits (429) that occur when
+    fork PRs have no HF_TOKEN and multiple CI jobs download concurrently.
+    """
+    if isinstance(ex, GatedRepoError):
+        return True
+    status = getattr(getattr(ex, "response", None), "status_code", None)
+    return status in (401, 403, 429)
 
 
 # @pytest.mark.flaky(reruns=3, rerun_except=["AssertionError", "assert", "TypeError"])
@@ -22,28 +44,27 @@ def test_tokenizer_against_hf(config, tmp_path):
     config = config_module.Config(**config)
 
     repo_id = f"{config.hf_config['org']}/{config.hf_config['name']}"
-    theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
 
-    # create a checkpoint directory that points to the HF files
-    hf_files = {}
-    for filename in ("tokenizer.json", "generation_config.json", "tokenizer.model", "tokenizer_config.json"):
-        try:  # download the HF tokenizer config
-            hf_file = cached_file(path_or_repo_id=repo_id, filename=filename)
-            hf_files[filename] = str(hf_file)
-        except Exception as ex:
-            warnings.warn(str(ex), RuntimeWarning)
-    if "tokenizer.json" not in hf_files and "tokenizer.model" not in hf_files:
-        raise ConnectionError("Unable to download any tokenizer files from HF")
+    try:
+        # Download only tokenizer/config files (no weights). `snapshot_download` raises a typed
+        # `GatedRepoError`, so we skip gated repos cleanly instead of retrying for minutes on
+        # fork PRs that have no HF_TOKEN.
+        cache_dir = snapshot_download(repo_id, allow_patterns=list(_TOKENIZER_FILES), token=os.getenv("HF_TOKEN"))
+        theirs = AutoTokenizer.from_pretrained(repo_id, token=os.getenv("HF_TOKEN"))
+    except Exception as ex:
+        # TODO: Resolve with Lightning Registry model for gated HF tokenizer tests.
+        if not _is_hf_skip_error(ex):
+            raise
+        pytest.skip(f"{repo_id} is gated on Hugging Face and cannot be loaded without HF_TOKEN.")
 
-    # Create a clean, model-specific subdirectory for this test run.
-    # This avoids errors if previous runs or retries left files behind, ensuring the directory is always ready for fresh downloads and comparisons.
+    # litgpt's Tokenizer infers BOS from the directory name (e.g. `SmolLM2-*-Instruct`, `Llama-3*`),
+    # so copy the files into a model-named dir, not the cache's commit-hash snapshot path.
+    # Copy, not symlink: CI's relative HF_HOME makes the cache path relative, so symlinks would dangle.
     model_dir = tmp_path / config.hf_config["name"]
-    if model_dir.exists():
-        shutil.rmtree(model_dir)
-    os.makedirs(model_dir, exist_ok=True)
-
-    for filename, hf_file in hf_files.items():
-        shutil.copy(hf_file, model_dir / filename)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    for file in Path(cache_dir).iterdir():
+        if file.is_file():
+            shutil.copy(file, model_dir / file.name)
 
     ours = Tokenizer(model_dir)
 
