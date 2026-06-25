@@ -1,15 +1,15 @@
 # Each line is a file pattern followed by one or more owners.
 
-# These owners will be the default owners for everything in the repo. Unless a later match takes
-# precedence, they will be requested for review when someone opens a pull request.
-* @lantiga @t-vi @lianakoleva @KaelanDt @k223kim @andyland
+# These owners will be the default owners for everything in the repo. Unless a later match takes precedence,
+# @global-owner1 and @global-owner2 will be requested for review when someone opens a pull request.
+* @lianakoleva @KaelanDt @k223kim @andyland @t-vi
 
 # Core source
-/litgpt/                             @lantiga @t-vi @lianakoleva @KaelanDt @k223kim @andyland
+/litgpt/                             @lianakoleva @KaelanDt @k223kim @andyland
 
 # CI/CD and configs
-/.github/                            @lantiga @t-vi
-*.yml                                @lantiga @t-vi
+/.github/                            @lianakoleva @KaelanDt @k223kim
+*.yml                                @lianakoleva @KaelanDt @k223kim
 
 # Docs
 /README.md                           @williamfalcon @lantiga @lianakoleva
