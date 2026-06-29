@@ -545,23 +545,15 @@ Sometimes, it can be useful to convert LitGPT model weights for third-party and 
 litgpt convert_from_litgpt microsoft/phi-2 out/converted_model/
 ```
 
-Certain tools like the `.from_pretrained` method in Hugging Face `transformers` also require the original `config.json` file that originally came with the downloaded model:
+This saves the weights as a `pytorch_model.bin` file and copies the configuration and tokenizer files (such as the `config.json` that originally came with the downloaded model) into the output directory.
 
-```bash
-cp checkpoints/microsoft/phi-2/config.json out/converted_model/config.json
-```
+You can now load the model into a Hugging Face transformers model and save it in a `.safetensors` format as follows:
 
-You can now load the model into a Hugging Face transformers model and safe it in a `.safetensors` format as follows:
-
-```bash
-import torch
+```python
 from transformers import AutoModel
 
 # Load model
-state_dict = torch.load('out/converted_model/model.pth')
-model = AutoModel.from_pretrained(
-    "microsoft/phi-2", state_dict=state_dict
-)
+model = AutoModel.from_pretrained("out/converted_model/", local_files_only=True)
 
 # Save .safetensors files
 model.save_pretrained("out/converted_model/")
@@ -574,21 +566,13 @@ total 16G
 -rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:08 model-00001-of-00003.safetensors
 -rw-r--r-- 1 sebastian sebastian 4.7G Mar 20 17:09 model-00002-of-00003.safetensors
 -rw-r--r-- 1 sebastian sebastian 601M Mar 20 17:09 model-00003-of-00003.safetensors
--rw-r--r-- 1 sebastian sebastian 5.2G Mar 20 16:30 model.pth
+-rw-r--r-- 1 sebastian sebastian 5.2G Mar 20 16:30 pytorch_model.bin
 -rw-r--r-- 1 sebastian sebastian  33K Mar 20 17:09 model.safetensors.index.json
 ```
 
 You can then use the model with external tools, for example, Eleuther AI's [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness) (see the `lm_eval` installation instructions [here](https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#install)).
 
-The LM Evaluation Harness requires a tokenizer to be present in the model checkpoint folder, which we can copy from the original download checkpoint:
-
-```bash
-# Copy the tokenizer needed by the Eval Harness
-cp checkpoints/microsoft/phi-2/tokenizer*
-out/converted_model
-```
-
-Then, we can run the Evaluation Harness as follows:
+For example, we can run the Evaluation Harness as follows:
 
 ```bash
 lm_eval --model hf \
