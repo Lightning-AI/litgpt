@@ -73,7 +73,7 @@ class Tokenizer:
         self.apply_decoding_fix = None
         if (config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             with open(config_path, encoding="utf-8") as fp:
-                self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+                self.apply_decoding_fix = "LlamaTokenizer" in (json.load(fp).get("tokenizer_class") or "")
 
     @property
     def vocab_size(self) -> int:
