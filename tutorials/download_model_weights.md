@@ -10,6 +10,7 @@ LitGPT supports a variety of LLM architectures with publicly available weights. 
 | CodeGemma | 7B | Google | [Google Team, Google Deepmind](https://ai.google.dev/gemma/docs/codegemma)                                                                 |
 | Code Llama | 7B, 13B, 34B, 70B | Meta AI | [Rozière et al. 2023](https://arxiv.org/abs/2308.12950)                                                                   |
 | Danube2 | 1.8B | H2O.ai | [H2O.ai](https://h2o.ai/platform/danube-1-8b/)                                                                                             |
+| DeepSeek-V3 | 671B | DeepSeek AI | [DeepSeek AI 2024](https://huggingface.co/deepseek-ai/DeepSeek-V3)                                                                   |
 | Dolly | 3B, 7B, 12B | Databricks | [Conover et al. 2023](https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm)      |
 | Falcon | 7B, 40B, 180B | TII UAE | [TII 2023](https://falconllm.tii.ae)                                                                                              |
 | Falcon 3 | 1B, 3B, 7B, 10B | TII UAE | [TII 2024](https://huggingface.co/blog/falcon3)                                                                                              |
@@ -99,6 +100,7 @@ databricks/dolly-v2-3b
 databricks/dolly-v2-7b
 deepseek-ai/DeepSeek-R1-Distill-Llama-8B
 deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+deepseek-ai/DeepSeek-V3
 EleutherAI/pythia-1.4b
 EleutherAI/pythia-1.4b-deduped
 EleutherAI/pythia-12b
