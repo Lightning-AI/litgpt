@@ -40,12 +40,6 @@ optional-dependencies.compiler = [
   # compilaton:
   "lightning-thunder>=0.2.dev20250119; python_version>='3.10' and sys_platform=='linux'",
 ]
-optional-dependencies.torchembed = [
-  # Fused Triton RoPE kernel (use_torchembed_rope=True in Config).
-  # Requires a CUDA GPU and the triton package. Provides ~3-4x speedup over
-  # the standard PyTorch RoPE implementation during training.
-  "torchembed>=0.3.1",
-]
 optional-dependencies.extra = [
   "bitsandbytes>=0.42,<0.43; sys_platform=='darwin'",
   # quantization:
@@ -86,6 +80,12 @@ optional-dependencies.test = [
   "pytest-dependency>=0.6",
   "pytest-rerunfailures>=14",
   "pytest-timeout>=2.3.1",
+]
+optional-dependencies.torchembed = [
+  # Fused Triton RoPE kernel (use_torchembed_rope=True in Config).
+  # Requires a CUDA GPU and the triton package. Provides ~3-4x speedup over
+  # the standard PyTorch RoPE implementation during training.
+  "torchembed>=0.3.1",
 ]
 urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
