@@ -665,19 +665,19 @@ def copy_weights_olmoe(
     LitGPT's attn.norm_q / attn.norm_k.
     """
     weight_map = {
-        "model.embed_tokens.weight":                       "transformer.wte.weight",
-        "model.layers.{}.input_layernorm.weight":          "transformer.h.{}.norm_1.weight",
-        "model.layers.{}.self_attn.q_proj.weight":         None,   # merged into qkv below
-        "model.layers.{}.self_attn.k_proj.weight":         None,
-        "model.layers.{}.self_attn.v_proj.weight":         None,
-        "model.layers.{}.self_attn.q_norm.weight":         "transformer.h.{}.attn.norm_q.weight",
-        "model.layers.{}.self_attn.k_norm.weight":         "transformer.h.{}.attn.norm_k.weight",
-        "model.layers.{}.self_attn.o_proj.weight":         "transformer.h.{}.attn.proj.weight",
-        "model.layers.{}.self_attn.rotary_emb.inv_freq":   None,
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,  # merged into qkv below
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.norm_q.weight",
+        "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
         "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
-        "model.layers.{}.mlp.gate.weight":                 "transformer.h.{}.mlp.gate.weight",
-        "model.norm.weight":                               "transformer.ln_f.weight",
-        "lm_head.weight":                                  "lm_head.weight",
+        "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
     }
 
     if progress_per_file is not None:

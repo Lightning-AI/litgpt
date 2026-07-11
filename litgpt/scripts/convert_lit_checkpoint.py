@@ -467,7 +467,7 @@ def copy_weights_olmoe(
         "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
         "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
         "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
-        "transformer.h.{}.mlp.gate.weight":   "model.layers.{}.mlp.gate.weight",
+        "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
         "transformer.h.{}.attn.norm_q.weight": "model.layers.{}.self_attn.q_norm.weight",
         "transformer.h.{}.attn.norm_k.weight": "model.layers.{}.self_attn.k_norm.weight",
         # expert weights — num_matches=2 to capture layer_idx AND expert_idx
@@ -491,11 +491,13 @@ def copy_weights_olmoe(
                 f"model.layers.{layer_idx}.self_attn.k_proj.weight",
                 f"model.layers.{layer_idx}.self_attn.v_proj.weight",
             )
-            params = param.split((
-                config.n_head * config.head_size,
-                config.n_query_groups * config.head_size,
-                config.n_query_groups * config.head_size,
-            ))
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
         else:
             to_name = weight_map.get(name_template)
             if to_name is None:

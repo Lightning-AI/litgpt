@@ -28,9 +28,9 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mistral import MistralConfig, MistralForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
-from transformers.models.olmoe import OlmoeConfig, OlmoeForCausalLM 
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 from transformers.models.olmo2 import Olmo2Config, Olmo2ForCausalLM
+from transformers.models.olmoe import OlmoeConfig, OlmoeForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
 from transformers.models.qwen3 import Qwen3Config, Qwen3ForCausalLM
 from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
@@ -45,10 +45,10 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_gpt_neox,
     copy_weights_hf_llama,
     copy_weights_olmo2,
+    copy_weights_olmoe,
     copy_weights_phi,
     copy_weights_qwen_2_5,
     copy_weights_qwen_3,
-    copy_weights_olmoe,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
@@ -715,8 +715,8 @@ def test_against_hf_olmoe():
         n_embd=32,
         n_head=8,
         n_query_groups=4,
-        intermediate_size=32,    # dense fallback (not used in MoE blocks)
-        moe_intermediate_size=16, # per-expert hidden dim
+        intermediate_size=32,  # dense fallback (not used in MoE blocks)
+        moe_intermediate_size=16,  # per-expert hidden dim
         n_expert=4,
         n_expert_per_token=2,
     )
@@ -752,6 +752,7 @@ def test_against_hf_olmoe():
     ours_y = ours_model(x)
     theirs_y = theirs_model(x)["logits"].to(dtype)
     torch.testing.assert_close(ours_y, theirs_y)
+
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
