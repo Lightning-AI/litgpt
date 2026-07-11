@@ -1064,6 +1064,44 @@ for c in olmo2:
         copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
         configs.append(copy)
 
+####################
+# Allen AI OLMoE
+####################
+olmoe = [
+    # https://huggingface.co/allenai/OLMoE-1B-7B-0924/blob/main/config.json
+    dict(
+        name="OLMoE-1B-7B-0924{}",
+        hf_config=dict(org="allenai", name="OLMoE-1B-7B-0924{}"),
+        block_size=4096,
+        vocab_size=50304,
+        padded_vocab_size=50304,
+        n_layer=16,
+        n_head=16,
+        n_embd=2048,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        norm_eps=1e-5,
+        mlp_class_name="LLaMAMoE",
+        intermediate_size=2048,        # dense fallback (required by Config.__post_init__)
+        moe_intermediate_size=1024,    # per-expert hidden dim
+        rope_base=10000,
+        n_expert=64,
+        n_expert_per_token=8,
+        norm_topk_prob=False,
+        norm_qk=True,
+        norm_qk_type="olmo2",
+    ),
+]
+for c in olmoe:
+    for kind in ("", "-Instruct", "-SFT"):
+        copy = deepcopy(c)
+        copy["name"] = c["name"].format(kind)
+        copy["hf_config"]["name"] = c["hf_config"]["name"].format(kind)
+        configs.append(copy)
+
 ###############
 # Google Gemma
 ###############
@@ -2022,6 +2060,7 @@ mistral = [
         rope_base=1000000,
         n_expert=8,
         n_expert_per_token=2,
+        norm_topk_prob=True,
     ),
     # https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1/blob/main/config.json
     dict(
@@ -2043,6 +2082,7 @@ mistral = [
         rope_base=1000000,
         n_expert=8,
         n_expert_per_token=2,
+        norm_topk_prob=True,
     ),
 ]
 for c in mistral:
@@ -2880,6 +2920,7 @@ qwen_3_moe = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
+        norm_topk_prob=True,
     ),
     # https://huggingface.co/Qwen/Qwen3-30B-A3B-Base/blob/main/config.json
     dict(
@@ -2905,6 +2946,7 @@ qwen_3_moe = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
+        norm_topk_prob=True,
     ),
     # https://huggingface.co/Qwen/Qwen3-235B-A22B/blob/main/config.json
     dict(
@@ -2930,6 +2972,7 @@ qwen_3_moe = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
+        norm_topk_prob=True,
     ),
 ]
 configs.extend(qwen_3_moe)
@@ -2959,6 +3002,7 @@ qwen_3_2507_thinking_instruct = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
+        norm_topk_prob=True,
     ),
     # https://huggingface.co/Qwen/Qwen3-30B-A3B-Thinking-2507/blob/main/config.json
     dict(
@@ -2984,6 +3028,7 @@ qwen_3_2507_thinking_instruct = [
         norm_qk=True,
         n_expert=128,
         n_expert_per_token=8,
+        norm_topk_prob=True,
     ),
     # https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507/blob/main/config.json
     dict(

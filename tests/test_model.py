@@ -28,6 +28,7 @@ from transformers.models.gpt_neox import GPTNeoXConfig, GPTNeoXForCausalLM
 from transformers.models.llama import LlamaConfig, LlamaForCausalLM
 from transformers.models.mistral import MistralConfig, MistralForCausalLM
 from transformers.models.mixtral import MixtralConfig, MixtralForCausalLM
+from transformers.models.olmoe import OlmoeConfig, OlmoeForCausalLM 
 from transformers.models.olmo import OlmoConfig, OlmoForCausalLM
 from transformers.models.olmo2 import Olmo2Config, Olmo2ForCausalLM
 from transformers.models.qwen2 import Qwen2Config, Qwen2ForCausalLM
@@ -47,6 +48,7 @@ from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_phi,
     copy_weights_qwen_2_5,
     copy_weights_qwen_3,
+    copy_weights_olmoe,
 )
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
@@ -696,6 +698,60 @@ def test_against_olmo2(model_name, device, dtype):
     theirs_y = theirs_model(x)["logits"].to(dtype)  # HF converts logits to float
     torch.testing.assert_close(ours_y, theirs_y)
 
+
+@torch.inference_mode()
+def test_against_hf_olmoe():
+    """End-to-end numerical equivalence test: HF OLMoE → LitGPT → same logits."""
+    device = torch.device("cpu")
+    dtype = torch.float32
+
+    # Use a tiny version of the real OLMoE-1B-7B-0924 config so it runs fast.
+    # n_expert is shrunk to 4 (real model has 64) for speed; everything else
+    # matches the actual architecture (GQA 16/8, RMSNorm, SwiGLU MoE).
+    ours_config = Config.from_name(
+        "OLMoE-1B-7B-0924",
+        padded_vocab_size=10000,
+        n_layer=2,
+        n_embd=32,
+        n_head=8,
+        n_query_groups=4,
+        intermediate_size=32,    # dense fallback (not used in MoE blocks)
+        moe_intermediate_size=16, # per-expert hidden dim
+        n_expert=4,
+        n_expert_per_token=2,
+    )
+    T = 5
+
+    theirs_config = OlmoeConfig(
+        vocab_size=ours_config.padded_vocab_size,
+        hidden_size=ours_config.n_embd,
+        num_hidden_layers=ours_config.n_layer,
+        num_attention_heads=ours_config.n_head,
+        num_key_value_heads=ours_config.n_query_groups,
+        intermediate_size=ours_config.moe_intermediate_size,
+        max_position_embeddings=T,
+        rms_norm_eps=ours_config.norm_eps,
+        rope_theta=ours_config.rope_base,
+        num_experts=ours_config.n_expert,
+        num_experts_per_tok=ours_config.n_expert_per_token,
+        attention_bias=ours_config.bias,
+    )
+
+    theirs_model = OlmoeForCausalLM(theirs_config).to(device)
+    theirs_state_dict = theirs_model.state_dict()
+
+    state_dict = {}
+    copy_weights_olmoe(ours_config, {}, state_dict, theirs_state_dict)
+
+    ours_model = GPT(ours_config).to(device)
+    keys = ours_model.load_state_dict(state_dict, strict=False)
+    assert not keys.unexpected_keys
+
+    x = torch.tensor([[9856, 23, 491, 1536, 304], [23, 345, 65, 123, 321]], dtype=torch.int32, device=device)
+    assert x.size(1) == T
+    ours_y = ours_model(x)
+    theirs_y = theirs_model(x)["logits"].to(dtype)
+    torch.testing.assert_close(ours_y, theirs_y)
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
