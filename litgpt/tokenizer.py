@@ -68,12 +68,14 @@ class Tokenizer:
             raise NotImplementedError
 
         # NOTE: A temporary fix until it's resolved on Tokenizers side.
-        # LlaMA tokenizer strips leading spaces if to decode a single token at a time.
+        # LLaMA and Mistral tokenizers strip leading spaces when decoding a single token at a time,
+        # because both are backed by SentencePiece which encodes word boundaries with a prefix space (▁).
         # https://github.com/huggingface/transformers/issues/31643
         self.apply_decoding_fix = None
         if (config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             with open(config_path, encoding="utf-8") as fp:
-                self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+                tokenizer_class = json.load(fp).get("tokenizer_class", "")
+                self.apply_decoding_fix = "LlamaTokenizer" in tokenizer_class or "MistralTokenizer" in tokenizer_class
 
     @property
     def vocab_size(self) -> int:
