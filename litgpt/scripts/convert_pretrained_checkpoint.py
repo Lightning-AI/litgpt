@@ -37,7 +37,7 @@ def convert_pretrained_checkpoint(checkpoint_dir: Path, output_dir: Path) -> Non
     # Extract the model state dict and save to output folder
     with incremental_save(output_checkpoint_file) as saver:
         print("Processing", checkpoint_file)
-        full_checkpoint = torch.load(str(checkpoint_file), mmap=True)
+        full_checkpoint = torch.load(str(checkpoint_file), mmap=True, weights_only=True)
         loaded_state_dict = full_checkpoint["model"]
         converted_state_dict = {}
         for param_name, param in loaded_state_dict.items():

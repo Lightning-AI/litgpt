@@ -239,7 +239,7 @@ def main(
     print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 
     t0 = time.perf_counter()
-    state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
+    state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu", weights_only=True)
     # TODO: this assumes that the model fits on CPU. Use lazy_load and make the materialization checkpoint aware
     model.load_state_dict(state_dict, assign=True)
     print(f"Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)

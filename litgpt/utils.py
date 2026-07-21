@@ -384,7 +384,7 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
     if isinstance(fabric.strategy, FSDPStrategy):
         fabric.load_raw(checkpoint_path, model, strict=strict)
     elif isinstance(fabric.strategy, ModelParallelStrategy):
-        state_dict = torch.load(checkpoint_path, mmap=True)
+        state_dict = torch.load(checkpoint_path, mmap=True, weights_only=True)
         load_from_full_model_state_dict(
             model=model,
             full_sd=state_dict,
