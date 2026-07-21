@@ -115,7 +115,7 @@ class LLM(torch.nn.Module):
             self.load_state_dict(state_dict, strict=True)
 
         elif self.checkpoint_dir is not None:
-            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=False)
+            state_dict = torch.load(self.checkpoint_dir / "lit_model.pth", weights_only=True)
             self.load_state_dict(state_dict, strict=False)
 
         else:
@@ -395,7 +395,7 @@ class LLM(torch.nn.Module):
 
             if generate_strategy == "sequential":
                 state_dict = torch.load(
-                    str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=False
+                    str(self.checkpoint_dir / "lit_model.pth"), mmap=True, map_location="cpu", weights_only=True
                 )
                 model.load_state_dict(state_dict, assign=True)
                 model = fabric.setup_module(model, move_to_device=False)
@@ -419,7 +419,7 @@ class LLM(torch.nn.Module):
                             str(self.checkpoint_dir / "lit_model.pth"),
                             mmap=True,
                             map_location="cpu",
-                            weights_only=False,
+                            weights_only=True,
                         )
                         model.load_state_dict(state_dict, assign=True)
 

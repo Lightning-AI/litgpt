@@ -204,7 +204,7 @@ def main(
     for rank in range(fabric.world_size):
         if fabric.global_rank == rank:
             t0 = time.perf_counter()
-            state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu")
+            state_dict = torch.load(str(checkpoint_path), mmap=True, map_location="cpu", weights_only=True)
             model.load_state_dict(state_dict, assign=True)
             print(f"[{rank}] Time to load the model weights: {time.perf_counter() - t0:.02f} seconds.", file=sys.stderr)
 

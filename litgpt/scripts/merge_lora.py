@@ -63,8 +63,8 @@ def merge_lora(
         model.sin = None
 
     lora_path = checkpoint_dir / "lit_model.pth.lora"
-    pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True)
-    lora_checkpoint = torch.load(str(lora_path), mmap=True)
+    pretrained_checkpoint = torch.load(str(pretrained_checkpoint_dir / "lit_model.pth"), mmap=True, weights_only=True)
+    lora_checkpoint = torch.load(str(lora_path), mmap=True, weights_only=True)
     lora_checkpoint = lora_checkpoint.get("model", lora_checkpoint)
 
     # Merge LoRA weights into the base model
