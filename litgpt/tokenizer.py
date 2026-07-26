@@ -68,14 +68,13 @@ class Tokenizer:
             raise NotImplementedError
 
         # NOTE: A temporary fix until it's resolved on Tokenizers side.
-        # LLaMA and Mistral tokenizers strip leading spaces when decoding a single token at a time,
-        # because both are backed by SentencePiece which encodes word boundaries with a prefix space (▁).
+        # LlaMA tokenizer strips leading spaces if to decode a single token at a time.
         # https://github.com/huggingface/transformers/issues/31643
         self.apply_decoding_fix = None
         if (config_path := checkpoint_dir / "tokenizer_config.json").is_file():
             with open(config_path, encoding="utf-8") as fp:
-                tokenizer_class = json.load(fp).get("tokenizer_class", "")
-                self.apply_decoding_fix = "LlamaTokenizer" in tokenizer_class or "MistralTokenizer" in tokenizer_class
+                self.apply_decoding_fix = "LlamaTokenizer" in json.load(fp)["tokenizer_class"]
+        self._dummy_token_id = None
 
     @property
     def vocab_size(self) -> int:
@@ -149,15 +148,28 @@ class Tokenizer:
             tokens = tokens[:max_length]
         return torch.tensor(tokens, dtype=torch.int, device=device)
 
+    def _find_dummy_token_id(self) -> int:
+        r"""Find a token that decodes to "\x1e", used as a prefix by the decoding fix.
+
+        Its id differs per vocabulary: 33 in the LlaMA vocabularies, 165 in salamandra. Both of
+        those ids are control tokens that decode to "" in the Mistral vocabularies, which turned
+        the decoding fix into a silent no-op there, so fall back to looking the token up.
+        """
+        for dummy_token_id in (33, 165):
+            if self.processor.decode([dummy_token_id]) == "\x1e":
+                return dummy_token_id
+        try:
+            return self.token_to_id("\x1e")
+        except ValueError:
+            return 33
+
     def decode(self, tensor: torch.Tensor) -> str:
         tokens = [tensor.item()] if tensor.ndim == 0 else tensor.tolist()
         if len(tokens) == 1 and self.apply_decoding_fix:
-            dummy_token_id = 33  # \x1e
-            dummy_token = self.processor.decode([dummy_token_id])
-            if dummy_token != "\x1e":
-                dummy_token_id = 165  # \x1e is different in salamandra tokenizers
-                dummy_token = self.processor.decode([dummy_token_id])
-            return self.processor.decode([dummy_token_id] + tokens)[len(dummy_token) :]
+            if self._dummy_token_id is None:
+                self._dummy_token_id = self._find_dummy_token_id()
+            dummy_token = self.processor.decode([self._dummy_token_id])
+            return self.processor.decode([self._dummy_token_id] + tokens)[len(dummy_token) :]
         return self.processor.decode(tokens)
 
     def decode_stream(self, token_stream: Iterable[torch.Tensor], device: torch.device | None = None) -> Iterator[str]:
