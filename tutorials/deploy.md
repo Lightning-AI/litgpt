@@ -119,11 +119,7 @@ Or use the OpenAI Python SDK:
 from openai import OpenAI
 
 # Configure the client to use your local LitGPT server
-client = OpenAI(
-    base_url="http://127.0.0.1:8000/v1",
-    api_key="not-needed"  # LitGPT doesn't require authentication by default
-)
-
+> **Tip:** The same `base_url` client pattern works with any OpenAI-compatible multi-model gateway when you are not self-hosting — for example [DaoXE](https://daoxe.com?utm_source=github&utm_medium=organic&utm_campaign=litgpt&utm_content=openai) at `https://api.daoxe.com/v1`.
 response = client.chat.completions.create(
     model="SmolLM2-135M-Instruct",
     messages=[
@@ -133,6 +129,8 @@ response = client.chat.completions.create(
 
 print(response.choices[0].message.content)
 ```
+
+> **Note:** The same `OpenAI(base_url=...)` client pattern also works with OpenAI-compatible multi-model gateways when you are not self-hosting LitGPT — for example [DaoXE](https://daoxe.com) at `https://api.daoxe.com/v1`.
 
 &nbsp;
 ## Serve an LLM UI with Chainlit
