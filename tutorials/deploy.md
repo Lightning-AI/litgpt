@@ -132,10 +132,9 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.content)
-
-> **Note:** The same `OpenAI(base_url=...)` client pattern also works with OpenAI-compatible multi-model gateways when you are not self-hosting LitGPT — for example [DaoXE](https://daoxe.com) at `https://api.daoxe.com/v1`.
-
 ```
+
+> **Note:** The same `OpenAI(base_url=...)` client pattern also works with OpenAI-compatible multi-model gateways when you are not self-hosting LitGPT — for example [DaoXE](https://daoxe.com/?utm_source=github&utm_medium=organic&utm_campaign=litgpt&utm_content=openai_base_url) at `https://api.daoxe.com/v1`.
 
 &nbsp;
 ## Serve an LLM UI with Chainlit
