@@ -1,0 +1,143 @@
+name: CPU tests
+
+on:
+  push:
+    branches: [main]
+  # Note: using `pull_request` (not `pull_request_target`) for security reasons.
+  # This means PRs from external forks will NOT have access to secrets (e.g. HF_TOKEN)
+  # and some tests may fail or be skipped on fork PRs until we find a better solution.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review, labeled, synchronize]
+  workflow_dispatch: {}
+
+# lock down all permissions by default
+permissions:
+  contents: read # needed to check out code
+  checks: write # needed for test results
+  pull-requests: read # needed for PR metadata
+  actions: read # needed to use actions
+  security-events: none
+  statuses: write # needed to update commit status
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.head_ref }}
+  cancel-in-progress: ${{ startsWith(github.event_name, 'pull_request') }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HF_HOME: .cache-HF # Define HF_HOME for caching
+  TRANSFORMERS_CACHE: .cache-HF/transformers
+  DATASETS_CACHE: .cache-HF/datasets
+  HF_DATASETS_CACHE: .cache-HF/datasets
+  UV_TORCH_BACKEND: cpu
+
+jobs:
+  testing-imports:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-22.04", "ubuntu-24.04", "macOS-14", "windows-2022"]
+        python-version: ["3.10"]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout generic
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          activate-environment: true
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install minimal dependencies
+        run: |
+          uv sync --no-dev
+          uv pip list
+
+      - name: Testing package imports
+        # make sure all modules are still importable with only the minimal dependencies available
+        run: |
+          modules=$(
+            find litgpt -type f -name "*.py" | \
+            sed 's/\.py$//' | sed 's/\//./g' | \
+            sed 's/.__init__//g' | xargs -I {} echo "import {};"
+          )
+          echo "$modules"
+          python -c "$modules"
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+
+  pytester:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-22.04"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        requires: ["latest"]
+        include:
+          - { os: "ubuntu-22.04", python-version: "3.10", requires: "oldest" }
+          - { os: "windows-2022", python-version: "3.10", requires: "latest" }
+          - { os: "macOS-14", python-version: "3.10", requires: "latest" }
+    timeout-minutes: 35
+    steps:
+      - name: Checkout generic
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          activate-environment: true
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      # Add caching for HF models and tokenizers
+      - name: HF cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        continue-on-error: true
+        with:
+          path: .cache-HF
+          key: hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+          restore-keys: |
+            hf-cache_${{ runner.os }}-py${{ matrix.python-version }}
+            hf-cache_${{ runner.os }}-
+            hf-cache_
+
+      - name: Set min. dependencies
+        if: matrix.requires == 'oldest'
+        run: uv run --no-project --with 'lightning-utilities[cli]>=0.15.1' python -m lightning_utilities.cli requirements set-oldest --req_files=pyproject.toml
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+          uv pip list
+
+      - name: Run tests
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: pytest -v litgpt/ tests/ --timeout=180 --durations=100
+
+      - name: Show cache
+        run: uvx py-tree -d 1 .cache-HF
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+
+  testing-guardian:
+    runs-on: ubuntu-latest
+    needs: [pytester, testing-imports]
+    if: github.event_name == 'pull_request'
+    steps:
+      - run: echo "${{ needs.pytester.result }}"
+      - name: failing...
+        if: needs.pytester.result == 'failure'
+        run: exit 1
+      - name: cancelled or skipped...
+        if: contains(fromJSON('["cancelled", "skipped"]'), needs.pytester.result)
+        timeout-minutes: 1
+        run: sleep 90

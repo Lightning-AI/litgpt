@@ -1,0 +1,34 @@
+name: Check hyperlinks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          activate-environment: true
+          python-version: "3.10"
+          enable-cache: true
+
+      - name: Install dependencies
+        # a newer version of mistune is incompatible with nbconvert
+        # pytest>=9 removed the `path` arg from pytest_collect_file; pytest-check-links still uses it
+        run: uv pip install "mistune<3.1" "pytest<9" pytest-check-links
+
+      - name: Check links
+        run: pytest --check-links README.md tutorials --check-links-ignore "http*"
+
+      - name: Minimize uv cache
+        run: uv cache prune --ci

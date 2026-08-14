@@ -1,0 +1,7 @@
+site_name: LitGPT Tutorials
+
+plugins:
+  - pagetree
+
+theme:
+  name: material

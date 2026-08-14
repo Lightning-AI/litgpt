@@ -1,0 +1,26 @@
+.ipynb_checkpoints/
+__pycache__
+.idea
+.DS_Store
+*.egg-info
+build
+dist
+.venv
+.venv/
+.vscode
+uv.lock
+
+# data
+data
+datasets
+!litgpt/data
+!tests/data
+checkpoints
+out
+wandb
+events.out.tfevents*
+
+# test artifacts from tests/test_readme.py
+**/custom_finetuning_dataset.json
+client.py
+**/custom_texts/

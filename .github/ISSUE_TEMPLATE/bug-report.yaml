@@ -1,0 +1,56 @@
+name: Bug Report
+description: Report errors related to LitGPT
+title: "Description"
+labels: bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report an issue. Please fill out the details below to help us resolve it.
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Bug description
+      description: A description of the issue.
+      placeholder: |
+        Please provide a description of what the bug or issue is.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Reproduced in studio
+      description: >
+        Create a new Lightning Studio with code that reproduces the issue and share the link.
+        Also include all the relevant files and data required to reproduce shared issue.
+        In case the code does not crash, please add assert statements to show what is the real and expected output.
+        A simple guide on how to create such a studio can be found [here](https://www.youtube.com/watch?v=YcW-2Zt_bFg&ab_channel=LightningAI).
+      placeholder: https://lightning.ai/...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: operating_system
+    attributes:
+      label: What operating system are you using?
+      description: If applicable, please select the operating system where you experienced this issue.
+      options:
+        - "Unknown"
+        - "macOS"
+        - "Linux"
+        - "Windows"
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: LitGPT Version
+      description: |
+        Please provide details about your LitGPT version by running the following code in your terminal:
+        ```
+        pip show litgpt | grep Version:
+        ```
+    validations:
+      required: false

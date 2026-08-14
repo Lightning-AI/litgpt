@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software, you can cite it as shown below."
+title: "LitGPT"
+abstract: "20+ high-performance LLMs with recipes to pretrain, finetune and deploy at scale."
+date-released: 2023-03-22
+authors:
+  - name: "The Lightning AI team"
+license: "Apache-2.0"
+url: "https://github.com/Lightning-AI/litgpt"
