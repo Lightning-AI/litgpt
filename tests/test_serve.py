@@ -64,10 +64,12 @@ def _wait_until_ready(url: str, process: subprocess.Popen, log_path: Path) -> No
             raise AssertionError(
                 f"Server exited with code {process.returncode} before it was ready.{_log_tail(log_path)}"
             )
-        with contextlib.suppress(requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        try:
             if requests.get(url, timeout=10).status_code == 200:
                 return
             err = "the server responded, but not with status 200"
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
+            err = str(ex)
         time.sleep(1)
     raise AssertionError(f"Server was not ready within {_STARTUP_TIMEOUT}s: {err}{_log_tail(log_path)}")
 
