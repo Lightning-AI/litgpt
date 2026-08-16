@@ -1454,6 +1454,19 @@ def test_kv_cache(max_seq_length):
         input_pos = input_pos[-1:] + 1
 
 
+def test_stale_kv_cache_raises_clear_error():
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = GPT(config)
+    model.max_seq_length = 10
+    model.set_kv_cache(1)
+    model.max_seq_length = 25  # grow without resizing the kv cache
+
+    idx = torch.randint(0, config.padded_vocab_size, (1, 1))
+    input_pos = torch.tensor([15])  # beyond the cache built for max_seq_length=10
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, input_pos)
+
+
 @torch.inference_mode()
 def test_model_kv_cache_amp():
     config = Config.from_name("pythia-14m", n_layer=2)
