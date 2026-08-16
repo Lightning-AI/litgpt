@@ -350,10 +350,15 @@ def copy_weights_gemma_3(
 
     if progress_per_file is not None:
         progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
-    # gemma3 4b+ are multimodel models, but we are only loading the text weights
+    # gemma3 4b+ are multimodal models. We only load the vision tower / mm-projector weights
+    # when the litgpt config explicitly declares a matching vision architecture (config.is_multimodal);
+    # litgpt's generic vision encoder/projector shapes don't match Gemma3's SigLIP tower and
+    # Gemma3MultiModalProjector 1:1, so loading them unconditionally would corrupt the state_dict.
     is_multimodal = any(k.startswith(GEMMA3_LANGUAGE_MODEL_PREFIX) for k in hf_weights)
+    load_vision_weights = is_multimodal and config is not None and config.is_multimodal
     if is_multimodal:
-        warnings.warn("Gemma3 multimodal model detected. Converting both text and vision components.")
+        if not load_vision_weights:
+            warnings.warn("For Gemma3 models only the text component is supported.")
         new_weight_map = dict()
         prefix = "model"
         for k, v in weight_map.items():
@@ -363,22 +368,24 @@ def copy_weights_gemma_3(
         weight_map = new_weight_map
     for from_name, param in hf_weights.items():
         if from_name.startswith(GEMMA3_VISION_MODEL_PREFIX):
-            to_name = from_name.replace(GEMMA3_VISION_MODEL_PREFIX, "vision_encoder._encoder")
-            param = load_param(param, from_name, dtype, verbose=debug_mode)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
-            if progress_per_file is not None:
-                pbar.update(progress_per_file)
+            if load_vision_weights:
+                to_name = from_name.replace(GEMMA3_VISION_MODEL_PREFIX, "vision_encoder._encoder")
+                param = load_param(param, from_name, dtype, verbose=debug_mode)
+                if saver is not None:
+                    param = saver.store_early(param)
+                state_dict[to_name] = param
+                if progress_per_file is not None:
+                    pbar.update(progress_per_file)
             continue
         if from_name.startswith(GEMMA3_MM_PROJECTOR_PREFIX):
-            to_name = from_name.replace(GEMMA3_MM_PROJECTOR_PREFIX, "mm_projector.proj")
-            param = load_param(param, from_name, dtype, verbose=debug_mode)
-            if saver is not None:
-                param = saver.store_early(param)
-            state_dict[to_name] = param
-            if progress_per_file is not None:
-                pbar.update(progress_per_file)
+            if load_vision_weights:
+                to_name = from_name.replace(GEMMA3_MM_PROJECTOR_PREFIX, "mm_projector.proj")
+                param = load_param(param, from_name, dtype, verbose=debug_mode)
+                if saver is not None:
+                    param = saver.store_early(param)
+                state_dict[to_name] = param
+                if progress_per_file is not None:
+                    pbar.update(progress_per_file)
             continue
 
         name_template, *ids = layer_template(from_name, num_matches=2)
