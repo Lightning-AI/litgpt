@@ -285,6 +285,23 @@ class GPT(nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
+        """Allocates (or reallocates) the key-value cache and attention mask cache for inference.
+
+        This is the "init" step of the KV cache lifecycle: call it once before autoregressive
+        generation (with `input_pos` passed to `forward`), and call it again with a larger
+        `max_seq_length` to grow the cache. Existing cache tensors are dropped and replaced, not
+        resized in place. Pair with `clear_kv_cache()` to explicitly release the cache once
+        generation is done and the memory is needed elsewhere.
+
+        Args:
+            batch_size: The batch size the cache should be allocated for.
+            max_seq_length: Maximum sequence length the cache should support. Defaults to
+                `self.max_seq_length`.
+            rope_cache_length: Length of the rotary position embedding cache. Defaults to
+                `self.rope_cache_length()`.
+            device: Device to allocate the cache tensors on.
+            dtype: Dtype of the cache tensors.
+        """
         if rope_cache_length is None:
             rope_cache_length = self.rope_cache_length()
 
@@ -307,6 +324,13 @@ class GPT(nn.Module):
             self.mask_cache = build_mask_cache(max_seq_length, device)
 
     def clear_kv_cache(self) -> None:
+        """Releases the key-value cache and attention mask cache, allowing the underlying
+        tensors to be garbage collected.
+
+        This is the explicit "destroy" step of the KV cache lifecycle. It is safe to call
+        `set_kv_cache(...)` again afterwards to reallocate. Calling `forward(..., input_pos=...)`
+        after `clear_kv_cache()` without calling `set_kv_cache()` again raises `TypeError`.
+        """
         self.mask_cache = None
         for block in self.transformer.h:
             block.attn.kv_cache = None
