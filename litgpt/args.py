@@ -31,6 +31,11 @@ class TrainArgs:
     """Limits the number of seconds to train for"""
     max_seq_length: int | None = None
     """Limits the length of samples"""
+    cross_entropy_chunk_size: int = 128
+    """Chunk size used when computing cross-entropy loss during training, to reduce the memory spike
+    during the backward pass at the cost of extra compute (see `litgpt.utils.chunked_cross_entropy`).
+    Set to `0` to disable chunking and compute exact cross-entropy in one shot (uses more peak memory,
+    especially with large vocab sizes / sequence lengths)."""
     tie_embeddings: bool | None = None
     """Whether to tie the embedding weights with the language modeling head weights"""
 

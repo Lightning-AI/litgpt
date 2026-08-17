@@ -281,7 +281,7 @@ def fit(
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
             # shift the targets such that output n predicts token n+1
-            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
+            loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=train.cross_entropy_chunk_size)
             fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
