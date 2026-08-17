@@ -22,6 +22,7 @@ from litgpt.adapter import Config as BaseConfig
 from litgpt.model import Block as BaseBlock
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 from litgpt.utils import map_old_state_dict_weights
+from litgpt.vision import MultiModalProjector, VisionEncoder
 
 
 @dataclass
@@ -79,6 +80,18 @@ class GPT(BaseModel):
         )
         self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
+
+        # Optional vision encoder for multimodal models
+        if config.is_multimodal:
+            self.vision_encoder = VisionEncoder(config, pretrained_model_name=config.vision_model_name)
+            self.mm_projector = MultiModalProjector(
+                vision_dim=config.vision_feature_dim,
+                text_dim=config.n_embd,
+                projector_type=config.mm_projector_type or "linear",
+            )
+        else:
+            self.vision_encoder = None
+            self.mm_projector = None
 
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
