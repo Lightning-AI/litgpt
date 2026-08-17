@@ -162,6 +162,38 @@ def test_chunked_cross_entropy(ignore_index, B):
     torch.testing.assert_close(chunked_loss, baseline_loss)
 
 
+def test_chunked_cross_entropy_equivalence_at_scale():
+    # exercises `chunked_cross_entropy` at a realistic sequence length / vocab size (issue #2190,
+    # "test with full context lengths and realistic batch sizes"), not just the tiny shapes above.
+    B, T, V = 2, 2048, 32000
+    logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    unchunked_loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+    chunked_loss = chunked_cross_entropy(logits, targets, chunk_size=128)
+    torch.testing.assert_close(chunked_loss, unchunked_loss)
+
+
+@_RunIf(min_cuda_gpus=1)
+def test_chunked_cross_entropy_peak_memory_decreases_with_smaller_chunks():
+    # confirms the memory-saving claim behind the `chunked_cross_entropy` "workaround hack"
+    # (litgpt/utils.py) actually holds at a realistic scale, on the CUDA allocator the issue is about.
+    B, T, V = 4, 4096, 32000
+    device = torch.device("cuda")
+
+    def peak_memory_for(chunk_size):
+        logits = torch.randn(B, T, V, device=device, requires_grad=True)
+        targets = torch.randint(0, V, (B, T), device=device)
+        torch.cuda.reset_peak_memory_stats(device)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=chunk_size)
+        loss.backward()
+        return torch.cuda.max_memory_allocated(device)
+
+    peak_unchunked = peak_memory_for(chunk_size=0)
+    peak_chunked = peak_memory_for(chunk_size=128)
+    assert peak_chunked < peak_unchunked
+
+
 def test_num_parameters():
     model = torch.nn.Linear(2, 2)
     assert num_parameters(model) == 6

@@ -1468,6 +1468,23 @@ def test_stale_kv_cache_raises_clear_error():
 
 
 @torch.inference_mode()
+def test_kv_cache_full_context_length():
+    # exercises `set_kv_cache`/`forward` at a real model's full block_size and a realistic batch
+    # size (issue #2190, "test with full context lengths and realistic batch sizes"), rather than
+    # only the artificial block_size=25 tiny configs used elsewhere in this file.
+    config = Config.from_name("pythia-14m")
+    model = GPT(config)
+    batch_size = 4
+    model.set_kv_cache(batch_size)
+
+    idx = torch.randint(0, config.padded_vocab_size, (batch_size, config.block_size))
+    input_pos = torch.arange(config.block_size)
+    logits = model(idx, input_pos)
+
+    assert logits.shape == (batch_size, config.block_size, config.padded_vocab_size)
+
+
+@torch.inference_mode()
 def test_model_kv_cache_amp():
     config = Config.from_name("pythia-14m", n_layer=2)
     model = GPT(config)
