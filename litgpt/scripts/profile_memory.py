@@ -75,9 +75,7 @@ def main():
             print(f"  peak profiler-tracked memory: {peak_bytes / 1e6:.1f} MB")
 
     (args.output_dir / "op_table.md").write_text(
-        "\n\n".join(
-            f"### chunk_size={chunk_size}\n\n```\n{table}\n```" for chunk_size, table in tables.items()
-        )
+        "\n\n".join(f"### chunk_size={chunk_size}\n\n```\n{table}\n```" for chunk_size, table in tables.items())
     )
 
     _plot(results, args.output_dir / "peak_memory_vs_chunk_size.png", args.batch_size, args.seq_length, args.vocab_size)
