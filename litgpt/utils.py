@@ -298,14 +298,18 @@ class incremental_save:
 
 T = TypeVar("T")
 
-# bytes of intermediate memory (log_softmax output + its backward gradient) held per row of a
-# cross-entropy chunk, per unit of vocab_size and per byte of dtype itemsize. Measured directly
-# from `torch.profiler` on an NVIDIA T4 (see docs/profiling/op_table_gpu.md): a chunk_size=128 call
-# with vocab_size=32000, fp32 logits measured 16.0MB self CUDA mem per call; chunk_size * vocab_size
-# * itemsize = 128 * 32000 * 4 bytes = 16.38MB predicts that within 3%. The factor below covers the
-# forward (log_softmax output) and backward (its gradient) intermediates coexisting briefly, which
-# is what the memory-timeline plots in docs/profiling/ show as the AUTOGRAD_DETAIL spike.
-_CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT = 2
+# bytes of intermediate memory (forward log_softmax output, its backward gradient, and the
+# nll_loss/allocator overhead around them) held per row of a cross-entropy chunk, per unit of
+# vocab_size and per byte of dtype itemsize. Calibrated on an NVIDIA T4 by measuring actual
+# torch.cuda.max_memory_allocated() peak (not just one op's self-CUDA-mem from a profiler table) for
+# `torch.nn.functional.cross_entropy` on a (chunk_size, vocab_size) slice, at chunk sizes chosen by
+# this exact formula, swept across vocab_size = 8k..152k (GPT-2 to Llama-3/Qwen2.5 scale). The
+# measured peak came out flat across every vocab_size tested (as intended -- see
+# docs/profiling/budget_formula_sweep.png) at a consistent 1.5x the target `memory_budget_bytes`,
+# which is where the factor of 3 below comes from (an earlier factor of 2, based only on a
+# profiler-table self-CUDA-mem estimate for one op, undershot the real allocator peak by that same
+# 1.5x -- see docs/profiling/ for both measurements).
+_CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT = 3
 
 
 def auto_cross_entropy_chunk_size(

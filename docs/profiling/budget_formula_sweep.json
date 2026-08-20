@@ -1,0 +1,44 @@
+[
+  {
+    "vocab_size": 8000,
+    "auto_chunk_size": 524,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 264242176,
+    "budget_bytes": 33554432
+  },
+  {
+    "vocab_size": 16000,
+    "auto_chunk_size": 262,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 524427264,
+    "budget_bytes": 33554432
+  },
+  {
+    "vocab_size": 32000,
+    "auto_chunk_size": 131,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 1048862720,
+    "budget_bytes": 33554432
+  },
+  {
+    "vocab_size": 50304,
+    "auto_chunk_size": 83,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 1652100608,
+    "budget_bytes": 33554432
+  },
+  {
+    "vocab_size": 100000,
+    "auto_chunk_size": 41,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 3314145792,
+    "budget_bytes": 33554432
+  },
+  {
+    "vocab_size": 152064,
+    "auto_chunk_size": 27,
+    "single_chunk_peak_bytes": 50332672,
+    "full_run_peak_extra_bytes": 5037360128,
+    "budget_bytes": 33554432
+  }
+]

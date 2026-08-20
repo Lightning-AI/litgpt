@@ -1,0 +1,22 @@
+{
+  "chunk_0": {
+    "eager": {
+      "peak_bytes": 2097185792,
+      "elapsed_ms": 160.83151245117188
+    },
+    "compiled": {
+      "peak_bytes": 1048643072,
+      "elapsed_ms": 6.78707218170166
+    }
+  },
+  "chunk_128": {
+    "eager": {
+      "peak_bytes": 1585480704,
+      "elapsed_ms": 222.7342987060547
+    },
+    "compiled": {
+      "peak_bytes": 1065419264,
+      "elapsed_ms": 7.819295883178711
+    }
+  }
+}

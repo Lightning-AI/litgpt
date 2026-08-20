@@ -196,11 +196,13 @@ def test_chunked_cross_entropy_peak_memory_decreases_with_smaller_chunks():
 
 
 def test_auto_cross_entropy_chunk_size():
-    # the formula was fit directly against `torch.profiler` measurements on an NVIDIA T4 (see
-    # docs/profiling/op_table_gpu.md): chunk_size=128, vocab_size=32000, fp32 measured 16.0MB self
-    # CUDA mem per call; predicted 128 * 32000 * 4 bytes * 2 = 32.77MB. The factor-of-2 safety margin
-    # (forward + backward intermediates) means the prediction should stay within ~2x of measured, and
-    # a chunk sized from that budget should therefore stay under budget in practice, not just in theory.
+    # the byte-per-row factor was calibrated on an NVIDIA T4 by measuring real
+    # torch.cuda.max_memory_allocated() peaks (not just one profiler op's self-CUDA-mem) across a
+    # vocab_size sweep from 8k to 152k, at chunk sizes chosen by this exact formula -- see
+    # docs/profiling/budget_formula_sweep.png. The measured peak came out flat across every
+    # vocab_size, at ~1.5x the target budget, which is what the module-level comment's factor of 3
+    # is calibrated against; this test only checks the formula's own arithmetic (the byte accounting
+    # this function does, not the real allocator peak, which needs a GPU to measure).
     budget = 32 * 1024 * 1024
     chunk_size = auto_cross_entropy_chunk_size(vocab_size=32000, dtype=torch.float32, memory_budget_bytes=budget)
     assert chunk_size > 0
