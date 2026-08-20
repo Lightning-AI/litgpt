@@ -298,17 +298,46 @@ class incremental_save:
 
 T = TypeVar("T")
 
+# bytes of intermediate memory (log_softmax output + its backward gradient) held per row of a
+# cross-entropy chunk, per unit of vocab_size and per byte of dtype itemsize. Measured directly
+# from `torch.profiler` on an NVIDIA T4 (see docs/profiling/op_table_gpu.md): a chunk_size=128 call
+# with vocab_size=32000, fp32 logits measured 16.0MB self CUDA mem per call; chunk_size * vocab_size
+# * itemsize = 128 * 32000 * 4 bytes = 16.38MB predicts that within 3%. The factor below covers the
+# forward (log_softmax output) and backward (its gradient) intermediates coexisting briefly, which
+# is what the memory-timeline plots in docs/profiling/ show as the AUTOGRAD_DETAIL spike.
+_CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT = 2
+
+
+def auto_cross_entropy_chunk_size(
+    vocab_size: int, dtype: torch.dtype, memory_budget_bytes: int, min_chunk_size: int = 1
+) -> int:
+    """Computes a `chunked_cross_entropy` `chunk_size` that keeps a single chunk's log_softmax
+    forward+backward intermediates within `memory_budget_bytes`, given the model's `vocab_size` and
+    logits `dtype`. This is the actual memory-budget knob behind `TrainArgs.cross_entropy_chunk_size
+    ="auto"` — see the module-level comment above for where the underlying byte-per-element estimate
+    comes from.
+    """
+    itemsize = torch.tensor([], dtype=dtype).element_size()
+    bytes_per_row = vocab_size * itemsize * _CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT
+    return max(min_chunk_size, memory_budget_bytes // bytes_per_row)
+
 
 def chunked_cross_entropy(
     logits: torch.Tensor | list[torch.Tensor],
     targets: torch.Tensor,
-    chunk_size: int = 128,
+    chunk_size: int | Literal["auto"] = 128,
     ignore_index: int = -100,
+    memory_budget_bytes: int = 32 * 1024 * 1024,
 ) -> torch.Tensor:
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
     # the memory usage in fine-tuning settings with low number of parameters.
     # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
     # the memory spike's magnitude
+
+    if chunk_size == "auto":
+        vocab_size = logits[0].size(-1) if isinstance(logits, list) else logits.size(-1)
+        dtype = logits[0].dtype if isinstance(logits, list) else logits.dtype
+        chunk_size = auto_cross_entropy_chunk_size(vocab_size, dtype, memory_budget_bytes)
 
     # lm_head was chunked (we are fine-tuning)
     if isinstance(logits, list):

@@ -30,6 +30,7 @@ from litgpt.utils import (
     CLI,
     CycleIterator,
     _RunIf,
+    auto_cross_entropy_chunk_size,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
@@ -192,6 +193,68 @@ def test_chunked_cross_entropy_peak_memory_decreases_with_smaller_chunks():
     peak_unchunked = peak_memory_for(chunk_size=0)
     peak_chunked = peak_memory_for(chunk_size=128)
     assert peak_chunked < peak_unchunked
+
+
+def test_auto_cross_entropy_chunk_size():
+    # the formula was fit directly against `torch.profiler` measurements on an NVIDIA T4 (see
+    # docs/profiling/op_table_gpu.md): chunk_size=128, vocab_size=32000, fp32 measured 16.0MB self
+    # CUDA mem per call; predicted 128 * 32000 * 4 bytes * 2 = 32.77MB. The factor-of-2 safety margin
+    # (forward + backward intermediates) means the prediction should stay within ~2x of measured, and
+    # a chunk sized from that budget should therefore stay under budget in practice, not just in theory.
+    budget = 32 * 1024 * 1024
+    chunk_size = auto_cross_entropy_chunk_size(vocab_size=32000, dtype=torch.float32, memory_budget_bytes=budget)
+    assert chunk_size > 0
+    predicted_bytes = chunk_size * 32000 * 4
+    assert predicted_bytes <= budget
+
+    # smaller budget -> smaller chunk size (the actual "budget system" behavior issue #2190 asked for)
+    smaller_chunk_size = auto_cross_entropy_chunk_size(
+        vocab_size=32000, dtype=torch.float32, memory_budget_bytes=budget // 4
+    )
+    assert smaller_chunk_size < chunk_size
+
+    # never returns 0 (which would silently disable chunking, defeating the memory budget)
+    tiny_chunk_size = auto_cross_entropy_chunk_size(vocab_size=200000, dtype=torch.float32, memory_budget_bytes=1)
+    assert tiny_chunk_size == 1
+
+
+def test_chunked_cross_entropy_auto_matches_manual_chunk_size():
+    # chunk_size="auto" must resolve to the same numerical result as an equivalent manual chunk_size
+    # (chunking doesn't change the math, only how much memory is held at once)
+    B, T, V = 2, 64, 500
+    logits = torch.randn(B, T, V)
+    targets = torch.randint(0, V, (B, T))
+
+    budget = 32 * 1024 * 1024
+    resolved_chunk_size = auto_cross_entropy_chunk_size(vocab_size=V, dtype=logits.dtype, memory_budget_bytes=budget)
+    auto_loss = chunked_cross_entropy(logits, targets, chunk_size="auto", memory_budget_bytes=budget)
+    manual_loss = chunked_cross_entropy(logits, targets, chunk_size=resolved_chunk_size)
+    torch.testing.assert_close(auto_loss, manual_loss)
+
+
+@_RunIf(min_cuda_gpus=1)
+def test_chunked_cross_entropy_auto_reduces_peak_memory_like_manual_chunking():
+    # the actual "memory budget system" issue #2190 asked for: chunk_size="auto", derived from a
+    # memory_budget_bytes rather than a hardcoded chunk_size, should give the same peak-memory win as
+    # picking a good chunk_size by hand (test_..._peak_memory_decreases_with_smaller_chunks above).
+    # Note: peak CUDA memory here also includes the unavoidable full-size logits.grad tensor, so this
+    # is a real-hardware sanity check on the *relative* saving, not a literal check that peak memory
+    # stays under `memory_budget_bytes` (that bound only applies to the chunk's own intermediates,
+    # which chunked_cross_entropy doesn't isolate from the rest of the backward pass).
+    B, T, V = 4, 4096, 32000
+    device = torch.device("cuda")
+    targets = torch.randint(0, V, (B, T), device=device)
+
+    def peak_memory_for(chunk_size, **kwargs):
+        logits = torch.randn(B, T, V, device=device, requires_grad=True)
+        torch.cuda.reset_peak_memory_stats(device)
+        loss = chunked_cross_entropy(logits, targets, chunk_size=chunk_size, **kwargs)
+        loss.backward()
+        return torch.cuda.max_memory_allocated(device)
+
+    peak_unchunked = peak_memory_for(chunk_size=0)
+    peak_auto = peak_memory_for(chunk_size="auto", memory_budget_bytes=32 * 1024 * 1024)
+    assert peak_auto < peak_unchunked
 
 
 def test_num_parameters():

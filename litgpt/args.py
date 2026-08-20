@@ -2,6 +2,7 @@
 import math
 import warnings
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -31,11 +32,20 @@ class TrainArgs:
     """Limits the number of seconds to train for"""
     max_seq_length: int | None = None
     """Limits the length of samples"""
-    cross_entropy_chunk_size: int = 128
+    cross_entropy_chunk_size: int | Literal["auto"] = 128
     """Chunk size used when computing cross-entropy loss during training, to reduce the memory spike
     during the backward pass at the cost of extra compute (see `litgpt.utils.chunked_cross_entropy`).
     Set to `0` to disable chunking and compute exact cross-entropy in one shot (uses more peak memory,
-    especially with large vocab sizes / sequence lengths)."""
+    especially with large vocab sizes / sequence lengths). Set to `"auto"` to instead derive the chunk
+    size from `cross_entropy_memory_budget_bytes` and the model's vocab size, via
+    `litgpt.utils.auto_cross_entropy_chunk_size` — a real memory budget rather than a fixed guess."""
+    cross_entropy_memory_budget_bytes: int = 32 * 1024 * 1024
+    """Only used when `cross_entropy_chunk_size="auto"`. Target peak memory (bytes) for a single
+    cross-entropy chunk's forward+backward intermediates. Derived from `torch.profiler` measurements
+    on real GPU hardware; see `litgpt.utils.auto_cross_entropy_chunk_size` and
+    docs/profiling/op_table_gpu.md for the byte-per-element estimate this is based on. The 32MiB
+    default keeps a single chunk's log_softmax intermediates well under typical GPU memory pressure
+    regardless of vocab size."""
     tie_embeddings: bool | None = None
     """Whether to tie the embedding weights with the language modeling head weights"""
 
