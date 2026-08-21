@@ -21,20 +21,18 @@ from litgpt import GPT, Config
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf, kill_process_tree
 
-# Startup includes the interpreter and torch imports, loading the checkpoint and, for the distributed
-# strategies, setting up the process group. A generous budget is cheap because `_wait_until_ready`
-# also watches the process and gives up as soon as it exits.
+# Generous, because a dead server no longer has to wait this out: `_wait_until_ready` gives up as
+# soon as the process exits.
 _STARTUP_TIMEOUT = 120
+_SHUTDOWN_TIMEOUT = 30
 
 
 def _find_free_port() -> int:
-    """Return a port that is currently unused.
-
-    Each test serves on its own port. Sharing one made a server that had not finished shutting down
-    yet fail the next one at bind time, which surfaced as an unrelated connection error.
-    """
+    """Return a port that is currently unused, so that each test can serve on its own."""
+    # Bind on all interfaces, like the server does, otherwise a port taken on another interface
+    # would look free here and fail at bind time.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
+        sock.bind(("", 0))
         return sock.getsockname()[1]
 
 
@@ -65,9 +63,10 @@ def _wait_until_ready(url: str, process: subprocess.Popen, log_path: Path) -> No
                 f"Server exited with code {process.returncode} before it was ready.{_log_tail(log_path)}"
             )
         try:
-            if requests.get(url, timeout=10).status_code == 200:
+            status_code = requests.get(url, timeout=10).status_code
+            if status_code == 200:
                 return
-            err = "the server responded, but not with status 200"
+            err = f"the server answered with status {status_code}"
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ex:
             err = str(ex)
         time.sleep(1)
@@ -77,17 +76,19 @@ def _wait_until_ready(url: str, process: subprocess.Popen, log_path: Path) -> No
 def _terminate(process: subprocess.Popen) -> None:
     """Kill the server process tree and wait for it to be gone.
 
-    ``kill_process_tree`` only sends the signals. The port stays bound until every process holding it
-    has exited, so returning earlier would leave the next server unable to bind.
+    ``kill_process_tree`` only sends the signals; the workers keep holding their GPU memory and their
+    port until they have actually exited, so the next test has to wait for that here.
     """
+    # Snapshot the children before killing the parent: once it is gone they are reparented and can no
+    # longer be found through it.
     try:
         children = psutil.Process(process.pid).children(recursive=True)
     except psutil.NoSuchProcess:
         children = []
     kill_process_tree(process.pid)
-    psutil.wait_procs(children, timeout=30)
+    psutil.wait_procs(children, timeout=_SHUTDOWN_TIMEOUT)
     with contextlib.suppress(subprocess.TimeoutExpired):
-        process.wait(timeout=30)
+        process.wait(timeout=_SHUTDOWN_TIMEOUT)
 
 
 @contextlib.contextmanager
@@ -100,7 +101,7 @@ def _serve(checkpoint_dir: Path, *extra_args: str) -> Iterator[str]:
     log_path = checkpoint_dir.parent / f"{checkpoint_dir.name}-server.log"
     command = ["litgpt", "serve", str(checkpoint_dir), "--port", str(port), *extra_args]
     with open(log_path, "w", encoding="utf-8") as log_fp:
-        process = subprocess.Popen(command, stdout=log_fp, stderr=subprocess.STDOUT, text=True)
+        process = subprocess.Popen(command, stdout=log_fp, stderr=subprocess.STDOUT)
         try:
             _wait_until_ready(url, process, log_path)
             yield url
