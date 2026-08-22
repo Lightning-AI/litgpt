@@ -13,20 +13,24 @@ from litgpt.data import DataModule, SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 from litgpt.tokenizer import Tokenizer
 
+_JSONScalar = str | int | float | bool | None
+_JSONValue = _JSONScalar | dict[str, Any] | list[Any]
+
 
 @dataclass
 class JSON(DataModule):
     """Loads JSON or JSONL data for supervised finetuning."""
 
-    json_path: Path
-    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data.
+    json_path: Path | None = None
+    """A path to a JSON file or a directory with `train.json` and `val.json` containing the data. Mutually exclusive
+    with ``json_data``.
     The file(s) should contain a list of samples (dicts). Each dict must have the keys 'instruction' and 'output',
     and can optionally have a key 'input' (see Alpaca)."""
     mask_prompt: bool = False
     """Whether to mask the prompt section from the label (with ``ignore_index``)."""
     val_split_fraction: float | None = None
     """The fraction of the dataset to use for the validation dataset. The rest is used for training.
-    Only applies if you passed in a single file to `json_path`."""
+    Only applies if you passed in a single file to `json_path` or an in-memory JSON string to `json_data`."""
     prompt_style: str | PromptStyle = "alpaca"
     """The style to apply to instruction prompts. See `litgpt.prompts` for a list of available styles."""
     ignore_index: int = -100
@@ -35,6 +39,9 @@ class JSON(DataModule):
     """The random seed for creating the train/val splits and shuffling the dataset."""
     num_workers: int = 4
     """How many DataLoader processes to use for loading."""
+    json_data: str | list[dict[str, _JSONValue]] | None = field(default=None, repr=False)
+    """An in-memory JSON string or decoded list of samples (dicts). Mutually exclusive with ``json_path``.
+    When converting a pandas DataFrame, use ``df.to_json(orient="records")``."""
 
     tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -44,21 +51,28 @@ class JSON(DataModule):
 
     def __post_init__(self):
         super().__init__()
-        if self.json_path.is_file() and self.val_split_fraction is None:
+        if (self.json_path is None) == (self.json_data is None):
+            raise ValueError("Exactly one of `json_path` or `json_data` must be provided.")
+        single_source = None
+        if self.json_data is not None:
+            single_source = "The `json_data` argument was provided"
+        elif self.json_path is not None and self.json_path.is_file():
+            single_source = "The `json_path` points to a single file"
+        if single_source is not None and self.val_split_fraction is None:
             self.val_split_fraction = 0.05
             warnings.warn(
-                "The `json_path` points to a single file and `val_split_fraction` was not set. "
+                f"{single_source} and `val_split_fraction` was not set. "
                 "Defaulting to `val_split_fraction=0.05`. Set `val_split_fraction` explicitly "
                 "to use a different split percentage.",
                 UserWarning,
                 stacklevel=2,
             )
-        if self.json_path.is_dir() and self.val_split_fraction is not None:
+        if self.json_path is not None and self.json_path.is_dir() and self.val_split_fraction is not None:
             raise ValueError(
                 "If `json_path` is a directory, it must contain 'train.json' and 'val.json' files and"
                 f" hence `val_split_fraction` should not be set. Got `{self.val_split_fraction=}`."
             )
-        if not self.json_path.exists():
+        if self.json_path is not None and not self.json_path.exists():
             raise FileNotFoundError(
                 "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files,"
                 f" but '{self.json_path!s}' does not exist."
@@ -113,33 +127,64 @@ class JSON(DataModule):
         )
 
     def get_splits(self) -> tuple:
-        # A single file (gets split into train and test)
-        if self.json_path.is_file():
-            data = load_split(self.json_path)
+        if self.json_data is not None:
+            if isinstance(self.json_data, str):
+                try:
+                    data = json.loads(self.json_data)
+                except json.JSONDecodeError as ex:
+                    raise ValueError("`json_data` must be valid JSON.") from ex
+            else:
+                data = self.json_data
+            data = _validate_json_data(data)
+        else:
+            json_path = self.json_path
+            if json_path is None:
+                raise RuntimeError("Expected `json_path` when `json_data` is not provided.")
+            if not json_path.is_file():
+                # A directory containing train.json and val.json
+                if (train_file := self.find_split("train")) and (val_file := self.find_split("val")):
+                    train_data = load_split(train_file)
+                    test_data = load_split(val_file)
+                    return train_data, test_data
 
-            # Partition the dataset into train and test
-            train_data, test_data = random_split(
-                data,
-                [1.0 - self.val_split_fraction, self.val_split_fraction],
-                generator=torch.Generator().manual_seed(self.seed),
-            )
-            return train_data, test_data
+                raise FileNotFoundError(
+                    "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
+                )
+            data = load_split(json_path)
 
-        # A directory containing train.json and val.json
-        if (train_file := self.find_split("train")) and (val_file := self.find_split("val")):
-            train_data = load_split(train_file)
-            test_data = load_split(val_file)
-            return train_data, test_data
-
-        raise FileNotFoundError(
-            "The `json_path` must be a file or a directory containing 'train.json' and 'val.json' files."
+        val_split_fraction = self.val_split_fraction
+        if val_split_fraction is None:
+            raise RuntimeError("Expected `val_split_fraction` for a single JSON data source.")
+        return random_split(
+            data,
+            [1.0 - val_split_fraction, val_split_fraction],
+            generator=torch.Generator().manual_seed(self.seed),
         )
 
     def find_split(self, split_name: str) -> Path | None:
+        if self.json_path is None:
+            return None
         for suffix in (".json", ".jsonl"):
             if (file := self.json_path / f"{split_name}{suffix}").is_file():
                 return file
         return None
+
+
+def _validate_json_data(data: Any) -> list[dict[str, _JSONValue]]:
+    if not isinstance(data, list):
+        raise ValueError(
+            f"`json_data` must decode to a list of JSON objects, got {type(data).__name__}. "
+            'When using pandas, call `DataFrame.to_json(orient="records")`.'
+        )
+
+    required_fields = {"instruction", "output"}
+    for index, sample in enumerate(data):
+        if not isinstance(sample, dict):
+            raise ValueError(f"`json_data` sample at index {index} must be a JSON object, got {type(sample).__name__}.")
+        if missing_fields := required_fields - sample.keys():
+            formatted_fields = ", ".join(f"`{field}`" for field in sorted(missing_fields))
+            raise ValueError(f"`json_data` sample at index {index} is missing required field(s): {formatted_fields}.")
+    return data
 
 
 def load_split(json_path: Path) -> Any:

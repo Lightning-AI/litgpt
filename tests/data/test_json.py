@@ -1,7 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
+import warnings
 
 import pytest
+from jsonargparse import ArgumentParser
 
 from litgpt.data import JSON
 from litgpt.prompts import PromptStyle
@@ -66,6 +68,12 @@ def test_json(as_jsonl, tmp_path, mock_tokenizer):
 
 
 def test_json_input_validation(tmp_path):
+    with pytest.raises(ValueError, match="Exactly one of `json_path` or `json_data`"):
+        JSON()
+
+    with pytest.raises(ValueError, match="Exactly one of `json_path` or `json_data`"):
+        JSON(tmp_path, json_data="[]")
+
     with pytest.raises(FileNotFoundError, match="The `json_path` must be a file or a directory"):
         JSON(tmp_path / "not exist")
 
@@ -88,6 +96,96 @@ def test_json_input_validation(tmp_path):
     with pytest.warns(UserWarning, match="Defaulting to `val_split_fraction=0.05`"):
         data = JSON(tmp_path / "train.json", val_split_fraction=None)
     assert data.val_split_fraction == 0.05
+
+    # Adding a new input source must not change the existing positional arguments.
+    data = JSON(tmp_path / "train.json", True, 0.25)
+    assert data.mask_prompt
+    assert data.val_split_fraction == 0.25
+
+
+@pytest.mark.parametrize("serialize", [False, True])
+def test_json_data(serialize, mock_tokenizer):
+    mock_data = [
+        {"instruction": "Add", "input": "2+2", "output": "4"},
+        {"instruction": "Subtract", "input": "5-3", "output": "2"},
+        {"instruction": "Multiply", "input": "6*4", "output": "24"},
+        {"instruction": "Divide", "input": "10/2", "output": "5"},
+    ]
+
+    json_data = json.dumps(mock_data) if serialize else mock_data
+    data = JSON(json_data=json_data, val_split_fraction=0.5, num_workers=0)
+    assert "json_data" not in repr(data)
+    assert "Subtract" not in repr(data)
+
+    data.connect(tokenizer=mock_tokenizer, batch_size=2)
+    data.setup()
+
+    train_batch = next(iter(data.train_dataloader()))
+    val_batch = next(iter(data.val_dataloader()))
+
+    assert train_batch["input_ids"].size(0) == 2
+    assert val_batch["input_ids"].size(0) == 2
+    assert sorted(
+        [*data.train_dataset.data, *data.test_dataset.data], key=lambda sample: sample["instruction"]
+    ) == sorted(mock_data, key=lambda sample: sample["instruction"])
+
+
+def test_json_data_default_validation_split():
+    mock_data = [{"instruction": "Add", "input": "2+2", "output": "4"}]
+
+    with pytest.warns(UserWarning, match="Defaulting to `val_split_fraction=0.05`"):
+        data = JSON(json_data=json.dumps(mock_data))
+    assert data.val_split_fraction == 0.05
+
+
+@pytest.mark.parametrize(
+    ("json_data", "error"),
+    [
+        ("{", "must be valid JSON"),
+        ("null", "must decode to a list of JSON objects"),
+        (
+            json.dumps({"instruction": {"0": "Add"}, "output": {"0": "4"}}),
+            'DataFrame.to_json\\(orient="records"\\)',
+        ),
+        (json.dumps(["not an object"]), "sample at index 0 must be a JSON object"),
+        (json.dumps([{"instruction": "Add"}]), "missing required field.*`output`"),
+    ],
+)
+def test_json_data_validation(json_data, error):
+    data = JSON(json_data=json_data, val_split_fraction=0.5)
+    with pytest.raises(ValueError, match=error):
+        data.get_splits()
+
+
+def test_json_data_cli_parsing():
+    mock_data = [
+        {
+            "instruction": "Add",
+            "input": "2+2",
+            "output": "4",
+            "score": 4,
+            "enabled": True,
+            "messages": [{"role": "user", "content": "2+2"}],
+            "metadata": {"source": "math", "nested": {"difficulty": 1}},
+            "matrix": [[1, 2], [3, 4]],
+        },
+        {"instruction": "Subtract", "input": "5-3", "output": "2"},
+    ]
+    parser = ArgumentParser(exit_on_error=False)
+    parser.add_class_arguments(JSON, "data")
+
+    config = parser.parse_args(["--data.json_data", json.dumps(mock_data), "--data.val_split_fraction", "0.5"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        serialized_config = parser.dump(config)
+    data = parser.instantiate_classes(config).data
+
+    assert "output: '4'" in serialized_config
+    assert isinstance(data, JSON)
+    assert data.json_data == mock_data
+    assert data.json_data[0]["output"] == "4"
+    train_data, val_data = data.get_splits()
+    assert sorted([*train_data, *val_data], key=lambda sample: sample["instruction"]) == mock_data
 
 
 @pytest.mark.parametrize("as_jsonl", [False, True])
