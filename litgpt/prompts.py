@@ -374,9 +374,9 @@ class ChatML(PromptStyle):
 
     def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         sys_prompt = sys_prompt or self.system_message
-        return (
-            f"<|im_start|>system\n{sys_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
-        )
+        # omit the system turn when there is no system message (e.g. Qwen3)
+        system = f"<|im_start|>system\n{sys_prompt}<|im_end|>\n" if sys_prompt else ""
+        return f"{system}<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
 class Qwen2_5(ChatML):
