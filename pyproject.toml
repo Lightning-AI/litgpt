@@ -39,6 +39,9 @@ dependencies = [
 optional-dependencies.compiler = [
   # compilaton:
   "lightning-thunder>=0.2.dev20250119; python_version>='3.10' and sys_platform=='linux'",
+  # thunder references torch's named-tensor APIs at import time, removed in torch 2.13
+  # (pytorch/pytorch#173895). No thunder release supports 2.13 yet, so cap it here only.
+  "torch<2.13; python_version>='3.10' and sys_platform=='linux'",
 ]
 optional-dependencies.extra = [
   "bitsandbytes>=0.42,<0.43; sys_platform=='darwin'",
