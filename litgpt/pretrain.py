@@ -300,11 +300,11 @@ def fit(
     optimizer = state["optimizer"]
 
     if eval.initial_validation:
-        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters, train=train)
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, max_iters=2, verbose=False)  # sanity check
+        validate(fabric, model, val_dataloader, max_iters=2, train=train, verbose=False)  # sanity check
         val_loss = "n/a"
 
     throughput = ThroughputMonitor(fabric, window_size=5)
@@ -351,7 +351,12 @@ def fit(
         is_accumulating = state["iter_num"] % train.gradient_accumulation_iters(devices, num_nodes) != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             logits = model(input_ids)
-            loss = chunked_cross_entropy(logits, targets)
+            loss = chunked_cross_entropy(
+                logits,
+                targets,
+                chunk_size=train.cross_entropy_chunk_size,
+                memory_budget_bytes=train.cross_entropy_memory_budget_bytes,
+            )
             fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
@@ -402,7 +407,7 @@ def fit(
 
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+            val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters, train=train)
             val_loss = val_loss.item()
             td = time.perf_counter() - t0
 
@@ -416,7 +421,7 @@ def fit(
 
     # Final validation
     if eval.final_validation:
-        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters)
+        val_loss = validate(fabric, model, val_dataloader, max_iters=eval.max_iters, train=train)
         metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
         fabric.log_dict(metrics, step=state["iter_num"])
         fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
@@ -424,7 +429,12 @@ def fit(
 
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max_iters: int, verbose: bool = True
+    fabric: L.Fabric,
+    model: nn.Module,
+    val_dataloader: DataLoader,
+    max_iters: int,
+    train: TrainArgs,
+    verbose: bool = True,
 ) -> torch.Tensor:
     fabric.barrier()
     if verbose:
@@ -438,7 +448,12 @@ def validate(
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets)
+        loss = chunked_cross_entropy(
+            logits,
+            targets,
+            chunk_size=train.cross_entropy_chunk_size,
+            memory_budget_bytes=train.cross_entropy_memory_budget_bytes,
+        )
         losses.append(loss)
 
     val_loss = torch.stack(losses).mean()
