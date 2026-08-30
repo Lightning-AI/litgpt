@@ -177,7 +177,14 @@ class Llama2(PromptStyle):
 class Llama3(PromptStyle):
     supports_multiturn = True
 
-    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, add_generation_prompt: bool = True, **kwargs: str) -> str:
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         default_system_prompt = sys_prompt or "You are a helpful assistant."
 
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
@@ -228,7 +235,14 @@ class Llama3(PromptStyle):
 class R1Base(PromptStyle):
     supports_multiturn = True
 
-    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, add_generation_prompt: bool = True, **kwargs: str) -> str:
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         default_system_prompt = sys_prompt or ""
 
         bos_token = "<｜begin▁of▁sentence｜>"
@@ -384,13 +398,21 @@ class ChatML(PromptStyle):
     def __init__(self, system_message: str | None = None):
         self.system_message = system_message
 
-    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, add_generation_prompt: bool = True, **kwargs: str) -> str:
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         sys_prompt = sys_prompt or self.system_message
         # omit the system turn when there is no system message (e.g. Qwen3)
         system = f"<|im_start|>system\n{sys_prompt}<|im_end|>\n" if sys_prompt else ""
         if isinstance(prompt, str):
             return f"{system}<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
         elif isinstance(prompt, list):
+
             def encode_message(message: dict[str, str]) -> str:
                 role = message["role"]
                 content = message["content"].strip()
