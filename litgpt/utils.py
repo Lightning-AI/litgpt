@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import sys
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from io import BytesIO
 from pathlib import Path
@@ -866,27 +866,41 @@ def create_finetuning_performance_report(training_time, token_counts, device_typ
     return output
 
 
+def _instruction_of(example: Any, transform: Callable[[Any], Any] | None = None) -> str:
+    """Extract a representative "instruction" string from a raw dataset example, for use as an
+    eval-time generation prompt. Handles both single-turn examples (``{"instruction": ...}``) and
+    multi-turn conversations (a list of ``{"role", "content"}`` turns, taking the last user turn)
+    — applying the dataset's own ``transform`` first, if any, so this works regardless of the
+    example's original on-disk shape (e.g. MultiturnJSON's OpenAI/ShareGPT auto-detection)."""
+    if transform is not None:
+        example = transform(example)
+    if isinstance(example, list):
+        user_turns = [turn["content"] for turn in example if turn["role"] == "user"]
+        return user_turns[-1] if user_turns else ""
+    return example["instruction"]
+
+
 def select_sft_generate_example(eval, data):
     if eval.evaluate_example == "first":
         if len(data.test_dataset.data):
-            instruction = data.test_dataset.data[0]["instruction"]
+            instruction = _instruction_of(data.test_dataset.data[0], data.test_dataset.transform)
         else:
-            instruction = data.train_dataset.data[0]["instruction"]
+            instruction = _instruction_of(data.train_dataset.data[0], data.train_dataset.transform)
 
     elif eval.evaluate_example == "random":
         if len(data.test_dataset.data):
             random_idx = random.randint(0, len(data.test_dataset.data) - 1)
-            instruction = data.test_dataset.data[random_idx]["instruction"]
+            instruction = _instruction_of(data.test_dataset.data[random_idx], data.test_dataset.transform)
         else:
             random_idx = random.randint(0, len(data.train_dataset.data) - 1)
-            instruction = data.train_dataset.data[random_idx]["instruction"]
+            instruction = _instruction_of(data.train_dataset.data[random_idx], data.train_dataset.transform)
 
     elif isinstance(eval.evaluate_example, int):
         index = eval.evaluate_example
         if len(data.test_dataset.data) > index:
-            instruction = data.test_dataset.data[index]["instruction"]
+            instruction = _instruction_of(data.test_dataset.data[index], data.test_dataset.transform)
         elif len(data.train_dataset.data) > index:
-            instruction = data.train_dataset.data[index]["instruction"]
+            instruction = _instruction_of(data.train_dataset.data[index], data.train_dataset.transform)
         else:
             raise IndexError(f"Index {index} is out of range for both test and training datasets.")
 

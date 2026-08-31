@@ -25,6 +25,7 @@ from litgpt.constants import (
     _TENSORBOARD_AVAILABLE,
     _WANDB_AVAILABLE,
 )
+from litgpt.data.multiturn_json_data import to_messages
 from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
@@ -811,6 +812,8 @@ def test_select_sft_generate_example():
 
     data_mock.test_dataset.data = test_dataset["data"]
     data_mock.train_dataset.data = train_dataset["data"]
+    data_mock.test_dataset.transform = None
+    data_mock.train_dataset.transform = None
 
     # Test "first" instruction from test dataset
     eval_mock.evaluate_example = "first"
@@ -857,3 +860,43 @@ def test_select_sft_generate_example():
     eval_mock.evaluate_example = "unknown"
     with pytest.raises(ValueError):
         select_sft_generate_example(eval_mock, data_mock)
+
+
+def test_select_sft_generate_example_multiturn():
+    eval_mock = mock.MagicMock()
+    eval_mock.evaluate_example = "first"
+    data_mock = mock.MagicMock()
+
+    # MultiturnSFTDataset used directly (no transform): .data is already a list of
+    # {"role", "content"} turns per example.
+    data_mock.test_dataset.data = [
+        [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
+    ]
+    data_mock.test_dataset.transform = None
+    data_mock.train_dataset.data = []
+    data_mock.train_dataset.transform = None
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "hi"
+
+    # MultiturnJSON-style: raw JSON records with a transform (e.g. to_messages) that must run
+    # first to reshape them into {"role", "content"} turns.
+    data_mock.test_dataset.data = [
+        {"conversations": [{"from": "human", "value": "yo"}, {"from": "gpt", "value": "sup"}]},
+    ]
+    data_mock.test_dataset.transform = to_messages
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "yo"
+
+    # Multiple user turns: the *last* user turn should be used.
+    data_mock.test_dataset.data = [
+        {
+            "messages": [
+                {"role": "user", "content": "first question"},
+                {"role": "assistant", "content": "first answer"},
+                {"role": "user", "content": "follow-up question"},
+            ]
+        },
+    ]
+    data_mock.test_dataset.transform = to_messages
+    instruction = select_sft_generate_example(eval_mock, data_mock)
+    assert instruction == "follow-up question"
