@@ -277,6 +277,8 @@ def _test_function2(out_dir: Path, foo: bool = False, bar: int = 1):
     [
         "any.py",
         "litgpt finetune",
+        "litgpt finetune lora",
+        "litgpt finetune full",
         "litgpt finetune_full",
         "litgpt finetune_lora",
         "litgpt finetune_adapter",
@@ -294,6 +296,13 @@ def test_save_hyperparameters_known_commands(command, tmp_path):
     assert hparams["out_dir"] == str(tmp_path)
     assert hparams["foo"] is True
     assert hparams["bar"] == 1
+
+
+def test_save_hyperparameters_unknown_entrypoint(tmp_path):
+    with mock.patch("sys.argv", ["custom-wrapper", "run", str(tmp_path), "--foo", "True"]):
+        save_hyperparameters(_test_function2, tmp_path)
+
+    assert not (tmp_path / "hyperparameters.yaml").exists()
 
 
 def test_choose_logger(tmp_path):
