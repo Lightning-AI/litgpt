@@ -85,7 +85,7 @@ class _StopSequenceMatcher:
         matches = [
             len(sequence)
             for sequence in self._sequences
-            if len(sequence) <= len(self._pending) and tuple(self._pending[-len(sequence):]) == sequence
+            if len(sequence) <= len(self._pending) and tuple(self._pending[-len(sequence) :]) == sequence
         ]
         if matches:
             # If several sequences end at the same position, the shortest one
