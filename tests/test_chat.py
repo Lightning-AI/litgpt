@@ -34,6 +34,11 @@ skip_in_ci_on_macos = pytest.mark.skipif(
         ([1, 2, 3, 0, 0], ([0, 0, 0], [0, 0]), [1, 2, 3]),
         ([3, 1, 2], ([1, 2], [3]), []),
         ([1, 2, 3, 0, 3, 2, 1, 0], ([4, 3, 2, 1], [2, 4]), [1, 2, 3, 0, 3, 2, 1, 0]),
+        # A mismatch can also be the beginning of a new occurrence.
+        ([1, 1, 2, 9], ([1, 2],), [1]),
+        # A token buffered for another stop sequence must be emitted when a
+        # shorter stop sequence completes.
+        ([1, 2, 9], ([1, 3], [2]), [1]),
     ],
 )
 def test_generate(monkeypatch, generated, stop_tokens, expected):
@@ -64,6 +69,32 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
             assert t.dtype == torch.long, t.dtype
         actual_list = torch.cat(actual).tolist()
         assert actual_list == expected, (actual_list, expected)
+
+
+def test_batched_generate_preserves_overlapping_stop_prefix(monkeypatch):
+    generated = iter([1, 1, 2, 9])
+
+    def next_tokens(*_, **__):
+        # The batched generator keeps advancing other rows after one row stops.
+        # Return a neutral token once the scripted sequence has been consumed.
+        return torch.tensor([[next(generated, 9)]])
+
+    monkeypatch.setattr(generate, "batched_next_token", next_tokens)
+    model = MagicMock()
+    model.max_seq_length = 32
+    output = list(
+        generate.batched_generate_fn(
+            model,
+            prompts=torch.tensor([[5, 3]]),
+            max_returned_tokens=10,
+            sample_args={},
+            stop_tokens=([1, 2],),
+            include_prompt=False,
+            include_eos=False,
+        )
+    )
+
+    assert [token.item() for row in output for token in row if token is not None] == [1]
 
 
 def test_decode():
