@@ -14,8 +14,15 @@ if TYPE_CHECKING:
     from litgpt import Tokenizer
 
 
+def has_system_prompt(messages: list[dict[str, str]]) -> bool:
+    """Whether a list of conversation turns opens with a 'system' role message."""
+    return messages[0].get("role", "") == "system" if len(messages) else False
+
+
 class PromptStyle:
     """Base interface for prompt styles."""
+
+    supports_multiturn: bool = False
 
     @abstractmethod
     def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
@@ -168,7 +175,16 @@ class Llama2(PromptStyle):
 
 
 class Llama3(PromptStyle):
-    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
+    supports_multiturn = True
+
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         default_system_prompt = sys_prompt or "You are a helpful assistant."
 
         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
@@ -192,9 +208,6 @@ class Llama3(PromptStyle):
                 tokens.append("<|eot_id|>")
                 return tokens
 
-            def has_system_prompt(messages: list[dict[str, str]]) -> bool:
-                return messages[0].get("role", "") == "system" if len(messages) else False
-
             tokens = ["<|begin_of_text|>"]
             if not has_system_prompt(prompt):
                 tokens.extend(encode_message({"role": "system", "content": default_system_prompt}))
@@ -206,7 +219,8 @@ class Llama3(PromptStyle):
                         f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'."
                     )
                 tokens.extend(encode_message(message))
-            tokens.extend(encode_header("assistant"))
+            if add_generation_prompt:
+                tokens.extend(encode_header("assistant"))
             return "".join(tokens)
         else:
             raise ValueError(f"Unsupported prompt type: {type(prompt)}")
@@ -219,7 +233,16 @@ class Llama3(PromptStyle):
 
 
 class R1Base(PromptStyle):
-    def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
+    supports_multiturn = True
+
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         default_system_prompt = sys_prompt or ""
 
         bos_token = "<｜begin▁of▁sentence｜>"
@@ -244,7 +267,7 @@ class R1Base(PromptStyle):
 
             # Extract system prompt (if any)
             system_prompt = ""
-            if prompt and prompt[0].get("role") == "system":
+            if has_system_prompt(prompt):
                 system_prompt = prompt[0]["content"]
                 prompt = prompt[1:]  # Remove system message from the list
 
@@ -253,7 +276,8 @@ class R1Base(PromptStyle):
             for message in prompt:
                 formatted_prompt += encode_message(message)
 
-            formatted_prompt += "<｜Assistant｜>"  # Prepares for assistant response
+            if add_generation_prompt:
+                formatted_prompt += "<｜Assistant｜>"  # Prepares for assistant response
             return formatted_prompt
         else:
             raise ValueError(f"Unsupported prompt type: {type(prompt)}")
@@ -369,14 +393,47 @@ class OLMo(PromptStyle):
 
 
 class ChatML(PromptStyle):
+    supports_multiturn = True
+
     def __init__(self, system_message: str | None = None):
         self.system_message = system_message
 
-    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
+    def apply(
+        self,
+        prompt: str | list[dict[str, str]],
+        *,
+        sys_prompt: str | None = None,
+        add_generation_prompt: bool = True,
+        **kwargs: str,
+    ) -> str:
         sys_prompt = sys_prompt or self.system_message
         # omit the system turn when there is no system message (e.g. Qwen3)
         system = f"<|im_start|>system\n{sys_prompt}<|im_end|>\n" if sys_prompt else ""
-        return f"{system}<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+        if isinstance(prompt, str):
+            return f"{system}<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+        elif isinstance(prompt, list):
+
+            def encode_message(message: dict[str, str]) -> str:
+                role = message["role"]
+                content = message["content"].strip()
+                return f"<|im_start|>{role}\n{content}<|im_end|>\n"
+
+            tokens = ""
+            if not has_system_prompt(prompt):
+                tokens += system
+            for i, message in enumerate(prompt):
+                if i != 0 and message["role"] == "system":
+                    raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
+                if message["role"] not in ["assistant", "user", "system"]:
+                    raise ValueError(
+                        f"Unknown role: '{message['role']}'. Supported roles are 'assistant', 'user', and 'system'."
+                    )
+                tokens += encode_message(message)
+            if add_generation_prompt:
+                tokens += "<|im_start|>assistant\n"
+            return tokens
+        else:
+            raise ValueError(f"Unsupported prompt type: {type(prompt)}")
 
 
 class Qwen2_5(ChatML):

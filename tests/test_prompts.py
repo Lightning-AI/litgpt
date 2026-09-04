@@ -202,3 +202,13 @@ What can I do there?<|eot_id|><|start_header_id|>assistant<|end_header_id|>
     output = style.apply(msgs)
     simple_output = style.apply(content)
     assert output == simple_output
+
+    # add_generation_prompt=False: training case, conversation already ends on assistant
+    msgs = [
+        {"role": "user", "content": "What is France's capital?"},
+        {"role": "assistant", "content": "Bonjour! The capital of France is Paris!"},
+    ]
+    inference_output = style.apply(msgs)
+    training_output = style.apply(msgs, add_generation_prompt=False)
+    assert inference_output == training_output + "<|start_header_id|>assistant<|end_header_id|>\n\n"
+    assert training_output.endswith("Bonjour! The capital of France is Paris!<|eot_id|>")
