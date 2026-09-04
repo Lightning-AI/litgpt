@@ -428,9 +428,7 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     if losses:
         val_loss = torch.stack(losses).mean()
     else:
-        fabric.print(
-            "WARNING: no rank had validation data available for this call; reporting val_loss as NaN."
-        )
+        fabric.print("WARNING: no rank had validation data available for this call; reporting val_loss as NaN.")
         val_loss = torch.tensor(float("nan"), device=fabric.device)
 
     model.train()
