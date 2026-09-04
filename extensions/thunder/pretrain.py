@@ -405,16 +405,34 @@ def validate(fabric: L.Fabric, model: nn.Module, val_dataloader: DataLoader, max
     fabric.print("Validating ...")
     model.eval()
 
+    # Keep ranks in lockstep (same rationale as litgpt.pretrain.validate / #2319).
     losses = []
-    for k, batch in enumerate(val_dataloader):
-        if k >= max_iters:
+    val_iter = iter(val_dataloader)
+    for _ in range(max_iters):
+        try:
+            batch = next(val_iter)
+            has_batch = torch.tensor(1.0, device=fabric.device)
+        except StopIteration:
+            batch = None
+            has_batch = torch.tensor(0.0, device=fabric.device)
+
+        fabric.all_reduce(has_batch, reduce_op="min")
+        if has_batch.item() == 0:
             break
+
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         loss = forward_and_loss(model, input_ids, targets)
         losses.append(loss)
 
-    val_loss = torch.stack(losses).mean()
+    if losses:
+        val_loss = torch.stack(losses).mean()
+    else:
+        fabric.print(
+            "WARNING: no rank had validation data available for this call; reporting val_loss as NaN."
+        )
+        val_loss = torch.tensor(float("nan"), device=fabric.device)
+
     model.train()
     fabric.barrier()
     return val_loss
