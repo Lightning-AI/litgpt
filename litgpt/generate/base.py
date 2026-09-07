@@ -51,6 +51,62 @@ def sample_top_p(logits: torch.Tensor, top_p: float) -> torch.Tensor:
     return logits
 
 
+class _StopSequenceMatcher:
+    """Incrementally match stop sequences without losing overlapping prefixes.
+
+    Generated tokens that may still be the beginning of a stop sequence are
+    kept pending.  On a mismatch, the longest suffix that is also a stop
+    prefix is retained (the same fallback used by prefix-function matchers),
+    so a sequence such as ``[1, 1, 2]`` can still match ``[1, 2]`` at its end.
+    """
+
+    def __init__(self, stop_tokens: tuple[list[int], ...] | list[list[int]]):
+        self._sequences = tuple(tuple(int(token) for token in seq) for seq in stop_tokens if seq)
+        self._prefixes = frozenset(
+            prefix
+            for sequence in self._sequences
+            for length in range(1, len(sequence) + 1)
+            for prefix in (sequence[:length],)
+        )
+        self._max_length = max((len(sequence) for sequence in self._sequences), default=0)
+        self._pending: list[int] = []
+
+    @property
+    def pending_length(self) -> int:
+        """Number of tokens that are still a possible stop prefix."""
+        return len(self._pending)
+
+    def update(self, token_id: int) -> int | None:
+        """Consume one token and return its matched stop length, if any."""
+        if not self._sequences:
+            return None
+
+        self._pending.append(int(token_id))
+        matches = [
+            len(sequence)
+            for sequence in self._sequences
+            if len(sequence) <= len(self._pending) and tuple(self._pending[-len(sequence) :]) == sequence
+        ]
+        if matches:
+            # If several sequences end at the same position, the shortest one
+            # is the first unambiguous stop and leaves the largest safe prefix.
+            stop_length = min(matches)
+            self._pending.clear()
+            return stop_length
+
+        max_prefix_length = min(len(self._pending), self._max_length)
+        prefix_length = 0
+        for length in range(max_prefix_length, 0, -1):
+            if tuple(self._pending[-length:]) in self._prefixes:
+                prefix_length = length
+                break
+
+        safe_length = len(self._pending) - prefix_length
+        if safe_length:
+            del self._pending[:safe_length]
+        return None
+
+
 def sample(
     logits: torch.Tensor, temperature: float = 1.0, top_k: int | None = None, top_p: float = 1.0
 ) -> torch.Tensor:
@@ -166,7 +222,7 @@ def generate_fn(
     if include_prompt:
         yield prompt
 
-    stop_progress = [0] * len(stop_tokens)
+    stop_matcher = _StopSequenceMatcher(stop_tokens)
     yielded_idx = 0
 
     # Generate output tokens.
@@ -194,24 +250,22 @@ def generate_fn(
         tokens.append(token)
         int_token = token.item()
 
-        # Check for stop sequences
-        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
-        # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold off on yielding the token.
-        for i, seq in enumerate(stop_tokens):
-            if int_token == seq[stop_progress[i]]:
-                stop_progress[i] += 1
-                if stop_progress[i] == len(seq):
-                    if include_eos:
-                        yield from tokens[yielded_idx:]
-                    return
+        # Check for stop sequences.  The matcher retains the longest suffix
+        # that can still begin a stop sequence, including after a mismatch.
+        stop_length = stop_matcher.update(int_token)
+        if stop_length is not None:
+            if include_eos:
+                yield from tokens[yielded_idx:]
             else:
-                stop_progress[i] = 0
+                stop_start = len(tokens) - stop_length
+                if yielded_idx < stop_start:
+                    yield from tokens[yielded_idx:stop_start]
+            return
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
         if stop_tokens:
-            safe_idx = len(tokens) - max(stop_progress)
+            safe_idx = len(tokens) - stop_matcher.pending_length
         else:
             safe_idx = current_idx + 1  # include the token just generated
 
@@ -289,7 +343,7 @@ def batched_generate_fn(
         for i in range(max_prompt_size):
             yield [prompt[i].view(-1) for prompt in prompts]
 
-    stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)]  # [batch_size, ~len(stop_tokens)]
+    stop_matchers = [_StopSequenceMatcher(stop_tokens) for _ in range(batch_size)]
     stop_idxes = [-1] * batch_size
     yielded_idx = 0
 
@@ -309,28 +363,23 @@ def batched_generate_fn(
             token_lists[i].append(tokens[i])
         int_tokens = [token.item() for token in tokens]
 
-        # Check for stop sequences
-        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
-        # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold off on yielding the token.
+        # Check for stop sequences.  Each stream has its own matcher because
+        # a batch can reach a stop sequence at a different time.
         for batch_idx, int_token in enumerate(int_tokens):
             if stop_idxes[batch_idx] != -1:
                 continue
-            for seq_idx, seq in enumerate(stop_tokens):
-                seq_pos = stop_progresses[batch_idx][seq_idx]
-                if seq_pos >= len(seq):
-                    continue
-                if int_token == seq[seq_pos]:
-                    stop_progresses[batch_idx][seq_idx] += 1
-                    if stop_progresses[batch_idx][seq_idx] == len(seq):
-                        stop_idxes[batch_idx] = current_idx
-                else:
-                    stop_progresses[batch_idx][seq_idx] = 0
+            stop_length = stop_matchers[batch_idx].update(int_token)
+            if stop_length is not None:
+                stop_start = len(token_lists[batch_idx]) - stop_length
+                stop_idxes[batch_idx] = stop_start if not include_eos else current_idx + 1
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
         if len(stop_tokens) != 0:
-            safe_idxes = [len(token_lists[i]) - max(stop_progresses[i]) for i in range(batch_size)]
+            safe_idxes = [
+                stop_idxes[i] if stop_idxes[i] != -1 else len(token_lists[i]) - stop_matchers[i].pending_length
+                for i in range(batch_size)
+            ]
         else:
             safe_idxes = [current_idx + 1]  # include the token just generated
         safe_idx = min(safe_idxes)
