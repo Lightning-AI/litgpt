@@ -112,11 +112,6 @@ class ThunderDDPStrategy(ParallelStrategy):
         return self._process_group_backend
 
     @override
-    def _configure_launcher(self) -> None:
-        assert self.cluster_environment is not None
-        self._launcher = _SubprocessScriptLauncher(self.cluster_environment, self.num_processes, self.num_nodes)
-
-    @override
     def setup_environment(self) -> None:
         super().setup_environment()
         self._setup_distributed()
