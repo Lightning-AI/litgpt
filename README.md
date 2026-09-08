@@ -263,7 +263,7 @@ litgpt serve out/custom-model/final
 
 &nbsp;
 
-Deploy a pretrained or finetune LLM to use it in real-world applications. Deploy, automatically sets up a web server that can be accessed by a website or app.
+Deploy a pretrained or finetuned LLM to use it in real-world applications. Deploy automatically sets up a web server that can be accessed by a website or app.
 
 ```bash
 # deploy an out-of-the-box LLM
@@ -297,7 +297,7 @@ print(response.json()["output"])
 ----
 
 ## Evaluate an LLM
-Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well would it do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
+Evaluate an LLM to test its performance on various tasks to see how well it understands and generates text. Simply put, we can evaluate things like how well it would do in college-level chemistry, coding, etc... (MMLU, Truthful QA, etc...)
 
 ```bash
 litgpt evaluate microsoft/phi-2 --tasks 'truthfulqa_mc2,mmlu'
