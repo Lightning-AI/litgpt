@@ -29,6 +29,10 @@ from litgpt.utils import (
 
 
 def multinomial_num_samples_1(probs: torch.Tensor) -> torch.Tensor:
+    if probs.device.type == "cpu" and probs.dtype == torch.float16:
+        # FP16 exponential samples can underflow to zero on CPU, allowing
+        # zero-probability tokens to win argmax through 0 / 0 = NaN.
+        probs = probs.float()
     if torch._dynamo.is_compiling():
         # Faster alternative to `torch.multinomial(probs, num_samples=1)` that is also CUDAGraph friendly
         distribution = torch.empty_like(probs).exponential_(1)
