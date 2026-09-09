@@ -7,9 +7,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+import torch
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import GatedRepoError
 from tokenizers import Tokenizer as HFTokenizer
+from tokenizers import decoders, pre_tokenizers
 from tokenizers.models import BPE
 from transformers import AutoTokenizer
 
@@ -106,6 +108,30 @@ def test_tokenizer_against_hf(config, tmp_path):
         if ours.apply_decoding_fix and decoded_output[0] == " ":
             decoded_output = decoded_output[1:]  # the "hack" adds an empty space to the beginning
         assert decoded_output == ours.decode(actual), type(theirs)
+
+
+def test_tokenizer_decode_stream_huggingface_backend_spacing(tmp_path):
+    # Regression test for #1822. Some huggingface-backend tokenizers (e.g. Mistral's, whose
+    # vocab uses a Metaspace `▁` marker to mean "a space precedes this word") can only place
+    # that space correctly when they see the token in context. decode_stream's huggingface
+    # branch used to decode each new token completely alone, so every word-starting token was
+    # treated as if it were the very first token of the whole text and lost its leading space —
+    # "Hello world!" streamed back as "Helloworld!". Assert the fix: streaming decode must match
+    # a plain batch decode of the same tokens.
+    vocab = {"<unk>": 0, "Hello": 1, "▁world": 2, "!": 3}
+    hf_tokenizer = HFTokenizer(BPE(vocab, [], unk_token="<unk>"))
+    hf_tokenizer.pre_tokenizer = pre_tokenizers.Metaspace()
+    hf_tokenizer.decoder = decoders.Metaspace()
+    hf_tokenizer.save(str(tmp_path / "tokenizer.json"))
+
+    tokenizer = Tokenizer(tmp_path)
+    assert tokenizer.backend == "huggingface"
+
+    token_ids = [1, 2, 3]
+    token_stream = (torch.tensor(i) for i in token_ids)
+    streamed = "".join(tokenizer.decode_stream(token_stream))
+
+    assert streamed == tokenizer.decode(torch.tensor(token_ids)) == "Hello world!"
 
 
 def test_tokenizer_input_validation():
