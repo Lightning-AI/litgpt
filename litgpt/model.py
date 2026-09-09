@@ -1006,7 +1006,7 @@ def build_rope_cache(
                 high_dim = math.ceil(high_dim)
 
             low_dim = max(low_dim, 0)
-            high_dim = min(high_dim, n_elem // 2 - 1)
+            high_dim = min(high_dim, n_elem - 1)
 
             # Create linear ramp factor for blending
             dim_range = torch.arange(n_elem // 2, device=device, dtype=torch.float32)
@@ -1017,12 +1017,8 @@ def build_rope_cache(
             ramp_func = torch.clamp(linear_func, 0.0, 1.0)
 
             # Blend extrapolation and interpolation frequencies
-            # ramp_func = 0 -> use interpolation (scaled), ramp_func = 1 -> use extrapolation (unscaled)
-            theta_extrapolation_factor = ramp_func
-            theta = (
-                theta_interpolation * (1 - theta_extrapolation_factor)
-                + theta_extrapolation * theta_extrapolation_factor
-            )
+            # ramp_func = 0 -> use extrapolation (unscaled), ramp_func = 1 -> use interpolation (scaled)
+            theta = theta_interpolation * ramp_func + theta_extrapolation * (1 - ramp_func)
         elif "original_max_seq_len" in extra_config:
             # Llama3-style RoPE scaling
             orig_context_len = extra_config["original_max_seq_len"]

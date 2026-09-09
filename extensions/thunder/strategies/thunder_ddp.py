@@ -1,8 +1,10 @@
 """Fabric Strategy to support Thunder DDP: To be upstreamed into Fabric eventually."""
 
+from __future__ import annotations
+
 from contextlib import AbstractContextManager, nullcontext
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.distributed
@@ -42,7 +44,7 @@ class ThunderDDPStrategy(ParallelStrategy):
         checkpoint_io: CheckpointIO | None = None,
         precision: Precision | None = None,
         jit: bool = True,
-        executors: tuple[Union["Executor", str], ...] | None = None,
+        executors: tuple[Executor | str, ...] | None = None,
         process_group_backend: str | None = None,
         timeout: timedelta | None = default_pg_timeout,
         **kwargs: Any,
