@@ -159,18 +159,16 @@ class Tokenizer:
         return self.processor.decode(tokens)
 
     def decode_stream(self, token_stream: Iterable[torch.Tensor], device: torch.device | None = None) -> Iterator[str]:
-        if self.backend == "huggingface":
-            try:
-                for token in token_stream:
-                    yield self.decode(token)
-            except KeyboardInterrupt:
-                return
-        elif self.backend == "sentencepiece":
+        if self.backend in ("huggingface", "sentencepiece"):
             # TODO: Is there a way to not have to do this?
             # This may actually affect our tokens per second.
 
-            # sentencepiece does not support decoding token-by-token because it adds spaces based on the surrounding tokens
-            # meaning that we need to decode everything each time
+            # Neither backend supports decoding token-by-token: both add spaces based on the
+            # surrounding tokens (sentencepiece always; huggingface too, for tokenizers whose
+            # vocab carries a leading-space marker per word, e.g. Mistral's Metaspace decoder —
+            # decoding a single token in isolation drops its leading space because the decoder
+            # treats it as the first token of the whole sequence). So we decode everything each
+            # time and yield only the newly-decoded suffix.
             so_far = torch.tensor([], dtype=torch.long, device=device)
             decoded_so_far = ""
             try:
