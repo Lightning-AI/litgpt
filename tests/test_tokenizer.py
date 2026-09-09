@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+import json
 import os
 import shutil
 from pathlib import Path
@@ -110,6 +111,16 @@ def test_tokenizer_against_hf(config, tmp_path):
 def test_tokenizer_input_validation():
     with pytest.raises(NotADirectoryError, match="The checkpoint directory does not exist"):
         Tokenizer("cocofruit")
+
+
+def test_tokenizer_config_without_tokenizer_class(tmp_path):
+    HFTokenizer(BPE()).save(str(tmp_path / "tokenizer.json"))
+    with open(tmp_path / "tokenizer_config.json", "w", encoding="utf-8") as fp:
+        json.dump({"add_bos_token": False}, fp)
+
+    tokenizer = Tokenizer(tmp_path)
+
+    assert tokenizer.apply_decoding_fix is False
 
 
 @pytest.mark.parametrize("use_bos_by_default", (True, False))
