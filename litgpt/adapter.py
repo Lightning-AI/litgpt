@@ -55,6 +55,12 @@ class GPT(BaseModel):
         if isinstance(module, CausalSelfAttention):
             module.reset_parameters()
 
+    def clear_kv_cache(self) -> None:
+        super().clear_kv_cache()
+        for block in self.transformer.h:
+            if hasattr(block.attn, "adapter_kv_cache"):
+                block.attn.adapter_kv_cache = None
+
 
 class Block(BaseBlock):
     def __init__(self, config: Config, block_idx: int) -> None:
@@ -84,6 +90,9 @@ class CausalSelfAttention(BaseCausalSelfAttention):
             return y
 
         aT = self.config.adapter_prompt_length
+        use_cache = self.kv_cache is not None and not torch.is_grad_enabled()
+        if not use_cache:
+            self.adapter_kv_cache = None
         if self.adapter_kv_cache is not None:
             # since this uses the wte weights as the prefix and the kv cache is only used during inference, ak and av
             # are the same every call
@@ -101,7 +110,8 @@ class CausalSelfAttention(BaseCausalSelfAttention):
                 av = av.repeat_interleave(q_per_kv, dim=2)
             ak = ak.view(1, -1, aT, self.config.head_size)  # (1, nh_ak, aT, hs)
             av = av.view(1, -1, aT, self.config.head_size)  # (1, nh_av, aT, hs)
-            self.adapter_kv_cache = (ak, av)
+            if use_cache:
+                self.adapter_kv_cache = (ak, av)
 
         T = q.size(2)
         amask = torch.ones(T, aT, dtype=torch.bool, device=q.device)
