@@ -151,6 +151,31 @@ def test_sample_top_p_zero_is_greedy():
         )
 
 
+@pytest.mark.parametrize("top_k", (0, -1))
+def test_sample_rejects_top_k_below_one(top_k):
+    """`top_k` below 1 selects no candidates at all, which is not a usable request.
+
+    Without the check the failure is silent in greedy mode: every logit is masked to
+    -inf, so argmax returns index 0 for any input. In sampling mode it surfaces far
+    from the caller as an opaque `RuntimeError` out of `torch.multinomial`, or as
+    "selected index k out of range" out of `torch.topk` for negative values.
+    """
+    logits = torch.tensor([[[0.5, -1.2, 3.1, 0.8, -0.3, 2.7, -0.9, 1.4]]])
+
+    for temperature in (0.0, 1.0):
+        with pytest.raises(ValueError, match=re.escape(f"top_k must be >= 1, got {top_k}")):
+            sample(logits, temperature=temperature, top_k=top_k)
+
+
+def test_sample_top_k_one_is_greedy():
+    """The smallest accepted `top_k` keeps working and pins sampling to the argmax."""
+    logits = torch.tensor([[[0.5, -1.2, 3.1, 0.8, -0.3, 2.7, -0.9, 1.4]]])
+    expected = torch.argmax(logits[0, -1], dim=-1).item()
+
+    results = [sample(logits, temperature=1.0, top_k=1).item() for _ in range(10)]
+    assert all(r == expected for r in results), results
+
+
 def test_generate_different_results_with_different_top_p():
     config = Config(block_size=128, vocab_size=16, n_layer=1, n_head=4, n_embd=8)
     model = GPT(config)
