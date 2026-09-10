@@ -450,6 +450,67 @@ def copy_weights_olmo2(
             state_dict[to_name] = param
 
 
+def copy_weights_olmoe(
+    config: Config,
+    state_dict: dict[str, torch.Tensor],
+    lit_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    untie_weights: bool = False,
+    saver: incremental_save | None = None,
+) -> None:
+    """Convert OLMoE-1B-7B-0924 LitGPT weights back to HuggingFace format.
+
+    Splits the merged qkv tensor into separate q_proj / k_proj / v_proj
+    and maps expert weights back to OLMoE HF naming.
+    """
+    weight_map = {
+        "transformer.wte.weight": "model.embed_tokens.weight",
+        "transformer.h.{}.norm_1.weight": "model.layers.{}.input_layernorm.weight",
+        "transformer.h.{}.attn.proj.weight": "model.layers.{}.self_attn.o_proj.weight",
+        "transformer.h.{}.norm_2.weight": "model.layers.{}.post_attention_layernorm.weight",
+        "transformer.h.{}.mlp.gate.weight": "model.layers.{}.mlp.gate.weight",
+        "transformer.h.{}.attn.norm_q.weight": "model.layers.{}.self_attn.q_norm.weight",
+        "transformer.h.{}.attn.norm_k.weight": "model.layers.{}.self_attn.k_norm.weight",
+        # expert weights — num_matches=2 to capture layer_idx AND expert_idx
+        "transformer.h.{}.mlp.experts.{}.fc_1.weight": "model.layers.{}.mlp.experts.{}.gate_proj.weight",
+        "transformer.h.{}.mlp.experts.{}.fc_2.weight": "model.layers.{}.mlp.experts.{}.up_proj.weight",
+        "transformer.h.{}.mlp.experts.{}.proj.weight": "model.layers.{}.mlp.experts.{}.down_proj.weight",
+        "transformer.ln_f.weight": "model.norm.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    for from_name, param in lit_weights.items():
+        if from_name == "lm_head.weight" and untie_weights:
+            continue
+        name_template, *ids = layer_template(from_name, num_matches=2)
+        param = load_param(param, from_name, None)
+
+        if from_name.endswith(".attn.qkv.weight"):
+            layer_idx = ids[0]
+            to_names = (
+                f"model.layers.{layer_idx}.self_attn.q_proj.weight",
+                f"model.layers.{layer_idx}.self_attn.k_proj.weight",
+                f"model.layers.{layer_idx}.self_attn.v_proj.weight",
+            )
+            params = param.split(
+                (
+                    config.n_head * config.head_size,
+                    config.n_query_groups * config.head_size,
+                    config.n_query_groups * config.head_size,
+                )
+            )
+        else:
+            to_name = weight_map.get(name_template)
+            if to_name is None:
+                continue
+            to_names = (to_name.format(*ids),)
+            params = (param,)
+
+        for to_name, p in zip(to_names, params):
+            if saver is not None:
+                p = saver.store_early(p)
+            state_dict[to_name] = p
+
+
 def copy_weights_qwen_3(
     config: Config,
     state_dict: dict[str, torch.Tensor],
@@ -562,6 +623,8 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn = partial(copy_weights_phi, config)
     elif config.name.lower().startswith(("qwen2.5", "qwq")):
         copy_fn = partial(copy_weights_qwen_2_5, config)
+    elif config.name.lower().startswith("olmoe"):
+        copy_fn = partial(copy_weights_olmoe, config)
     elif config.name.lower().startswith("olmo-2-"):
         copy_fn = partial(copy_weights_olmo2, config)
     elif config.name.lower().startswith("qwen3"):
