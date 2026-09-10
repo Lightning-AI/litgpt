@@ -12,30 +12,14 @@ These paths are just placeholders, you will need to customize them based on whic
 
 ### Loading converted LitGPT checkpoints into transformers
 
-
-For example,
-
-```bash
-cp checkpoints/repo_id/config.json converted/config.json
-```
-
-Then, you can load the checkpoint file in a Python session as follows:
+The conversion saves the weights as a `pytorch_model.bin` file and copies the configuration and tokenizer files
+(such as `config.json` and `tokenizer.json`) from the source checkpoint directory. You can then load the converted
+checkpoint in a Python session as follows:
 
 ```python
-import torch
 from transformers import AutoModel
 
-
-state_dict = torch.load("output_dir/model.pth")
-model = AutoModel.from_pretrained(
-    "output_dir/", local_files_only=True, state_dict=state_dict
-)
-```
-
-Alternatively, you can also load the model without copying the `config.json` file as follows:
-
-```python
-model = AutoModel.from_pretrained("online_repo_id", state_dict=state_dict)
+model = AutoModel.from_pretrained("converted_dir/", local_files_only=True)
 ```
 
 
@@ -104,11 +88,9 @@ litgpt convert_from_litgpt $finetuned_dir/final/ out/hf-tinyllama/converted
 5. Load the model into a `transformers` model:
 
 ```python
-import torch
 from transformers import AutoModel
 
-state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
-model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
+model = AutoModel.from_pretrained("out/hf-tinyllama/converted/", local_files_only=True)
 ```
 
 &nbsp;
@@ -126,13 +108,7 @@ Alternatively, if you wish to use converted LitGPT models with the LM Evaluation
 model.save_pretrained("out/hf-tinyllama/converted/")
 ```
 
-3. Copy the tokenizer files into the model-containing directory:
-
-```bash
-cp checkpoints/$repo_id/tokenizer* out/hf-tinyllama/converted
-```
-
-4. Run the evaluation harness, for example:
+3. Run the evaluation harness, for example:
 
 ```bash
 lm_eval --model hf \
