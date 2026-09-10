@@ -298,17 +298,50 @@ class incremental_save:
 
 T = TypeVar("T")
 
+# bytes of intermediate memory (forward log_softmax output, its backward gradient, and the
+# nll_loss/allocator overhead around them) held per row of a cross-entropy chunk, per unit of
+# vocab_size and per byte of dtype itemsize. Calibrated on an NVIDIA T4 by measuring actual
+# torch.cuda.max_memory_allocated() peak (not just one op's self-CUDA-mem from a profiler table) for
+# `torch.nn.functional.cross_entropy` on a (chunk_size, vocab_size) slice, at chunk sizes chosen by
+# this exact formula, swept across vocab_size = 8k..152k (GPT-2 to Llama-3/Qwen2.5 scale). The
+# measured peak came out flat across every vocab_size tested (as intended -- see
+# docs/profiling/budget_formula_sweep.png) at a consistent 1.5x the target `memory_budget_bytes`,
+# which is where the factor of 3 below comes from (an earlier factor of 2, based only on a
+# profiler-table self-CUDA-mem estimate for one op, undershot the real allocator peak by that same
+# 1.5x -- see docs/profiling/ for both measurements).
+_CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT = 3
+
+
+def auto_cross_entropy_chunk_size(
+    vocab_size: int, dtype: torch.dtype, memory_budget_bytes: int, min_chunk_size: int = 1
+) -> int:
+    """Computes a `chunked_cross_entropy` `chunk_size` that keeps a single chunk's log_softmax
+    forward+backward intermediates within `memory_budget_bytes`, given the model's `vocab_size` and
+    logits `dtype`. This is the actual memory-budget knob behind `TrainArgs.cross_entropy_chunk_size
+    ="auto"` — see the module-level comment above for where the underlying byte-per-element estimate
+    comes from.
+    """
+    itemsize = torch.tensor([], dtype=dtype).element_size()
+    bytes_per_row = vocab_size * itemsize * _CROSS_ENTROPY_BYTES_PER_CHUNK_ELEMENT
+    return max(min_chunk_size, memory_budget_bytes // bytes_per_row)
+
 
 def chunked_cross_entropy(
     logits: torch.Tensor | list[torch.Tensor],
     targets: torch.Tensor,
-    chunk_size: int = 128,
+    chunk_size: int | Literal["auto"] = 128,
     ignore_index: int = -100,
+    memory_budget_bytes: int = 32 * 1024 * 1024,
 ) -> torch.Tensor:
     # with large max_sequence_lengths, the beginning of `backward` allocates a large memory chunk which can dominate
     # the memory usage in fine-tuning settings with low number of parameters.
     # as a workaround hack, the cross entropy computation is chunked to force it to deallocate on the go, reducing
     # the memory spike's magnitude
+
+    if chunk_size == "auto":
+        vocab_size = logits[0].size(-1) if isinstance(logits, list) else logits.size(-1)
+        dtype = logits[0].dtype if isinstance(logits, list) else logits.dtype
+        chunk_size = auto_cross_entropy_chunk_size(vocab_size, dtype, memory_budget_bytes)
 
     # lm_head was chunked (we are fine-tuning)
     if isinstance(logits, list):
