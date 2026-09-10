@@ -18,6 +18,14 @@ from typing_extensions import Self
 from litgpt.config import Config
 from litgpt.scripts.convert_hf_checkpoint import qkv_reassemble
 
+# Optional: torchembed fused RoPE kernel (pip install torchembed)
+try:
+    from torchembed.positional import RotaryEmbedding as TorchembedRotaryEmbedding
+
+    _TORCHEMBED_AVAILABLE = True
+except ImportError:
+    _TORCHEMBED_AVAILABLE = False
+
 
 class GPT(nn.Module):
     def __init__(self, config: Config) -> None:
@@ -424,6 +432,26 @@ class CausalSelfAttention(nn.Module):
         else:
             self.mscale = 1.0
 
+        # Optionally wire up the torchembed fused Triton RoPE kernel.
+        # Restricted to the standard (non-interleaved, non-adjusted) RoPE path.
+        self._torchembed_rope: TorchembedRotaryEmbedding | None = None
+        if config.use_torchembed_rope:
+            if not _TORCHEMBED_AVAILABLE:
+                raise ImportError(
+                    "use_torchembed_rope=True requires the 'torchembed' package. "
+                    "Install it with: pip install torchembed"
+                )
+            if config.rope_interleave:
+                raise ValueError("use_torchembed_rope is incompatible with rope_interleave=True")
+            if config.rope_adjustments is not None:
+                raise ValueError("use_torchembed_rope is incompatible with rope_adjustments (YaRN/Llama3 scaling)")
+            self._torchembed_rope = TorchembedRotaryEmbedding(
+                dim=config.rope_n_elem,
+                max_seq_len=config.block_size,
+                base=config.rope_base,
+                use_fused=True,
+            )
+
         self.config = config
         self.block_idx = block_idx
 
@@ -503,7 +531,13 @@ class CausalSelfAttention(nn.Module):
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        if self.config.rope_interleave:
+        # When use_torchembed_rope=True and we are in training (input_pos is None, contiguous
+        # positions), hand off to torchembed's fused Triton kernel for a ~3-4x speedup.
+        # Inference with an active KV-cache uses non-contiguous position indices that the
+        # torchembed module does not support, so we fall back to the standard path there.
+        if self._torchembed_rope is not None and input_pos is None:
+            q_roped, k_roped = self._torchembed_rope(q[..., :rope_n_elem], k[..., :rope_n_elem])
+        elif self.config.rope_interleave:
             q_roped = apply_rope_interleave(q[..., :rope_n_elem], cos, sin)
             k_roped = apply_rope_interleave(k[..., :rope_n_elem], cos, sin)
         else:
