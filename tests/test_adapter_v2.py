@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import os
+import re
 from contextlib import redirect_stdout
 from copy import deepcopy
 from io import StringIO
@@ -122,6 +123,51 @@ def test_adapter_v2_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_pa
     assert logs.count("val loss") == 4  # 3 validations + 1 final validation
     assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 552" in logs
+
+
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
+def test_adapter_v2_script_all_reduces_val_loss(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
+    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8, adapter_start_layer=0)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value = tokenizer_mock
+    tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
+    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+
+    # simulate a multi-device run by making the reduced loss differ from the rank-local one
+    def all_reduce_mock(self, data, group=None, reduce_op="mean"):
+        if reduce_op == "mean" and isinstance(data, torch.Tensor):
+            return data + 100
+        return data
+
+    monkeypatch.setattr(Fabric, "all_reduce", all_reduce_mock)
+
+    out_dir = tmp_path / "out"
+    stdout = StringIO()
+    with redirect_stdout(stdout), mock.patch("sys.argv", ["adapter_v2.py", str(fake_checkpoint_dir)]):
+        module.setup(
+            fake_checkpoint_dir,
+            data=Alpaca(
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+            ),
+            out_dir=out_dir,
+            precision="32-true",
+            train=TrainArgs(global_batch_size=1, epochs=1, max_steps=4, micro_batch_size=1),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1, initial_validation=True),
+        )
+
+    logs = stdout.getvalue()
+    # the initial validation and the training progress lines must report the reduced loss
+    progress_vals = re.findall(r"val: (\d+\.\d+)", logs)
+    assert progress_vals and all(float(v) > 100 for v in progress_vals)
+    # the periodic validation must report the reduced loss
+    periodic_vals = re.findall(r"val loss (\d+\.\d+)", logs)
+    assert periodic_vals and all(float(v) > 100 for v in periodic_vals)
+    # the final validation must report the reduced loss
+    final_vals = re.findall(r"Final evaluation \| val loss: (\d+\.\d+)", logs)
+    assert len(final_vals) == 1 and float(final_vals[0]) > 100
 
 
 def test_adapter_v2_gpt_init_weights():
