@@ -930,7 +930,7 @@ class GroupedTopkRouter(nn.Module):
 
 
 # ROPE: YaRN (Yet another RoPE extensioN) scaling function for extended context
-def yarn_get_mscale(scale=1, mscale=1):
+def yarn_get_mscale(scale: float = 1, mscale: float = 1) -> float:
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0
@@ -994,7 +994,7 @@ def build_rope_cache(
 
             # Find correction range based on rotation counts
             # Inverse dimension formula to find dimension based on number of rotations
-            def find_correction_dim(num_rotations, dim, base_val, max_pos):
+            def find_correction_dim(num_rotations: float, dim: int, base_val: float, max_pos: int) -> float:
                 return (dim * math.log(max_pos / (num_rotations * 2 * math.pi))) / (2 * math.log(base_val))
 
             low_dim = find_correction_dim(beta_fast, n_elem, base, original_max_seq_len)
@@ -1072,7 +1072,7 @@ def build_rope_cache(
     return cos, sin
 
 
-def batched_index_select(t, dim, idx):
+def batched_index_select(t: torch.Tensor, dim: int, idx: torch.Tensor) -> torch.Tensor:
     """index_select for batched index and unbatched t"""
     if idx.dim() == 1:
         return torch.index_select(t, dim, idx)
@@ -1091,7 +1091,7 @@ def batched_index_select(t, dim, idx):
     return res
 
 
-def batched_index_copy_(t, dim, idx, val):
+def batched_index_copy_(t: torch.Tensor, dim: int, idx: torch.Tensor, val: torch.Tensor) -> torch.Tensor:
     """Index copy for batched t, idx, val"""
 
     if t.device.type == "mps":
