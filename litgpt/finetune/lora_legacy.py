@@ -474,6 +474,8 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
 
 def get_lr_scheduler(optimizer, warmup_steps: int, max_steps: int):
     # linear warmup followed by cosine annealing
+    if max_steps <= warmup_steps:
+        raise ValueError(f"max_steps ({max_steps}) must be greater than warmup_steps ({warmup_steps})")
     scheduler1 = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: step / warmup_steps)
     scheduler2 = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(max_steps - warmup_steps))
     return torch.optim.lr_scheduler.SequentialLR(optimizer, [scheduler1, scheduler2], milestones=[warmup_steps])
