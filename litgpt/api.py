@@ -39,12 +39,12 @@ class LLM(torch.nn.Module):
     def __init__(
         self,
         model: GPT,
-        preprocessor=None,
-        prompt_style: PromptStyle = None,
-        devices: int | list[int] = None,
-        config: Config = None,
-        checkpoint_dir: Path = None,
-        fabric: L.Fabric = None,
+        preprocessor: "Preprocessor | None" = None,
+        prompt_style: PromptStyle | None = None,
+        devices: int | list[int] | None = None,
+        config: Config | None = None,
+        checkpoint_dir: Path | None = None,
+        fabric: L.Fabric | None = None,
         generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
         kv_cache_initialized: bool = False,
         fixed_kv_cache_size: int | Literal["max_model_supported"] | None = None,
@@ -74,13 +74,13 @@ class LLM(torch.nn.Module):
     """
 
     @property
-    def tokenizer(self):
+    def tokenizer(self) -> Tokenizer:
         return self.preprocessor.tokenizer
 
-    def state_dict(self, destination=None, prefix="", keep_vars=False):
+    def state_dict(self, destination: dict | None = None, prefix: str = "", keep_vars: bool = False) -> dict:
         return self.model.state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)
 
-    def load_state_dict(self, state_dict, strict=True):
+    def load_state_dict(self, state_dict: dict, strict: bool = True) -> Any:
         return self.model.load_state_dict(state_dict, strict=strict)
 
     def forward(
@@ -574,7 +574,7 @@ class LLM(torch.nn.Module):
         input_ids = self.preprocessor.encode(prompt)
         return input_ids
 
-    def benchmark(self, num_iterations=1, **kwargs):
+    def benchmark(self, num_iterations: int = 1, **kwargs: Any) -> tuple[str, dict]:
         """
         A wrapper around the .generate() method to calculate runtime performance.
 
@@ -633,7 +633,7 @@ class Preprocessor:
         return self.tokenizer.decode(token_ids)
 
 
-def calculate_number_of_devices(devices):
+def calculate_number_of_devices(devices: int | list[int]) -> int:
     """
     Utility function to calculate the number of devices.
     """
@@ -641,7 +641,7 @@ def calculate_number_of_devices(devices):
     return num_devices
 
 
-def benchmark_dict_to_markdown_table(data):
+def benchmark_dict_to_markdown_table(data: dict) -> str:
     """
     Converts .benchmark() outputs to a markdown table
     """
