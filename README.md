@@ -19,6 +19,10 @@
 ![cpu-tests](https://github.com/Lightning-AI/litgpt/actions/workflows/cpu-tests.yml/badge.svg) [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/litgpt/blob/main/LICENSE.md) [![Discord](https://img.shields.io/discord/1077906959069626439)](https://discord.gg/VptPCZkGNa)
 
 <p align="center">
+  <b>English</b> · <a href="README.zh.md">简体中文</a>
+</p>
+
+<p align="center">
   <a href="#quick-start">Quick start</a> •
   <a href="#choose-from-20-llms">Models</a> •
   <a href="#finetune-an-llm">Finetune</a> •
