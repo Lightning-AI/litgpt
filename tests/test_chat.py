@@ -131,6 +131,47 @@ def test_main(mocked_input, stop_iteration, fake_checkpoint_dir, monkeypatch, te
     assert re.match(r".*Now chatting with Llama 3.*>> .*Reply: foo bar baz", out.getvalue(), re.DOTALL), out.getvalue()
 
 
+@skip_in_ci_on_macos
+@patch("litgpt.chat.base.input")
+def test_main_compile(mocked_input, fake_checkpoint_dir, monkeypatch):
+    # `generate_fn` calls the `next_token` of its own module, so that is the one `--compile` has to replace
+    mocked_input.side_effect = ["Hello", ""]
+
+    config_path = fake_checkpoint_dir / "model_config.yaml"
+    config = {
+        "name": "Llama 3",
+        "block_size": 128,
+        "vocab_size": 50,
+        "n_layer": 2,
+        "n_head": 4,
+        "n_embd": 8,
+        "rotary_percentage": 1,
+    }
+    config_path.write_text(yaml.dump(config))
+
+    monkeypatch.setattr(chat, "load_checkpoint", Mock())
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value.backend = "sentencepiece"
+    tokenizer_mock.return_value.encode.return_value = torch.tensor([1, 2, 3])
+    tokenizer_mock.return_value.decode_stream.return_value = "foo bar baz"
+    monkeypatch.setattr(chat, "Tokenizer", tokenizer_mock)
+    generate_mock = MagicMock()
+    generate_mock.__iter__.return_value = [torch.tensor([3, 2, 1])]
+    monkeypatch.setattr(chat, "generate", generate_mock)
+
+    original_next_token = generate.next_token
+    monkeypatch.setattr(generate, "next_token", original_next_token)
+    compiled_next_token = Mock()
+    compile_mock = Mock(return_value=compiled_next_token)
+    monkeypatch.setattr(torch, "compile", compile_mock)
+
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        chat.main(checkpoint_dir=fake_checkpoint_dir, compile=True)
+
+    compile_mock.assert_called_once_with(original_next_token, mode="reduce-overhead", dynamic=True)
+    assert generate.next_token is compiled_next_token
+
+
 def test_cli():
     args = ["litgpt", "chat", "-h"]
     output = subprocess.check_output(args)
