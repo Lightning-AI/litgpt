@@ -237,8 +237,11 @@ def main(
         torch._dynamo.config.automatic_dynamic_shapes = True
         torch._inductor.config.triton.unique_kernel_names = True
         torch._inductor.config.coordinate_descent_tuning = True
-        global next_token
-        next_token = torch.compile(next_token, mode="reduce-overhead", dynamic=True)
+        # generate_fn looks next_token up in its own module at call time, so
+        # the compiled one has to replace the attribute there.
+        import litgpt.generate.base as generate_base
+
+        generate_base.next_token = torch.compile(generate_base.next_token, mode="reduce-overhead", dynamic=True)
 
     model = fabric.setup_module(model)
 
