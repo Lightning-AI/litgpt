@@ -432,16 +432,31 @@ def validate(
     model.eval()
 
     losses = []
-    for k, batch in enumerate(val_dataloader):
-        if k >= max_iters:
+    val_iter = iter(val_dataloader)
+    for k in range(max_iters):
+        try:
+            batch = next(val_iter)
+            has_batch = torch.tensor(1.0, device=fabric.device)
+        except StopIteration:
+            batch = None
+            has_batch = torch.tensor(0.0, device=fabric.device)
+
+        fabric.all_reduce(has_batch, reduce_op="min")
+        if has_batch.item() == 0:
             break
+
         input_ids = batch[:, 0 : model.max_seq_length].contiguous().long()
         targets = batch[:, 1 : (model.max_seq_length + 1)].contiguous().long()
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets)
         losses.append(loss)
 
-    val_loss = torch.stack(losses).mean()
+    if losses:
+        val_loss = torch.stack(losses).mean()
+    else:
+        if verbose:
+            fabric.print("WARNING: no rank had validation data available for this call -- reporting val_loss as NaN.")
+        val_loss = torch.tensor(float('nan'), device=fabric.device)
     model.train()
     fabric.barrier()
     return val_loss
