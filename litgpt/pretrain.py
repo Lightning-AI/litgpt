@@ -456,7 +456,7 @@ def validate(
     else:
         if verbose:
             fabric.print("WARNING: no rank had validation data available for this call -- reporting val_loss as NaN.")
-        val_loss = torch.tensor(float('nan'), device=fabric.device)
+        val_loss = torch.tensor(float("nan"), device=fabric.device)
     model.train()
     fabric.barrier()
     return val_loss
