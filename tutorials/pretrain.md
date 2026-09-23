@@ -41,6 +41,20 @@ litgpt pretrain pythia-14m \
 
 
 &nbsp;
+## Checkpoint saving and short runs
+
+`--train.save_interval` counts optimizer steps, not individual micro-batches. With gradient accumulation,
+several iterations may be needed before one optimizer step completes. Periodic checkpoints are saved as
+`<out_dir>/step-00000005/lit_model.pth` (for step 5), alongside `model_config.yaml`.
+On normal completion, pretraining also saves `<out_dir>/final/lit_model.pth`, even if no save interval was reached.
+These local checkpoints do not require `--log.log_model`.
+
+For a short debug run, set `--train.max_steps 5 --train.save_interval 5 --train.lr_warmup_steps 0`.
+The run stops when either the optimizer-step limit or the token budget (`--train.max_tokens`) is reached first.
+Keep the required token budget large enough to reach the desired number of steps. When resuming, `max_steps`
+is the total step limit, including steps already completed in the checkpoint.
+
+&nbsp;
 ## Pretrain on custom data
 
 The simplest way to get started with pretraining on a small custom dataset is by using the `TextFiles` data module, which lets you pretrain a dataset from a folder containing plain text files.
