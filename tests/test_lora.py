@@ -34,6 +34,7 @@ from litgpt.lora import (
     lora_filter,
     mark_only_lora_as_trainable,
     merge_lora_weights,
+    normalize_lora_r_by_layer,
 )
 from litgpt.lora import CausalSelfAttention as LoRACausalSelfAttention
 from litgpt.model import GPT as BaseGPT
@@ -50,6 +51,238 @@ def test_lora_layer_replacement():
     assert isinstance(model.transformer.h[1].attn, LoRACausalSelfAttention)
     assert isinstance(model.lm_head, LoRALinear)
     assert isinstance(model.transformer.h[0].mlp.proj, LoRALinear)
+
+
+def test_layer_wise_lora_rank():
+    config = Config(
+        n_layer=3,
+        n_head=4,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        lora_r=8,
+        lora_r_by_layer={0: 2, 2: 4},
+        lora_alpha=8,
+        lora_dropout=0.0,
+        lora_query=True,
+        lora_projection=True,
+        lora_mlp=True,
+        lora_head=True,
+    )
+    model = LoRAGPT(config)
+
+    expected_ranks = [2, 8, 4]
+
+    assert config.get_lora_rank(0) == 2
+    assert config.get_lora_rank(1) == 8
+    assert config.get_lora_rank(2) == 4
+    assert config.get_lora_rank() == 8
+
+    for block_idx, expected_rank in enumerate(expected_ranks):
+        block = model.transformer.h[block_idx]
+
+        # attention QKV
+        assert block.attn.qkv.r == expected_rank
+
+        # attention output projection
+        assert block.attn.proj.r == expected_rank
+
+        # MLP output projection
+        assert block.mlp.proj.r == expected_rank
+
+        # verify that the LoRA matrices have the expected rank
+        assert block.attn.qkv.lora_A.shape[0] == expected_rank
+        assert block.mlp.proj.lora_A.shape[0] == expected_rank
+
+    # the final head retains the global rank
+    assert model.lm_head.r == 8
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected_error"),
+    [
+        ({-1: 4}, ValueError),
+        ({3: 4}, ValueError),
+        ({0: -2}, ValueError),
+        ({"0": 4}, TypeError),
+        ({True: 4}, TypeError),
+        ({0: 2.5}, TypeError),
+        ([(0, 4)], TypeError),
+    ],
+)
+def test_layer_wise_lora_invalid_config(overrides, expected_error):
+    with pytest.raises(expected_error):
+        Config(
+            n_layer=3,
+            n_head=4,
+            n_embd=8,
+            block_size=8,
+            vocab_size=8,
+            lora_r=8,
+            lora_r_by_layer=overrides,
+        )
+
+
+def test_layer_wise_lora_key_normalization():
+    assert normalize_lora_r_by_layer({"0": 2, "2": 4}) == {0: 2, 2: 4}
+
+    assert normalize_lora_r_by_layer({0: 2, 2: 4}) == {0: 2, 2: 4}
+
+    assert normalize_lora_r_by_layer(None) is None
+
+    with pytest.raises(TypeError):
+        normalize_lora_r_by_layer({"invalid": 4})
+
+
+def test_layer_wise_lora_metadata(tmp_path, monkeypatch):
+    import sys
+
+    import yaml
+
+    from litgpt.finetune.lora import setup
+    from litgpt.parser_config import save_hyperparameters
+    from litgpt.scripts.merge_lora import load_lora_metadata
+
+    # simulate a fine-tuning configuration
+    parameters = {
+        "checkpoint_dir": str(tmp_path / "base"),
+        "lora_r": 8,
+        "lora_r_by_layer": {0: 2, 2: 4},
+        "lora_query": True,
+        "lora_projection": True,
+        "lora_mlp": True,
+    }
+
+    config_file = tmp_path / "finetune.yaml"
+    config_file.write_text(yaml.safe_dump(parameters))
+
+    # simulate the real LitGPT CLI
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["litgpt", "finetune_lora", "--config", str(config_file)],
+    )
+
+    # save metadata using LitGPT's existing function
+    save_hyperparameters(setup, tmp_path)
+
+    assert (tmp_path / "hyperparameters.yaml").is_file()
+
+    # reload metadata through the merge utility
+    lora_params, checkpoint_dir, precision = load_lora_metadata(tmp_path)
+
+    assert lora_params["lora_r"] == 8
+    assert lora_params["lora_r_by_layer"] == {0: 2, 2: 4}
+    assert checkpoint_dir == tmp_path / "base"
+
+    # verify that the recovered parameters reconstruct the model
+    config = Config(
+        n_layer=3,
+        n_head=4,
+        n_embd=8,
+        block_size=8,
+        vocab_size=8,
+        **lora_params,
+    )
+
+    model = LoRAGPT(config)
+    assert [block.attn.qkv.r for block in model.transformer.h] == [2, 8, 4]
+
+
+@pytest.mark.parametrize("n_query_groups", [4, 2])
+def test_layer_wise_lora_training_step(n_query_groups):
+    import torch
+    import torch.nn.functional as F
+
+    from litgpt.lora import mark_only_lora_as_trainable
+
+    torch.manual_seed(42)
+
+    config = Config(
+        n_layer=3,
+        n_head=4,
+        n_query_groups=n_query_groups,
+        n_embd=16,
+        block_size=8,
+        vocab_size=32,
+        lora_r=8,
+        lora_r_by_layer={0: 2, 1: 0, 2: 4},
+        lora_alpha=8,
+        lora_dropout=0.0,
+        lora_query=True,
+        lora_value=True,
+        lora_projection=True,
+        lora_mlp=True,
+        lora_head=False,
+    )
+
+    model = LoRAGPT(config)
+    model.train()
+
+    mark_only_lora_as_trainable(model)
+
+    for name, param in model.named_parameters():
+        # disabled blocks must not contain LoRA parameters
+        assert not (name.startswith("transformer.h.1.") and "lora_" in name)
+
+        # only LoRA parameters can receive gradients
+        assert param.requires_grad == ("lora_" in name)
+
+    # save the initial model parameters
+    initial_weights = {name: param.detach().clone() for name, param in model.named_parameters()}
+
+    optimizer = torch.optim.AdamW(
+        [p for p in model.parameters() if p.requires_grad],
+        lr=1e-2,
+        weight_decay=0.0,
+    )
+
+    tokens = torch.randint(0, config.vocab_size, (2, 6))
+
+    # execute two training steps
+    for step in range(2):
+        optimizer.zero_grad()
+
+        logits = model(tokens[:, :-1])
+
+        loss = F.cross_entropy(
+            logits.reshape(-1, logits.size(-1)),
+            tokens[:, 1:].reshape(-1),
+        )
+
+        assert torch.isfinite(loss)
+
+        loss.backward()
+
+        # every enabled block must receive LoRA B gradients
+        if step == 0:
+            for block_idx in (0, 2):
+                gradients = []
+                for name, p in model.named_parameters():
+                    if name.startswith(f"transformer.h.{block_idx}.") and "lora_B" in name:
+                        gradients.append(p.grad)
+
+                assert gradients
+                for g in gradients:
+                    assert g is not None and g.abs().sum().item() > 0
+
+        optimizer.step()
+
+    # check that each enabled block updated its adapters
+    for block_idx in (0, 2):
+        for name, param in model.named_parameters():
+            if name.startswith(f"transformer.h.{block_idx}.") and "lora_B" in name:
+                assert not torch.equal(param, initial_weights[name])
+
+    # original pretrained weights must remain unchanged
+    for name, param in model.named_parameters():
+        if "lora_" not in name:
+            torch.testing.assert_close(
+                param,
+                initial_weights[name],
+                rtol=0,
+                atol=0,
+            )
 
 
 def test_lora_merge():
