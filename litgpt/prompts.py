@@ -168,6 +168,48 @@ class Llama2(PromptStyle):
 
 
 class Llama3(PromptStyle):
+    @staticmethod
+    def _message_parts(message: dict[str, str]) -> tuple[str, str, str]:
+        role = message["role"]
+        content = message["content"].strip()
+        header = f"<|start_header_id|>{role}<|end_header_id|>\n\n"
+        return header, content, "<|eot_id|>"
+
+    def apply_with_assistant_spans(
+        self, messages: list[dict[str, str]], *, sys_prompt: str | None = None
+    ) -> tuple[str, list[tuple[int, int]]]:
+        """Serialize messages and return character spans supervised for assistant-only SFT."""
+        default_system_prompt = sys_prompt or "You are a helpful assistant."
+        if not messages:
+            raise ValueError("A conversation must contain at least one message.")
+
+        if messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": default_system_prompt}, *messages]
+
+        parts = ["<|begin_of_text|>"]
+        assistant_spans = []
+        for index, message in enumerate(messages):
+            role = message.get("role")
+            if index != 0 and role == "system":
+                raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
+            if role not in ["assistant", "user", "system"]:
+                raise ValueError(
+                    f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'."
+                )
+
+            header, content, end_token = self._message_parts(message)
+            parts.append(header)
+            content_start = sum(len(part) for part in parts)
+            parts.append(content)
+            content_end = content_start + len(content)
+            parts.append(end_token)
+            if role == "assistant":
+                assistant_spans.append((content_start, content_end))
+                assistant_spans.append((content_end, content_end + len(end_token)))
+
+        parts.append("<|start_header_id|>assistant<|end_header_id|>\n\n")
+        return "".join(parts), assistant_spans
+
     def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
         default_system_prompt = sys_prompt or "You are a helpful assistant."
 
