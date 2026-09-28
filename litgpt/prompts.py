@@ -193,9 +193,7 @@ class Llama3(PromptStyle):
             if index != 0 and role == "system":
                 raise ValueError("'system' role is only allowed at the beginning of the conversation list.")
             if role not in ["assistant", "user", "system"]:
-                raise ValueError(
-                    f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'."
-                )
+                raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'.")
 
             header, content, end_token = self._message_parts(message)
             parts.append(header)
