@@ -805,6 +805,8 @@ def test_fix_and_load_json():
     assert fix_and_load_json('{"note": "use 1,}"}') == {"note": "use 1,}"}
     assert fix_and_load_json('{"note": "see, ] this", "n": 2}') == {"note": "see, ] this", "n": 2}
     assert fix_and_load_json('{"note": "use \\",}"}') == {"note": 'use ",}'}
+    # A comma that is text and a real trailing comma in the same input.
+    assert fix_and_load_json('{"a": "he said \\", ] ok",\n}') == {"a": 'he said ", ] ok'}
 
 
 def test_select_sft_generate_example():
