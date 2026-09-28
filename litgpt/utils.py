@@ -825,9 +825,44 @@ def _check_amd_connectivity(custom_print):
         )
 
 
+def _drop_trailing_commas_outside_strings(s):
+    """Drop a comma that sits before } or ], unless that comma is inside a string."""
+    out = []
+    in_string = False
+    escape = False
+    i = 0
+    while i < len(s):
+        char = s[i]
+        if in_string:
+            out.append(char)
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            i += 1
+            continue
+        if char == '"':
+            in_string = True
+            out.append(char)
+            i += 1
+            continue
+        if char == ",":
+            j = i + 1
+            while j < len(s) and s[j] in " \t\r\n":
+                j += 1
+            if j < len(s) and s[j] in "}]":
+                i += 1
+                continue
+        out.append(char)
+        i += 1
+    return "".join(out)
+
+
 def fix_and_load_json(s):
-    # Remove trailing commas before } or ]
-    s = re.sub(r",(\s*[}\]])", r"\1", s)
+    # Remove trailing commas before } or ], but keep a comma that is text inside a string.
+    s = _drop_trailing_commas_outside_strings(s)
 
     # Insert missing commas between properties
     # Match positions where a value is followed by a newline and then a quote without a comma
