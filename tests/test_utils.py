@@ -801,6 +801,13 @@ def test_fix_and_load_json():
     result_missing_commas = fix_and_load_json(invalid_json_missing_commas)
     assert result_missing_commas == expected_output_missing_commas
 
+    # A comma before } or ] inside a string is text, not a trailing comma.
+    assert fix_and_load_json('{"note": "use 1,}"}') == {"note": "use 1,}"}
+    assert fix_and_load_json('{"note": "see, ] this", "n": 2}') == {"note": "see, ] this", "n": 2}
+    assert fix_and_load_json('{"note": "use \\",}"}') == {"note": 'use ",}'}
+    # A comma that is text and a real trailing comma in the same input.
+    assert fix_and_load_json('{"a": "he said \\", ] ok",\n}') == {"a": 'he said ", ] ok'}
+
 
 def test_select_sft_generate_example():
     eval_mock = mock.MagicMock()
