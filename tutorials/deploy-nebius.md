@@ -7,7 +7,7 @@ This tutorial packages [SmolLM2-135M-Instruct](https://huggingface.co/HuggingFac
 - A Nebius project with permission to create Serverless Endpoints and sufficient GPU, Compute, disk and networking quotas. Follow the [endpoint prerequisites](https://docs.nebius.com/serverless/quickstart/endpoints#prerequisites).
 - The [Nebius CLI](https://docs.nebius.com/cli/install), configured for that project. The commands below use CLI **0.12.279**.
 - Docker with Buildx, Bash, `curl`, and `jq` on your workstation.
-- A container registry repository that you can push to and that Nebius can pull from. The example uses a **public** image containing only the ungated model and runtime. For a private registry, configure a [registry secret](https://docs.nebius.com/serverless/endpoints/manage) and add `--registry-secret` when creating the endpoint.
+- A container registry repository that you can push to and that Nebius can pull from. The example uses a **public** image containing only the ungated model and runtime. For a private registry, configure a [registry secret](https://docs.nebius.com/serverless/endpoints/manage) and add `--registry-secret` when creating the endpoint. Nebius Container Registry in the same project can be used without extra endpoint registry credentials.
 
 Running endpoints incur charges even without requests. Check [Serverless pricing and quotas](https://docs.nebius.com/serverless/pricing-quotas) and [current prices](https://nebius.com/prices) for your selected platform and region before creation. Plan to delete this smoke-test endpoint as soon as the requests below finish; stopping also stops endpoint compute and storage billing.
 
@@ -17,17 +17,23 @@ Run these commands from the LitGPT repository root. The [Dockerfile](nebius-serv
 
 ```bash
 # Replace with a repository you own; authenticate to that registry with docker login.
-export IMAGE_TAG='docker.io/YOUR_ACCOUNT/litgpt-smollm2:0.5.13'
+export IMAGE_TAG="docker.io/YOUR_ACCOUNT/lg:$(date -u +%Y%m%d%H%M%S)"
+# The current endpoint service requires the full image reference to fit in 64 characters.
+test "${#IMAGE_TAG}" -le 64
 
 docker buildx build --platform linux/amd64 \
   --tag "$IMAGE_TAG" --push \
   --metadata-file /tmp/litgpt-image-metadata.json \
   tutorials/nebius-serverless
 
-# Deploy the exact image built above, even if the tag is changed later.
+# Verify that the unique tag resolves to the image produced by this build.
 IMAGE_DIGEST=$(jq -er '."containerimage.digest"' /tmp/litgpt-image-metadata.json)
-export IMAGE_REF="${IMAGE_TAG%:*}@${IMAGE_DIGEST}"
+REMOTE_DIGEST=$(docker buildx imagetools inspect "$IMAGE_TAG" --format '{{.Manifest.Digest}}')
+test "$REMOTE_DIGEST" = "$IMAGE_DIGEST"
+export IMAGE_REF="$IMAGE_TAG"
 ```
+
+Stop if either `test` command fails. During validation with CLI 0.12.279, the endpoint service copied the full image reference into a Compute label and rejected references longer than 64 characters. This also prevents using `repository@sha256:...` references. Use a short repository name and a unique tag, verify its digest as above, and do not overwrite that tag while the endpoint exists. A tag is mutable; the digest check detects an incorrect image before deployment but does not enforce registry immutability.
 
 Docker caches the dependency and model layers. The converted checkpoint lives at `/app/checkpoints/HuggingFaceTB/SmolLM2-135M-Instruct` inside the image, so each replica has the same weights without a runtime Hugging Face download, token, or external volume. `HF_HUB_OFFLINE=1` prevents runtime Hub access. Rebuilding after changing the model or download script invalidates the model layer; ordinary endpoint restarts reuse the image. Keep adequate local disk space for CUDA dependencies and the build cache.
 
@@ -143,7 +149,7 @@ nebius ai endpoint get --id "$ENDPOINT_ID" --format json \
   | jq '{state: .status.state, urls: .status.public_endpoints}'
 ```
 
-Image-pull failures usually require checking the image digest, registry visibility or registry secret. Model initialization errors require inspecting the container logs; `--accelerator cuda` deliberately fails if CUDA is unavailable. A readiness timeout leaves the endpoint allocated: stop or delete it using step 5 while investigating. Do not print or share raw `endpoint get` output, which includes the generated token.
+Image-pull failures usually require checking the image tag and digest, registry visibility or registry secret. Model initialization errors require inspecting the container logs; `--accelerator cuda` deliberately fails if CUDA is unavailable. A readiness timeout leaves the endpoint allocated: stop or delete it using step 5 while investigating. Do not print or share raw `endpoint get` output, which includes the generated token.
 
 ## 4. Check authentication, generate, and stream
 
