@@ -9,7 +9,7 @@ from lightning import LightningDataModule
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from litgpt.prompts import PromptStyle
+from litgpt.prompts import Llama3, PromptStyle
 from litgpt.tokenizer import Tokenizer
 
 
@@ -65,6 +65,7 @@ class SFTDataset(Dataset):
         mask_prompt: bool = True,
         ignore_index: int = -100,
         transform: Callable[[Any], Any] | None = None,
+        mask_strategy: str | None = None,
     ) -> None:
         self.data = data
         self.tokenizer = tokenizer
@@ -74,7 +75,10 @@ class SFTDataset(Dataset):
         self.max_seq_length = max_seq_length
         self.mask_prompt = mask_prompt
         self.ignore_index = ignore_index
+        self.mask_strategy = mask_strategy
         self.transform = transform
+        if self.mask_strategy == "assistant" and mask_prompt:
+            raise ValueError("mask_prompt and mask_strategy='assistant' cannot be enabled together.")
 
     def __len__(self) -> int:
         return len(self.data)
@@ -83,6 +87,13 @@ class SFTDataset(Dataset):
         example = self.data[idx]
         if self.transform is not None:
             example = self.transform(example)
+
+        if self.mask_strategy not in (None, "assistant"):
+            raise ValueError("mask_strategy must be None or 'assistant'.")
+
+        if self.mask_strategy == "assistant":
+            return self._get_assistant_masked_item(example)
+
         prompt = self.prompt_style.apply(prompt=example["instruction"], **example)
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
         encoded_response = self.tokenizer.encode(example["output"], bos=False, eos=True, max_length=self.max_seq_length)
@@ -105,6 +116,50 @@ class SFTDataset(Dataset):
             "token_counts": {
                 "raw": raw_token_count,
                 "raw_plus_prompt_template": len(encoded_prompt_and_response),
+            },
+        }
+
+    def _get_assistant_masked_item(self, example: dict[str, Any]) -> dict[str, Tensor | dict[str, int]]:
+        if not isinstance(self.prompt_style, Llama3):
+            raise ValueError("assistant masking currently requires the Llama3 prompt style.")
+        messages = example.get("messages")
+        if not isinstance(messages, list) or not messages:
+            raise ValueError("assistant masking requires a non-empty 'messages' list.")
+        if not any(message.get("role") == "assistant" and message.get("content", "").strip() for message in messages):
+            raise ValueError("assistant masking requires at least one non-empty assistant message.")
+        if getattr(self.tokenizer, "backend", None) != "huggingface":
+            raise ValueError("assistant masking currently requires a Hugging Face tokenizer with offsets.")
+
+        serialized, assistant_spans = self.prompt_style.apply_with_assistant_spans(messages)
+        encoding = self.tokenizer.processor.encode(serialized)
+        input_ids = self.tokenizer.encode(serialized, bos=None, eos=False, max_length=self.max_seq_length).long()
+        offsets = encoding.offsets
+        input_id_list = input_ids.tolist()
+        backend_ids = encoding.ids
+        if backend_ids[: len(input_id_list)] == input_id_list:
+            offsets = offsets[: len(input_id_list)]
+        elif backend_ids[1 : len(input_id_list) + 1] == input_id_list:
+            offsets = offsets[1 : len(input_id_list) + 1]
+        elif len(input_id_list) == len(backend_ids) + 1 and input_id_list[1:] == backend_ids:
+            offsets = [(0, 0), *offsets]
+        else:
+            raise ValueError("Tokenizer offsets do not align with token IDs for assistant masking.")
+        labels = torch.full_like(input_ids, self.ignore_index)
+        for token_index, (start, end) in enumerate(offsets):
+            if any(start < span_end and end > span_start for span_start, span_end in assistant_spans):
+                labels[token_index] = input_ids[token_index]
+
+        input_ids = input_ids[: self.max_seq_length] if self.max_seq_length > 0 else input_ids
+        labels = labels[: self.max_seq_length] if self.max_seq_length > 0 else labels
+        if not torch.any(labels != self.ignore_index):
+            raise ValueError("Conversation has no assistant tokens remaining after truncation.")
+
+        return {
+            "input_ids": input_ids,
+            "labels": labels,
+            "token_counts": {
+                "raw": len(input_ids),
+                "raw_plus_prompt_template": len(input_ids),
             },
         }
 
