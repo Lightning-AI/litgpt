@@ -29,6 +29,7 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    TokenCountingIterator,
     _RunIf,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
@@ -205,6 +206,28 @@ def test_cycle_iterator():
     assert iterator.epoch == 0
     assert next(iterator) == 0
     assert iterator.epoch == 1
+
+
+def test_token_counting_iterator():
+    # 3, 1 and 0 target tokens after the shift by one position
+    batches = [
+        {"labels": torch.tensor([[-100, 5, 5, 5]])},
+        {"labels": torch.tensor([[5, -100, 5, -100]])},
+        {"labels": torch.full((1, 4), -100)},
+    ]
+    # simulate a second data-parallel rank that has 4 target tokens in every window
+    fabric = mock.Mock(world_size=2)
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor + 4
+    iterator = TokenCountingIterator(fabric, CycleIterator(batches), window_size=2)
+    reference = CycleIterator(batches)
+
+    # the second window straddles the epoch boundary
+    for expected_weight in (3 * 2 / 8, 1 * 2 / 8, 0 * 2 / 7, 3 * 2 / 7, 1 * 2 / 5, 0 * 2 / 5):
+        assert next(iterator) is next(reference)
+        assert iterator.epoch == reference.epoch
+        torch.testing.assert_close(iterator.loss_weight, torch.tensor(expected_weight))
+    assert fabric.all_reduce.call_count == 3
+    assert all(call.kwargs == {"reduce_op": "sum"} for call in fabric.all_reduce.call_args_list)
 
 
 def test_parse_devices():
