@@ -613,6 +613,10 @@ def test_check_conversion_supported_lora():
         "QwQ-32B-Preview",
         "QwQ-32B",
         "Qwen2.5-7B-Instruct-1M",
+        "R1-Distill-Qwen-1.5B",
+        "R1-Distill-Qwen-7B",
+        "R1-Distill-Qwen-14B",
+        "R1-Distill-Qwen-32B",
     ),
 )
 @pytest.mark.parametrize(
