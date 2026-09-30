@@ -602,6 +602,8 @@ def test_adapter_v2_fit_loss_normalization(loss_normalization, monkeypatch, tmp_
         eval=EvalArgs(interval=2),
         data=Mock(),
     )
+    # compare only parameters with a gradient: `adapter_bias` and `adapter_scale` are frozen at construction, and
+    # `adapter_wte` gets none while the adapter prefix is cached (#1287)
     grads = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
     model.zero_grad()
 

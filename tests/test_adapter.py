@@ -478,7 +478,6 @@ def test_adapter_fit_loss_normalization(loss_normalization, monkeypatch, tmp_pat
 
     config = Config(n_layer=2, n_head=4, n_embd=8, block_size=16, padded_vocab_size=16, adapter_start_layer=0)
     model = GPT(config)
-    # the adapter prefix is cached by the no-grad validation in `fit`, so `adapter_wte` gets no gradient (#1287)
 
     fabric = Fabric(accelerator="cpu", devices=1)
     # a mock optimizer keeps the accumulated gradients around for inspection
@@ -496,6 +495,7 @@ def test_adapter_fit_loss_normalization(loss_normalization, monkeypatch, tmp_pat
         eval=EvalArgs(interval=2),
         data=Mock(),
     )
+    # compare only parameters with a gradient: `adapter_wte` gets none while the adapter prefix is cached (#1287)
     grads = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
     model.zero_grad()
 
