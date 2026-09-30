@@ -2,6 +2,7 @@
 import math
 import warnings
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -37,6 +38,12 @@ class TrainArgs:
     # Optimization args
     max_norm: float | None = None
     min_lr: float = 6e-5
+    loss_normalization: Literal["micro_batch", "token"] = "micro_batch"
+    """How the finetuning scripts normalize the loss of an optimizer step. "micro_batch" averages the loss over the
+    target tokens of each micro-batch and then averages these means over the gradient accumulation iterations, so
+    tokens in micro-batches with few target tokens weigh more. "token" averages the loss over all target tokens of the
+    optimizer step on all data-parallel ranks, as if the whole batch were processed at once, so the objective does not
+    depend on the micro-batch size. The logged training loss is the average of the micro-batch means in both cases."""
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:
@@ -45,6 +52,10 @@ class TrainArgs:
             )
         if self.lr_warmup_fraction and not (0 <= self.lr_warmup_fraction <= 1):
             raise ValueError("`--train.lr_warmup_fraction` must be between 0 and 1.")
+        if self.loss_normalization not in ("micro_batch", "token"):
+            raise ValueError(
+                f"`--train.loss_normalization` must be 'micro_batch' or 'token'. Got {self.loss_normalization!r}."
+            )
 
         if self.lr_warmup_steps and self.max_steps and (self.lr_warmup_steps >= self.max_steps):
             warnings.warn(

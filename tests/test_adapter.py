@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from io import StringIO
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 import torch
@@ -14,6 +14,8 @@ from lightning import Fabric
 from lightning.fabric.plugins.precision.bitsandbytes import _BITSANDBYTES_AVAILABLE, BitsandbytesPrecision
 from lightning.fabric.wrappers import _FabricOptimizer
 from torch._dynamo.backends import debugging
+from torch.nn import functional as F
+from torch.utils.data import DataLoader
 from transformers.models.gemma import GemmaConfig, GemmaForCausalLM
 from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3TextConfig
@@ -23,7 +25,7 @@ import litgpt.finetune.adapter as module
 import litgpt.model as gpt
 from litgpt.adapter import GPT, CausalSelfAttention, Config, adapter_filter
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import Alpaca
+from litgpt.data import Alpaca, get_sft_collate_fn
 from litgpt.scripts.convert_hf_checkpoint import copy_weights_gemma_2, copy_weights_gemma_3, copy_weights_hf_llama
 from litgpt.scripts.convert_lit_checkpoint import qkv_reassemble as make_qkv_interleaved
 from litgpt.utils import _RunIf
@@ -453,3 +455,58 @@ def test_load_legacy_state_dict():
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)
+
+
+@pytest.mark.parametrize("loss_normalization", ["micro_batch", "token"])
+def test_adapter_fit_loss_normalization(loss_normalization, monkeypatch, tmp_path):
+    monkeypatch.setattr(module, "Tokenizer", Mock())
+
+    # 4 micro-batches with 2, 15, 4 and 7 target tokens after the shift, accumulated into one optimizer step
+    torch.manual_seed(0)
+    samples = []
+    for length, prompt_length in ((16, 14), (16, 1), (5, 0), (10, 3)):
+        input_ids = torch.randint(0, 16, (length,))
+        labels = torch.where(torch.arange(length) < prompt_length, -100, input_ids)
+        samples.append(
+            {"input_ids": input_ids, "labels": labels, "token_counts": {"raw": 0, "raw_plus_prompt_template": 0}}
+        )
+    collate_fn = get_sft_collate_fn()
+    dataloader = DataLoader(samples, batch_size=1, collate_fn=collate_fn)
+    train = TrainArgs(
+        global_batch_size=4, micro_batch_size=1, epochs=1, max_steps=1, loss_normalization=loss_normalization
+    )
+
+    config = Config(n_layer=2, n_head=4, n_embd=8, block_size=16, padded_vocab_size=16, adapter_start_layer=0)
+    model = GPT(config)
+    # the adapter prefix is cached by the no-grad validation in `fit`, so `adapter_wte` gets no gradient (#1287)
+
+    fabric = Fabric(accelerator="cpu", devices=1)
+    # a mock optimizer keeps the accumulated gradients around for inspection
+    module.fit(
+        fabric=fabric,
+        model=fabric.setup(model),
+        optimizer=Mock(),
+        scheduler=MagicMock(),
+        train_dataloader=dataloader,
+        val_dataloader=dataloader,
+        devices=1,
+        checkpoint_dir=tmp_path,
+        out_dir=tmp_path,
+        train=train,
+        eval=EvalArgs(interval=2),
+        data=Mock(),
+    )
+    grads = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
+    model.zero_grad()
+
+    # the objective of the whole batch in a single forward pass
+    batch = collate_fn(samples)
+    logits = model(batch["input_ids"])[:, :-1]
+    targets = batch["labels"][:, 1:]
+    losses = F.cross_entropy(logits.flatten(0, 1), targets.flatten(), reduction="none").view_as(targets)
+    num_targets = (targets != -100).sum(dim=1)
+    expected_loss = {"token": losses.sum() / num_targets.sum(), "micro_batch": (losses.sum(dim=1) / num_targets).mean()}
+    assert not torch.allclose(expected_loss["token"], expected_loss["micro_batch"])
+    expected_loss[loss_normalization].backward()
+    expected_grads = {name: param.grad for name, param in model.named_parameters() if param.grad is not None}
+    torch.testing.assert_close(grads, expected_grads)

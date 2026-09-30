@@ -510,6 +510,46 @@ class CycleIterator:
         return self
 
 
+class TokenCountingIterator:
+    """Wraps a ``CycleIterator`` to normalize the loss by the number of target tokens in a gradient accumulation window.
+
+    Batches are prefetched one window of ``window_size`` micro-batches at a time, so that the number of target tokens
+    in the whole window, summed over all data-parallel ranks, is known before the first backward pass of the window.
+    After each ``next()``, ``loss_weight`` holds the weight of the returned micro-batch: backpropagating
+    ``loss * loss_weight``, where ``loss`` is the micro-batch's mean over its target tokens as returned by
+    ``chunked_cross_entropy``, accumulates the gradient of the mean loss over all target tokens of the window on all
+    ranks. The weight is multiplied by the world size because the data-parallel strategies (DDP, FSDP) average the
+    gradients over the ranks.
+
+    The batches must hold the targets under ``"labels"``, and the loss must be computed on the targets shifted by one
+    position (``labels[..., 1:]``) as in the finetuning scripts. The iterator must be created at the start of a window.
+    """
+
+    def __init__(self, fabric: L.Fabric, iterator: CycleIterator, window_size: int, ignore_index: int = -100) -> None:
+        self.fabric = fabric
+        self.iterator = iterator
+        self.window_size = window_size
+        self.ignore_index = ignore_index
+        self.epoch = iterator.epoch
+        self.loss_weight: torch.Tensor | None = None
+        self._window: list[tuple[Any, int, torch.Tensor]] = []
+
+    def __next__(self) -> Any:
+        if not self._window:
+            window = [(next(self.iterator), self.iterator.epoch) for _ in range(self.window_size)]
+            # the same targets that `chunked_cross_entropy` averages over in the finetuning scripts
+            num_targets = torch.stack([(batch["labels"][..., 1:] != self.ignore_index).sum() for batch, _ in window])
+            total = self.fabric.all_reduce(num_targets.sum(), reduce_op="sum")
+            weights = num_targets * self.fabric.world_size / total.clamp(min=1)
+            self._window = [(batch, epoch, weight) for (batch, epoch), weight in zip(window, weights)]
+        # report the epoch of the returned batch, not of the last prefetched one
+        batch, self.epoch, self.loss_weight = self._window.pop(0)
+        return batch
+
+    def __iter__(self) -> Self:
+        return self
+
+
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
     """Copies the specified configuration and tokenizer files into the output directory."""
 

@@ -23,6 +23,7 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
     CycleIterator,
+    TokenCountingIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
@@ -264,6 +265,12 @@ def fit(
             f" {initial_iter}."
         )
 
+    if train.loss_normalization == "token":
+        # created after fast-forwarding so that its windows start at an optimizer step
+        train_iterator = TokenCountingIterator(
+            fabric, train_iterator, train.gradient_accumulation_iters(devices, num_nodes)
+        )
+
     running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
@@ -282,7 +289,10 @@ def fit(
             logits = model(input_ids)
             # shift the targets such that output n predicts token n+1
             loss = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:])
-            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
+            if train.loss_normalization == "token":
+                fabric.backward(loss * train_iterator.loss_weight)
+            else:
+                fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         running_loss.update(loss.detach())
 
