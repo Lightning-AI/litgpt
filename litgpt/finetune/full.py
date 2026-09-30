@@ -266,7 +266,7 @@ def fit(
         )
 
     if train.loss_normalization == "token":
-        # created after fast-forwarding so that its windows start at an optimizer step
+        # created after fast-forwarding so that the skipped batches are not counted
         train_iterator = TokenCountingIterator(
             fabric, train_iterator, train.gradient_accumulation_iters(devices, num_nodes)
         )
