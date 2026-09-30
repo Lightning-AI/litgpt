@@ -551,7 +551,7 @@ class CausalSelfAttention(nn.Module):
             """
             if input_pos is None:
                 if T <= self.config.sliding_window_size:
-                    # The window spans the whole causal context, so the default causal mask is exact. Leaving
+                    # The window spans the whole causal context, so the default causal mask is exact. Using
                     # `mask=None` also lets SDPA use its flash/efficient kernels.
                     mask = None
                 else:
