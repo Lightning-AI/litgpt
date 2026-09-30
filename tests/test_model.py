@@ -1506,8 +1506,7 @@ def test_sdpa_choice(config):
         params = SDPAParams(q, k, v, mask, 0.0, True, *args)
         if expected is SDPBackend.FLASH_ATTENTION:
             assert flash_sdp_enabled(), "flash_sdp_enabled() is False"
-            if config.sliding_window_size is None:
-                assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
+            assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
         elif expected is SDPBackend.EFFICIENT_ATTENTION:
             assert mem_efficient_sdp_enabled(), "mem_efficient_sdp_enabled() is False"
             assert can_use_efficient_attention(params, True), "can_use_efficient_attention(params, True) is False"
