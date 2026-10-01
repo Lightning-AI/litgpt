@@ -810,7 +810,7 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
-    elif model_name.lower().startswith(("qwen2.5", "qwq")):
+    elif model_name.lower().startswith(("qwen2.5", "qwq")) or "r1-distill-qwen" in model_name.lower():
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)

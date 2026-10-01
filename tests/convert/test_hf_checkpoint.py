@@ -122,6 +122,21 @@ def test_convert_hf_checkpoint(tmp_path, model_name):
     assert isinstance(config, Config)
 
 
+@pytest.mark.parametrize("model_name", ("R1-Distill-Qwen-1.5B", "DeepSeek-R1-Distill-Qwen-1.5B"))
+def test_convert_hf_checkpoint_r1_distill_qwen(tmp_path, model_name):
+    (tmp_path / "foo.bin").touch()
+    # the HF repo name is the default `model_name` after `litgpt download`. Both names must select the Qwen2.5
+    # copier: the q/k/v bias below is not in the Llama fallback's weight map and would raise a KeyError there
+    hf_weights = {
+        "model.embed_tokens.weight": torch.rand((10, 10)),
+        "model.layers.0.self_attn.q_proj.bias": torch.rand(10),
+    }
+    with mock.patch("litgpt.scripts.convert_hf_checkpoint.lazy_load", return_value=hf_weights):
+        convert_hf_checkpoint(checkpoint_dir=tmp_path, model_name=model_name)
+
+    assert Config.from_file(tmp_path / "model_config.yaml").name == "R1-Distill-Qwen-1.5B"
+
+
 def test_qkv_reassemble():
     # MHA
     config = Config(n_embd=4, n_head=4)

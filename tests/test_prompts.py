@@ -85,6 +85,9 @@ def test_prompt_style_from_config():
     for c in litgpt.config.platypus:
         model_names.append(c["name"])
 
+    for c in litgpt.config.r1_distill_qwen:
+        model_names.append(c["name"])
+
     for model_name in model_names:
         # by asserting the returned style is not the Default, we show that at least one of the regex patterns matched
         assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)

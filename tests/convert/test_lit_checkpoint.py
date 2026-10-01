@@ -38,7 +38,7 @@ from litgpt.scripts.convert_lit_checkpoint import (
 from litgpt.utils import _RunIf
 
 
-@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2"))
+@pytest.mark.parametrize("model_name", ("pythia-14m", "falcon-7b", "Llama-2-7b-hf", "phi-2", "R1-Distill-Qwen-1.5B"))
 def test_convert_lit_checkpoint(tmp_path, model_name):
     ours_config = Config.from_name(model_name, block_size=8, n_layer=2, n_embd=32, n_head=2, padding_multiple=128)
     ours_model = GPT(ours_config)
@@ -613,6 +613,10 @@ def test_check_conversion_supported_lora():
         "QwQ-32B-Preview",
         "QwQ-32B",
         "Qwen2.5-7B-Instruct-1M",
+        "R1-Distill-Qwen-1.5B",
+        "R1-Distill-Qwen-7B",
+        "R1-Distill-Qwen-14B",
+        "R1-Distill-Qwen-32B",
     ),
 )
 @pytest.mark.parametrize(
