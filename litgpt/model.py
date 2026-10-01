@@ -550,17 +550,16 @@ class CausalSelfAttention(nn.Module):
             └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
             if input_pos is None:
-                if mask is None:
-                    mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                    mask.masked_fill_(mask.bool(), float("-inf"))
-                    mask = mask.view(1, 1, *mask.shape)
-
-                sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
-                for i in range(T):
-                    window_start = max(0, i - self.config.sliding_window_size + 1)
-                    sliding_window_mask[i, window_start : i + 1] = 0.0
-                sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
-                mask = sliding_window_mask
+                if T <= self.config.sliding_window_size:
+                    # The window spans the whole causal context, so the default causal mask is exact. Using
+                    # `mask=None` also lets SDPA use its flash/efficient kernels.
+                    mask = None
+                else:
+                    # Additive version of the diagram: -inf above the diagonal (global window) plus -inf for keys
+                    # that are `sliding_window_size` or more positions behind the query (sliding window bias).
+                    mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
+                    mask = mask.triu(diagonal=1) + mask.tril(diagonal=-self.config.sliding_window_size)
+                    mask = mask.view(1, 1, T, T)
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.

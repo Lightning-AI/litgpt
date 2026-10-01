@@ -36,7 +36,7 @@ from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
 
 import litgpt.config as config_module
 from litgpt import GPT, Config
-from litgpt.model import CausalSelfAttention, batched_index_copy_
+from litgpt.model import CausalSelfAttention, batched_index_copy_, build_rope_cache
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
     copy_weights_gemma_2,
@@ -806,6 +806,7 @@ def test_against_original_gemma(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
+@pytest.mark.parametrize("sliding_window_size", (10, 20))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -822,14 +823,15 @@ def test_against_original_gemma(model_name, device, dtype):
         ),
     ],
 )
-def test_against_original_gemma_2(model_name, device, dtype):
+def test_against_original_gemma_2(model_name, sliding_window_size, device, dtype):
     torch.set_default_dtype(dtype)
 
+    # a window of 10 exercises the sliding window mask, a window of 20 covers the whole causal context
     T = 20
     ours_config = Config.from_name(
         model_name,
         block_size=T,
-        sliding_window_size=T // 2,
+        sliding_window_size=sliding_window_size,
         n_layer=2,
         n_head=16,
         n_embd=32,
@@ -876,6 +878,7 @@ def test_against_original_gemma_2(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ["gemma-3-1b-it", "gemma-3-4b-it", "gemma-3-12b-it", "gemma-3-27b-it"])
+@pytest.mark.parametrize("sliding_window_size", (10, 20))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -892,14 +895,15 @@ def test_against_original_gemma_2(model_name, device, dtype):
         ),
     ],
 )
-def test_against_original_gemma_3(model_name, device, dtype):
+def test_against_original_gemma_3(model_name, sliding_window_size, device, dtype):
     torch.set_default_dtype(dtype)
 
+    # a window of 10 exercises the sliding window mask, a window of 20 covers the whole causal context
     T = 20
     ours_config = Config.from_name(
         model_name,
         block_size=T,
-        sliding_window_size=T // 2,
+        sliding_window_size=sliding_window_size,
         n_layer=2,
         n_head=16,
         n_embd=32,
@@ -1502,8 +1506,7 @@ def test_sdpa_choice(config):
         params = SDPAParams(q, k, v, mask, 0.0, True, *args)
         if expected is SDPBackend.FLASH_ATTENTION:
             assert flash_sdp_enabled(), "flash_sdp_enabled() is False"
-            if config.sliding_window_size is None:
-                assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
+            assert can_use_flash_attention(params, True), "can_use_flash_attention(params, True) is False"
         elif expected is SDPBackend.EFFICIENT_ATTENTION:
             assert mem_efficient_sdp_enabled(), "mem_efficient_sdp_enabled() is False"
             assert can_use_efficient_attention(params, True), "can_use_efficient_attention(params, True) is False"
@@ -1762,6 +1765,45 @@ def test_forward_with_without_input_pos_maxp1():
     logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
     logits_no_maxp1 = model(idx, input_pos)
     torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)
+
+
+@torch.inference_mode()
+@pytest.mark.parametrize("attention_logit_softcapping", (None, 50.0))
+@pytest.mark.parametrize(("T", "sliding_window_size"), [(8, 16), (8, 8), (8, 7), (8, 3), (8, 1)])
+def test_sliding_window_attention_mask(T, sliding_window_size, attention_logit_softcapping):
+    config = Config(
+        block_size=T,
+        n_layer=1,
+        n_head=4,
+        n_embd=32,
+        sliding_window_size=sliding_window_size,
+        attention_logit_softcapping=attention_logit_softcapping,
+    )
+    attn = CausalSelfAttention(config, block_idx=0)
+    assert attn.apply_sliding_window_attention
+    x = torch.randn(2, T, config.n_embd)
+    cos, sin = build_rope_cache(T, config.rope_n_elem)
+    cos, sin = cos.unsqueeze(0), sin.unsqueeze(0)
+
+    # reference mask, built row by row: query `i` attends to keys `i - sliding_window_size + 1` through `i`
+    expected_mask = torch.full((T, T), float("-inf"))
+    for i in range(T):
+        expected_mask[i, max(0, i - sliding_window_size + 1) : i + 1] = 0.0
+    expected_mask = expected_mask.view(1, 1, T, T)
+
+    with mock.patch.object(attn, "scaled_dot_product_attention", wraps=attn.scaled_dot_product_attention) as sdpa:
+        y = attn(x, cos, sin)
+    mask = sdpa.call_args.args[3]  # scaled_dot_product_attention(q, k, v, mask)
+    if T <= sliding_window_size:
+        # the window covers the whole causal context, so the default causal masking is used
+        assert mask is None
+    else:
+        assert torch.equal(mask, expected_mask)
+
+    # the same layer as a global attention layer, given the reference mask explicitly
+    attn.apply_sliding_window_attention = False
+    expected = attn(x, cos, sin, mask=expected_mask)
+    torch.testing.assert_close(y, expected)
 
 
 @torch.inference_mode()
