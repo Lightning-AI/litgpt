@@ -73,7 +73,6 @@ class VisionEncoder(nn.Module):
             return (image_size // patch_size) ** 2
         return self._num_patches
 
-    @torch.no_grad()
     def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -83,12 +82,14 @@ class VisionEncoder(nn.Module):
             Image features of shape ``(B, num_patches, vision_feature_dim)``.
         """
         if self._encoder is not None:
-            outputs = self._encoder(pixel_values=pixel_values)
-            # Most HF vision models return .last_hidden_state
-            # Skip the [CLS] token if present
-            features = outputs.last_hidden_state
-            if features.size(1) == self.num_patches + 1:
-                features = features[:, 1:, :]  # remove CLS
+            # Frozen HF encoder: no gradients needed.
+            with torch.no_grad():
+                outputs = self._encoder(pixel_values=pixel_values)
+                # Most HF vision models return .last_hidden_state
+                # Skip the [CLS] token if present
+                features = outputs.last_hidden_state
+                if features.size(1) == self.num_patches + 1:
+                    features = features[:, 1:, :]  # remove CLS
             return features
         else:
             # Fallback: simple conv patch embedding
