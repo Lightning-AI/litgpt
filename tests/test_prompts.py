@@ -9,6 +9,7 @@ from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
     Default,
+    Falcon180BChat,
     Llama3,
     Phi3,
     Phi4Reasoning,
@@ -60,6 +61,7 @@ def test_prompt_style_from_config():
         "stablecode-instruct-alpha-3b",
         "falcon-7b-instruct",
         "falcon-40b-instruct",
+        "falcon-180B-chat",
         "Llama-2-7b-chat-hf",
         "Llama-2-13b-chat-hf",
         "Llama-2-70b-chat-hf",
@@ -88,6 +90,14 @@ def test_prompt_style_from_config():
     for model_name in model_names:
         # by asserting the returned style is not the Default, we show that at least one of the regex patterns matched
         assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)
+
+
+def test_falcon_180b_chat_prompt_style():
+    style = PromptStyle.from_config(Config.from_name("falcon-180B-chat"))
+    assert isinstance(style, Falcon180BChat)
+    # matches the chat_template in tiiuae/falcon-180B-chat's tokenizer_config.json
+    assert style.apply("Hi") == "User: Hi\nFalcon:"
+    assert style.apply("Hi", sys_prompt="Be brief.") == "System: Be brief.\nUser: Hi\nFalcon:"
 
 
 def test_apply_prompts():
