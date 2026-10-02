@@ -517,9 +517,7 @@ class LLM(torch.nn.Module):
                     "An image was provided but the model is not multimodal. "
                     "Ensure the model config has vision_feature_dim set."
                 )
-            preprocessor = ImagePreprocessor(
-                image_size=self.config.vision_image_size or 224,
-            )
+            preprocessor = ImagePreprocessor(image_size=self.config.vision_image_size or 224)
             if self.fabric is not None:
                 device = self.fabric.device
             else:
