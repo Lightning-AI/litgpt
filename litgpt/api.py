@@ -521,7 +521,7 @@ class LLM(torch.nn.Module):
             if self.fabric is not None:
                 device = self.fabric.device
             else:
-                device = self.preprocessor.device
+                device = next(self.model.parameters()).device
             pixel_values = preprocessor(image, device=device)
 
         input_ids = self._text_to_token_ids(prompt, sys_prompt)

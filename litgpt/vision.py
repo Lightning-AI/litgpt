@@ -67,9 +67,13 @@ class VisionEncoder(nn.Module):
     def num_patches(self) -> int:
         """Number of image patch tokens produced per image."""
         if self._encoder is not None:
-            # Try to get from config
-            image_size = self.config.vision_image_size or 224
-            patch_size = self.config.vision_patch_size or 14
+            encoder_config = getattr(self._encoder, "config", None)
+            image_size = getattr(encoder_config, "image_size", None) or self.config.vision_image_size or 224
+            patch_size = getattr(encoder_config, "patch_size", None) or self.config.vision_patch_size or 14
+            if isinstance(image_size, (tuple, list)):
+                image_size = image_size[0]
+            if isinstance(patch_size, (tuple, list)):
+                patch_size = patch_size[0]
             return (image_size // patch_size) ** 2
         return self._num_patches
 
@@ -90,6 +94,16 @@ class VisionEncoder(nn.Module):
                 features = outputs.last_hidden_state
                 if features.size(1) == self.num_patches + 1:
                     features = features[:, 1:, :]  # remove CLS
+                elif features.size(1) != self.num_patches:
+                    raise ValueError(
+                        f"Vision encoder returned {features.size(1)} tokens, but expected "
+                        f"{self.num_patches} patch tokens (or {self.num_patches + 1} including CLS)."
+                    )
+                if features.size(-1) != self.vision_feature_dim:
+                    raise ValueError(
+                        f"Vision encoder returned feature dimension {features.size(-1)}, but config expects "
+                        f"{self.vision_feature_dim}."
+                    )
             return features
         else:
             # Fallback: simple conv patch embedding
