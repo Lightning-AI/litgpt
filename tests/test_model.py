@@ -1470,13 +1470,19 @@ def test_stale_kv_cache_raises_clear_error():
 @pytest.mark.parametrize("model_cls", ["adapter", "adapter_v2", "lora"])
 def test_stale_kv_cache_raises_clear_error_for_adapters(model_cls):
     if model_cls == "adapter":
-        from litgpt.adapter import Config, GPT as Model
+        from litgpt.adapter import GPT as Model
+        from litgpt.adapter import Config
+
         config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16, adapter_start_layer=0)
     elif model_cls == "adapter_v2":
-        from litgpt.adapter_v2 import Config, GPT as Model
+        from litgpt.adapter_v2 import GPT as Model
+        from litgpt.adapter_v2 import Config
+
         config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
     else:
-        from litgpt.lora import Config, GPT as Model
+        from litgpt.lora import GPT as Model
+        from litgpt.lora import Config
+
         config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
 
     model = Model(config)
