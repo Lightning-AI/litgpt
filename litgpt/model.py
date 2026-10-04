@@ -37,7 +37,10 @@ class GPT(nn.Module):
         self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
-        # Optional vision encoder for multimodal models
+        self._init_vision(config)
+
+    def _init_vision(self, config: Config) -> None:
+        """Create the optional vision encoder and projector for multimodal models."""
         if config.is_multimodal:
             self.vision_encoder = VisionEncoder(config, pretrained_model_name=config.vision_model_name)
             self.mm_projector = MultiModalProjector(

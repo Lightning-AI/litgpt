@@ -18,10 +18,13 @@ class VisionEncoder(nn.Module):
 
     The encoder is kept **frozen** by default – only the projector is trainable.
 
+    With ``pretrained_model_name``, the HuggingFace architecture is built from its config only, so
+    the model can be created on the meta device. Pretrained weights are loaded right away when the
+    module is created on a real device, and otherwise when a checkpoint without encoder weights is loaded.
+
     Args:
         config: The LitGPT model config (must have ``vision_feature_dim`` set).
-        pretrained_model_name: Optional HuggingFace model name. If provided,
-            loads weights from HuggingFace ``transformers``.
+        pretrained_model_name: Optional HuggingFace model name for the vision backbone.
     """
 
     def __init__(self, config: Config, pretrained_model_name: str | None = None) -> None:
@@ -31,10 +34,14 @@ class VisionEncoder(nn.Module):
 
         self.config = config
         self.vision_feature_dim = config.vision_feature_dim
+        self.pretrained_model_name = pretrained_model_name
         self._encoder: nn.Module | None = None
 
         if pretrained_model_name is not None:
-            self._load_hf_encoder(pretrained_model_name)
+            self._build_hf_encoder(pretrained_model_name)
+            if not any(p.is_meta for p in self._encoder.parameters()):
+                self.load_pretrained_weights()
+            self._register_load_state_dict_pre_hook(self._fill_missing_encoder_weights)
         else:
             # Placeholder linear for testing / when loading weights separately
             image_size = config.vision_image_size or 224
@@ -50,21 +57,40 @@ class VisionEncoder(nn.Module):
             )
             self._num_patches = num_patches
 
-    def _load_hf_encoder(self, model_name: str) -> None:
-        """Load a vision encoder from HuggingFace transformers."""
+    def _build_hf_encoder(self, model_name: str) -> None:
+        """Build the vision tower of a HuggingFace model from its config, without loading weights."""
         try:
-            from transformers import AutoModel
+            from transformers import AutoConfig, AutoModel
         except ImportError:
             raise ImportError(
                 "Loading a pretrained vision encoder requires `transformers`. Install it with: pip install transformers"
             )
-        model = AutoModel.from_pretrained(model_name)
-        # CLIP/SigLIP checkpoints load as dual-tower models whose forward also needs `input_ids`;
+        hf_config = AutoConfig.from_pretrained(model_name)
+        # CLIP/SigLIP configs describe dual-tower models whose forward also needs `input_ids`;
         # keep only the vision tower.
+        model = AutoModel.from_config(getattr(hf_config, "vision_config", hf_config))
         self._encoder = getattr(model, "vision_model", model)
         # Freeze the vision encoder
         for param in self._encoder.parameters():
             param.requires_grad = False
+
+    def _pretrained_state_dict(self) -> dict[str, torch.Tensor]:
+        from transformers import AutoModel
+
+        model = AutoModel.from_pretrained(self.pretrained_model_name)
+        return getattr(model, "vision_model", model).state_dict()
+
+    def load_pretrained_weights(self) -> None:
+        """Load the HuggingFace pretrained weights into the vision tower."""
+        self._encoder.load_state_dict(self._pretrained_state_dict())
+
+    def _fill_missing_encoder_weights(self, state_dict: dict[str, Any], prefix: str, *args: Any) -> None:
+        # LitGPT checkpoints converted from text-only weights carry no vision tower; take it from HF.
+        encoder_prefix = f"{prefix}_encoder."
+        if any(k.startswith(encoder_prefix) for k in state_dict):
+            return
+        for k, v in self._pretrained_state_dict().items():
+            state_dict[encoder_prefix + k] = v
 
     @property
     def num_patches(self) -> int:
@@ -250,23 +276,50 @@ class ImagePreprocessor:
 
     Args:
         image_size: Target image size (both height and width).
-        mean: Per-channel normalization mean (default: ImageNet).
-        std: Per-channel normalization std (default: ImageNet).
+        mean: Per-channel normalization mean (default: OpenAI CLIP).
+        std: Per-channel normalization std (default: OpenAI CLIP).
     """
 
-    # ImageNet defaults (used by CLIP, SigLIP, etc.)
-    IMAGENET_MEAN = (0.48145466, 0.4578275, 0.40821073)
-    IMAGENET_STD = (0.26862954, 0.26130258, 0.27577711)
+    # OpenAI CLIP normalization. SigLIP uses 0.5 for every channel; ``from_config`` picks the
+    # values that match the configured vision backbone.
+    CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
+    CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
 
     def __init__(
         self,
         image_size: int = 224,
-        mean: tuple[float, ...] = IMAGENET_MEAN,
-        std: tuple[float, ...] = IMAGENET_STD,
+        mean: tuple[float, ...] = CLIP_MEAN,
+        std: tuple[float, ...] = CLIP_STD,
     ) -> None:
         self.image_size = image_size
         self.mean = mean
         self.std = std
+
+    @classmethod
+    def from_config(cls, config: Config) -> ImagePreprocessor:
+        """Build a preprocessor matching the model's vision backbone.
+
+        Uses the HuggingFace image processor's size and normalization when ``config.vision_model_name``
+        is set, otherwise ``config.vision_image_size`` with CLIP normalization.
+        """
+        image_size = config.vision_image_size or 224
+        if config.vision_model_name is None:
+            return cls(image_size=image_size)
+        from transformers import AutoImageProcessor
+
+        hf_processor = AutoImageProcessor.from_pretrained(config.vision_model_name)
+        size = getattr(hf_processor, "crop_size", None) or getattr(hf_processor, "size", None) or {}
+        if isinstance(size, int):
+            image_size = size
+        else:
+            if not isinstance(size, dict):
+                size = vars(size)
+            image_size = size.get("height") or size.get("shortest_edge") or image_size
+        return cls(
+            image_size=image_size,
+            mean=tuple(getattr(hf_processor, "image_mean", None) or cls.CLIP_MEAN),
+            std=tuple(getattr(hf_processor, "image_std", None) or cls.CLIP_STD),
+        )
 
     def __call__(
         self,

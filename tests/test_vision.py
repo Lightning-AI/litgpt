@@ -19,7 +19,7 @@ from litgpt.vision import (
 # ---------------------------------------------------------------------------
 # Helper to build a minimal multimodal Config
 # ---------------------------------------------------------------------------
-def _mm_config(**overrides):
+def _mm_config(config_cls=Config, **overrides):
     """Build a minimal Config suitable for multimodal tests."""
     defaults = dict(
         name="test-mm",
@@ -38,7 +38,7 @@ def _mm_config(**overrides):
         mm_projector_type="linear",
     )
     defaults.update(overrides)
-    return Config(**defaults)
+    return config_cls(**defaults)
 
 
 def _text_only_config(**overrides):
@@ -254,6 +254,65 @@ class TestExpandImageTokens:
         assert out.shape == (1, ids.numel(), config.padded_vocab_size)
 
 
+# ===== HF-backed VisionEncoder Tests (no network: HF loading is mocked) =====
+@pytest.fixture
+def tiny_clip(monkeypatch):
+    """Serve a tiny randomly initialized CLIP checkpoint in place of the HF Hub."""
+    transformers = pytest.importorskip("transformers")
+
+    vision = dict(hidden_size=32, intermediate_size=37, num_hidden_layers=1, num_attention_heads=4)
+    hf_config = transformers.CLIPConfig(
+        text_config=dict(hidden_size=32, intermediate_size=37, num_hidden_layers=1, num_attention_heads=4),
+        vision_config=dict(vision, image_size=28, patch_size=14),
+    )
+    torch.manual_seed(0)
+    pretrained = transformers.CLIPModel(hf_config)
+    calls = []
+
+    def from_pretrained(name, *args, **kwargs):
+        calls.append(name)
+        return pretrained
+
+    monkeypatch.setattr(transformers.AutoConfig, "from_pretrained", lambda *a, **k: hf_config)
+    monkeypatch.setattr(transformers.AutoModel, "from_pretrained", from_pretrained)
+    return pretrained, calls
+
+
+class TestHFVisionEncoder:
+    def test_uses_vision_tower_and_loads_pretrained_weights(self, tiny_clip):
+        pretrained, calls = tiny_clip
+        encoder = VisionEncoder(_mm_config(), pretrained_model_name="tiny-clip")
+        assert type(encoder._encoder).__name__ == "CLIPVisionTransformer"
+        assert calls == ["tiny-clip"]
+        expected = pretrained.vision_model.state_dict()
+        for k, v in encoder._encoder.state_dict().items():
+            torch.testing.assert_close(v, expected[k])
+        assert all(not p.requires_grad for p in encoder._encoder.parameters())
+        features = encoder(torch.randn(1, 3, 28, 28))
+        assert features.shape == (1, encoder.num_patches, 32)
+
+    def test_meta_init_does_not_download_weights(self, tiny_clip):
+        _, calls = tiny_clip
+        with torch.device("meta"):
+            encoder = VisionEncoder(_mm_config(), pretrained_model_name="tiny-clip")
+        assert calls == []
+        assert all(p.is_meta for p in encoder.parameters())
+
+    def test_checkpoint_without_encoder_weights_loads_strict(self, tiny_clip):
+        """A LitGPT checkpoint converted from text-only weights has no vision tower keys."""
+        from litgpt.model import GPT
+
+        pretrained, _ = tiny_clip
+        config = _mm_config(vision_model_name="tiny-clip")
+        state_dict = {k: v for k, v in GPT(config).state_dict().items() if not k.startswith("vision_encoder._encoder.")}
+        with torch.device("meta"):
+            model = GPT(config)
+        model.load_state_dict(state_dict, strict=True, assign=True)
+        expected = pretrained.vision_model.state_dict()
+        for k, v in model.vision_encoder._encoder.state_dict().items():
+            torch.testing.assert_close(v, expected[k])
+
+
 # ===== GPT Model Integration Tests =====
 class TestGPTMultimodal:
     def test_text_only_model_unchanged(self):
@@ -299,6 +358,15 @@ class TestGPTMultimodal:
             output = model(idx, pixel_values=pixel_values)
 
         assert output.shape == (1, T, config.padded_vocab_size)
+
+    @pytest.mark.parametrize("module", ["litgpt.lora", "litgpt.adapter", "litgpt.adapter_v2"])
+    def test_finetuning_models_have_vision_components(self, module):
+        import importlib
+
+        mod = importlib.import_module(module)
+        model = mod.GPT(_mm_config(config_cls=mod.Config))
+        assert model.vision_encoder is not None
+        assert model.mm_projector is not None
 
     def test_multimodal_forward_without_pixel_values(self):
         """Multimodal model should still work for text-only inference."""
@@ -347,6 +415,20 @@ class TestImagePreprocessor:
         preprocessor = ImagePreprocessor(image_size=14)
         result = preprocessor(img)
         assert result.shape == (1, 3, 14, 14)
+
+    def test_from_config_without_hf_model(self):
+        preprocessor = ImagePreprocessor.from_config(_mm_config())
+        assert preprocessor.image_size == 28
+        assert preprocessor.mean == ImagePreprocessor.CLIP_MEAN
+
+    def test_from_config_uses_hf_processor_settings(self, monkeypatch):
+        transformers = pytest.importorskip("transformers")
+        hf_processor = transformers.SiglipImageProcessor(size={"height": 56, "width": 56})
+        monkeypatch.setattr(transformers.AutoImageProcessor, "from_pretrained", lambda *a, **k: hf_processor)
+        preprocessor = ImagePreprocessor.from_config(_mm_config(vision_model_name="tiny-siglip"))
+        assert preprocessor.image_size == 56
+        assert preprocessor.mean == (0.5, 0.5, 0.5)
+        assert preprocessor.std == (0.5, 0.5, 0.5)
 
     def test_normalization(self, tmp_path):
         """Test that output is normalized (not in [0, 255] range)."""

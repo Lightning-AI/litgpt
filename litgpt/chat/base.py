@@ -163,7 +163,7 @@ def interact(
         else:
             from litgpt.vision import ImagePreprocessor
 
-            preprocessor = ImagePreprocessor(image_size=model.config.vision_image_size or 224)
+            preprocessor = ImagePreprocessor.from_config(model.config)
             pixel_values = preprocessor(initial_image, device=fabric.device)
             fabric.print(f">> Loaded image: {initial_image}")
 
