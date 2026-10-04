@@ -1467,6 +1467,27 @@ def test_stale_kv_cache_raises_clear_error():
         model(idx, input_pos)
 
 
+@pytest.mark.parametrize("model_cls", ["adapter", "adapter_v2", "lora"])
+def test_stale_kv_cache_raises_clear_error_for_adapters(model_cls):
+    if model_cls == "adapter":
+        from litgpt.adapter import Config, GPT as Model
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16, adapter_start_layer=0)
+    elif model_cls == "adapter_v2":
+        from litgpt.adapter_v2 import Config, GPT as Model
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
+    else:
+        from litgpt.lora import Config, GPT as Model
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
+
+    model = Model(config)
+    model.max_seq_length = 10
+    model.set_kv_cache(1)
+    model.max_seq_length = 25
+    idx = torch.randint(0, config.padded_vocab_size, (1, 1))
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, torch.tensor([15]))
+
+
 @torch.inference_mode()
 def test_kv_cache_full_context_length():
     # exercises `set_kv_cache`/`forward` at a real model's full block_size and a realistic batch
