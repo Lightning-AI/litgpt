@@ -155,6 +155,12 @@ class Config:
 
         self.rope_n_elem = int(self.rotary_percentage * self.head_size)
 
+        if self.vision_feature_dim is not None and self.vision_start_token_id is None:
+            raise ValueError(
+                f"The config {self.name!r} sets `vision_feature_dim` but not `vision_start_token_id`,"
+                " which is needed to place image embeddings in the input sequence."
+            )
+
         if self.sliding_window_size is not None:
             self.sliding_window_indices = check_indicator_and_length(
                 self.sliding_window_indices,

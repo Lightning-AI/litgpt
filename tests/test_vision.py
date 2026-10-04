@@ -11,6 +11,7 @@ from litgpt.vision import (
     ImagePreprocessor,
     MultiModalProjector,
     VisionEncoder,
+    expand_image_tokens,
     merge_input_embeds,
 )
 
@@ -65,6 +66,10 @@ class TestConfigMultimodal:
     def test_is_multimodal_false(self):
         config = _text_only_config()
         assert config.is_multimodal is False
+
+    def test_vision_requires_start_token_id(self):
+        with pytest.raises(ValueError, match="vision_start_token_id"):
+            _mm_config(vision_start_token_id=None)
 
     def test_vision_fields_default_to_none(self):
         config = _text_only_config()
@@ -208,6 +213,45 @@ class TestMergeInputEmbeds:
         original = text_embeds.clone()
         merge_input_embeds(text_embeds, image_embeds, image_token_id, input_ids)
         assert torch.allclose(text_embeds, original), "Original embeddings should not be modified"
+
+
+# ===== expand_image_tokens Tests =====
+class TestExpandImageTokens:
+    def test_inserts_block_after_bos(self):
+        ids = torch.tensor([1, 5, 6])
+        out = expand_image_tokens(ids, image_token_id=99, num_patches=3, bos_id=1)
+        assert out.tolist() == [1, 99, 99, 99, 5, 6]
+
+    def test_inserts_block_at_start_without_bos(self):
+        ids = torch.tensor([5, 6])
+        out = expand_image_tokens(ids, image_token_id=99, num_patches=2)
+        assert out.tolist() == [99, 99, 5, 6]
+
+    def test_expands_single_placeholder_in_place(self):
+        ids = torch.tensor([1, 5, 99, 6])
+        out = expand_image_tokens(ids, image_token_id=99, num_patches=3, bos_id=1)
+        assert out.tolist() == [1, 5, 99, 99, 99, 6]
+
+    def test_already_expanded_is_unchanged(self):
+        ids = torch.tensor([1, 99, 99, 5])
+        assert expand_image_tokens(ids, image_token_id=99, num_patches=2).tolist() == ids.tolist()
+
+    def test_wrong_placeholder_count_raises(self):
+        ids = torch.tensor([99, 99, 5])
+        with pytest.raises(ValueError, match="placeholder"):
+            expand_image_tokens(ids, image_token_id=99, num_patches=4)
+
+    def test_output_merges_with_encoder_patches(self):
+        config = _mm_config()
+        from litgpt.model import GPT
+
+        model = GPT(config).eval()
+        ids = expand_image_tokens(
+            torch.tensor([1, 5, 6]), config.vision_start_token_id, model.vision_encoder.num_patches, bos_id=1
+        )
+        with torch.no_grad():
+            out = model(ids.unsqueeze(0), pixel_values=torch.randn(1, 3, 28, 28))
+        assert out.shape == (1, ids.numel(), config.padded_vocab_size)
 
 
 # ===== GPT Model Integration Tests =====

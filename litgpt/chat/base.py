@@ -92,6 +92,15 @@ def process_prompt(
 ):
     prompt = prompt_style.apply(prompt=prompt)
     encoded_prompt = tokenizer.encode(prompt, device=fabric.device)
+    if pixel_values is not None:
+        from litgpt.vision import expand_image_tokens
+
+        encoded_prompt = expand_image_tokens(
+            encoded_prompt,
+            model.config.vision_start_token_id,
+            model.vision_encoder.num_patches,
+            bos_id=tokenizer.bos_id,
+        )
 
     if max_new_tokens is None:
         max_returned_tokens = model.max_seq_length

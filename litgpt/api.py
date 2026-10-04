@@ -33,7 +33,7 @@ from litgpt.utils import (
     load_checkpoint,
     save_config,
 )
-from litgpt.vision import ImagePreprocessor
+from litgpt.vision import ImagePreprocessor, expand_image_tokens
 
 
 class LLM(torch.nn.Module):
@@ -525,6 +525,13 @@ class LLM(torch.nn.Module):
             pixel_values = preprocessor(image, device=device)
 
         input_ids = self._text_to_token_ids(prompt, sys_prompt)
+        if pixel_values is not None:
+            input_ids = expand_image_tokens(
+                input_ids,
+                self.config.vision_start_token_id,
+                self.model.vision_encoder.num_patches,
+                bos_id=self.preprocessor.tokenizer.bos_id,
+            )
         prompt_length = input_ids.size(0)
         max_returned_tokens = prompt_length + max_new_tokens
 

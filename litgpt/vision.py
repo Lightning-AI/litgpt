@@ -58,7 +58,10 @@ class VisionEncoder(nn.Module):
             raise ImportError(
                 "Loading a pretrained vision encoder requires `transformers`. Install it with: pip install transformers"
             )
-        self._encoder = AutoModel.from_pretrained(model_name)
+        model = AutoModel.from_pretrained(model_name)
+        # CLIP/SigLIP checkpoints load as dual-tower models whose forward also needs `input_ids`;
+        # keep only the vision tower.
+        self._encoder = getattr(model, "vision_model", model)
         # Freeze the vision encoder
         for param in self._encoder.parameters():
             param.requires_grad = False
@@ -199,6 +202,44 @@ def merge_input_embeds(
         merged[b, positions] = image_embeds[b]
 
     return merged
+
+
+def expand_image_tokens(
+    input_ids: torch.Tensor,
+    image_token_id: int,
+    num_patches: int,
+    bos_id: int | None = None,
+) -> torch.Tensor:
+    """Make a 1D prompt carry exactly ``num_patches`` ``<image>`` placeholder tokens.
+
+    A single placeholder is expanded in place to ``num_patches`` copies. If the prompt has no
+    placeholder, the block is inserted at the start (after ``bos_id`` if the prompt begins with it).
+    A prompt that already has ``num_patches`` placeholders is returned unchanged.
+
+    Args:
+        input_ids: ``(T,)`` encoded prompt.
+        image_token_id: The token ID used as the ``<image>`` placeholder.
+        num_patches: Number of image patch embeddings the vision encoder produces.
+        bos_id: Optional BOS token ID; the image block is placed after it.
+
+    Returns:
+        ``(T')`` token IDs with ``num_patches`` placeholders.
+    """
+    positions = (input_ids == image_token_id).nonzero(as_tuple=True)[0]
+    count = positions.numel()
+    if count == num_patches:
+        return input_ids
+    block = torch.full((num_patches,), image_token_id, dtype=input_ids.dtype, device=input_ids.device)
+    if count == 0:
+        pos = 1 if bos_id is not None and input_ids.numel() > 0 and input_ids[0].item() == bos_id else 0
+    elif count == 1:
+        pos = positions.item()
+        input_ids = torch.cat((input_ids[:pos], input_ids[pos + 1 :]))
+    else:
+        raise ValueError(
+            f"Prompt contains {count} <image> placeholder tokens; expected 0, 1 or {num_patches} (one image)."
+        )
+    return torch.cat((input_ids[:pos], block, input_ids[pos:]))
 
 
 class ImagePreprocessor:
