@@ -352,9 +352,29 @@ def chunked_cross_entropy(
             targets = targets.reshape(-1)
             return torch.nn.functional.cross_entropy(logits, targets, ignore_index=ignore_index)
 
-        # chunk cross entropy
-        logit_chunks = [logit_chunk.reshape(-1, logit_chunk.size(-1)) for logit_chunk in logits]
-        target_chunks = [target_chunk.reshape(-1) for target_chunk in targets.split(logits[0].size(1), dim=1)]
+        # Re-chunk the already chunked LM-head output according to the requested budget. The
+        # model's LM head may have emitted smaller fixed-size chunks; grouping adjacent chunks
+        # here makes the public `chunk_size`/`auto` knob effective for the cross-entropy work too.
+        target_chunks = list(targets.split([chunk.size(1) for chunk in logits], dim=1))
+        flat_logits = [chunk.reshape(-1, chunk.size(-1)) for chunk in logits]
+        flat_targets = [chunk.reshape(-1) for chunk in target_chunks]
+        logit_chunks = []
+        merged_target_chunks = []
+        current_logits = []
+        current_targets = []
+        current_rows = 0
+        for logit_chunk, target_chunk in zip(flat_logits, flat_targets):
+            current_logits.append(logit_chunk)
+            current_targets.append(target_chunk)
+            current_rows += logit_chunk.size(0)
+            if current_rows >= chunk_size:
+                logit_chunks.append(torch.cat(current_logits, dim=0))
+                merged_target_chunks.append(torch.cat(current_targets, dim=0))
+                current_logits, current_targets, current_rows = [], [], 0
+        if current_logits:
+            logit_chunks.append(torch.cat(current_logits, dim=0))
+            merged_target_chunks.append(torch.cat(current_targets, dim=0))
+        target_chunks = merged_target_chunks
         loss_chunks = [
             torch.nn.functional.cross_entropy(logit_chunk, target_chunk, ignore_index=ignore_index, reduction="none")
             for logit_chunk, target_chunk in zip(logit_chunks, target_chunks)

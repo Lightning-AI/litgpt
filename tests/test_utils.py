@@ -234,6 +234,15 @@ def test_chunked_cross_entropy_auto_matches_manual_chunk_size():
     torch.testing.assert_close(auto_loss, manual_loss)
 
 
+def test_chunked_cross_entropy_list_respects_chunk_size():
+    logits = [torch.randn(1, 2, 11), torch.randn(1, 2, 11), torch.randn(1, 2, 11)]
+    targets = torch.randint(0, 11, (1, 6))
+
+    expected = chunked_cross_entropy(torch.cat(logits, dim=1), targets, chunk_size=2)
+    actual = chunked_cross_entropy(logits, targets, chunk_size=2)
+    torch.testing.assert_close(actual, expected)
+
+
 @_RunIf(min_cuda_gpus=1)
 def test_chunked_cross_entropy_auto_reduces_peak_memory_like_manual_chunking():
     # the actual "memory budget system" issue #2190 asked for: chunk_size="auto", derived from a
