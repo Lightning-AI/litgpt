@@ -32,6 +32,8 @@ from lightning.pytorch.cli import instantiate_class
 from lightning.pytorch.loggers import MLFlowLogger, WandbLogger
 from packaging import version
 from torch.serialization import normalize_storage_type
+from torchmetrics import Metric
+from torchmetrics.wrappers import Running
 from typing_extensions import Self
 
 from litgpt.constants import (
@@ -508,6 +510,110 @@ class CycleIterator:
 
     def __iter__(self) -> Self:
         return self
+
+
+class TokenCountingIterator:
+    """Wraps a ``CycleIterator`` to normalize the loss by the number of target tokens in a gradient accumulation window.
+
+    Batches are prefetched one window of ``window_size`` micro-batches at a time, so that the number of target tokens
+    in the whole window, summed over all data-parallel ranks, is known before the first backward pass of the window.
+    After each ``next()``, ``loss_weight`` holds the weight of the returned micro-batch: backpropagating
+    ``loss * loss_weight``, where ``loss`` is the micro-batch's mean over its target tokens as returned by
+    ``chunked_cross_entropy``, accumulates the gradient of the mean loss over all target tokens of the window on all
+    ranks. The weight is multiplied by the world size because the data-parallel strategies (DDP, FSDP) average the
+    gradients over the ranks. ``num_targets`` holds the number of target tokens of the returned micro-batch on this
+    rank, as ``RunningTokenMean`` takes it.
+
+    The batches must hold the targets under ``"labels"``, and the loss must be computed on the targets shifted by one
+    position (``labels[..., 1:]``) as in the finetuning scripts. The windows end at multiples of ``window_size``
+    micro-batches: if ``offset`` micro-batches were drawn from ``iterator`` before, as when resuming, the first window
+    only holds the remaining ``window_size - offset % window_size``.
+    """
+
+    def __init__(
+        self, fabric: L.Fabric, iterator: CycleIterator, window_size: int, offset: int = 0, ignore_index: int = -100
+    ) -> None:
+        self.fabric = fabric
+        self.iterator = iterator
+        self.window_size = window_size
+        self.ignore_index = ignore_index
+        self.epoch = iterator.epoch
+        self.loss_weight: torch.Tensor | None = None
+        self.num_targets: torch.Tensor | None = None
+        self._next_window_size = window_size - offset % window_size
+        self._window: list[tuple[Any, int, torch.Tensor, torch.Tensor]] = []
+
+    def __next__(self) -> Any:
+        if not self._window:
+            window = [(next(self.iterator), self.iterator.epoch) for _ in range(self._next_window_size)]
+            self._next_window_size = self.window_size
+            # the same targets that `chunked_cross_entropy` averages over in the finetuning scripts
+            num_targets = torch.stack([(batch["labels"][..., 1:] != self.ignore_index).sum() for batch, _ in window])
+            total = self.fabric.all_reduce(num_targets.sum(), reduce_op="sum")
+            weights = num_targets * self.fabric.world_size / total.clamp(min=1)
+            self._window = [
+                (batch, epoch, weight, n) for (batch, epoch), weight, n in zip(window, weights, num_targets)
+            ]
+        # report the epoch of the returned batch, not of the last prefetched one
+        batch, self.epoch, self.loss_weight, self.num_targets = self._window.pop(0)
+        return batch
+
+    def __iter__(self) -> Self:
+        return self
+
+
+class _TokenMean(Metric):
+    full_state_update = False
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("loss_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("num_targets", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, loss: torch.Tensor, num_targets: torch.Tensor) -> None:
+        # in float32 also for a bfloat16 loss, as `MeanMetric` does. A micro-batch without target tokens adds nothing,
+        # also if its loss is 0/0, as with `chunked_cross_entropy(..., chunk_size=0)`
+        self.loss_sum += torch.where(num_targets > 0, loss.float() * num_targets, 0)
+        self.num_targets += num_targets
+
+    def compute(self) -> torch.Tensor:
+        return self.loss_sum / self.num_targets.clamp(min=1)
+
+
+class RunningTokenMean(Running):
+    """The mean loss over the target tokens of the last ``window`` micro-batches, which the finetuning scripts log with
+    ``--train.loss_normalization token``, in place of the mean of the micro-batch losses (``RunningMean``).
+
+    ``update(loss, num_targets)`` takes the mean loss over the target tokens of a micro-batch, as returned by
+    ``chunked_cross_entropy``, and the number of these tokens. The mean is 0 if the micro-batches in the window have no
+    target tokens, and NaN while the NaN loss of a micro-batch with target tokens is in the window.
+    """
+
+    def __init__(self, window: int, **kwargs: Any) -> None:
+        super().__init__(base_metric=_TokenMean(**kwargs), window=window)
+
+
+def mean_validation_loss(
+    fabric: L.Fabric,
+    losses: torch.Tensor,
+    num_targets: torch.Tensor,
+    loss_normalization: Literal["micro_batch", "token"] = "micro_batch",
+) -> torch.Tensor:
+    """Averages the losses of the validation batches as selected by ``--train.loss_normalization``.
+
+    ``losses`` holds the mean loss over the target tokens of each validation batch, and ``num_targets`` the number of
+    those tokens. With ``"micro_batch"``, the result is the mean of ``losses`` on this rank. With ``"token"``, it is the
+    mean loss over all target tokens of the validation batches of all ranks, NaN if there are none: the loss sums and
+    the token counts are summed over the ranks separately, so the result is the same on every rank and a cross-rank
+    mean leaves it unchanged.
+    """
+    if loss_normalization == "micro_batch":
+        return losses.mean()
+    # the loss of a batch without target tokens is 0/0, which must not reach the sum
+    loss_sum = torch.where(num_targets > 0, losses * num_targets, 0).sum()
+    loss_sum = fabric.all_reduce(loss_sum.to(fabric.device), reduce_op="sum")
+    num_targets = fabric.all_reduce(num_targets.sum().to(fabric.device), reduce_op="sum")
+    return (loss_sum / num_targets).to(losses.device)
 
 
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:

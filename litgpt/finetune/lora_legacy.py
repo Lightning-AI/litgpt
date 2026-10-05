@@ -28,6 +28,8 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
     CycleIterator,
+    RunningTokenMean,
+    TokenCountingIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
@@ -40,6 +42,7 @@ from litgpt.utils import (
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
     load_checkpoint,
+    mean_validation_loss,
     num_parameters,
     parse_devices,
     select_sft_generate_example,
@@ -258,7 +261,13 @@ def main(
 
     # Final evaluation
     if eval.final_validation:
-        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = validate(
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=len(val_dataloader)),
+            loss_normalization=train.loss_normalization,
+        )
         metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
         fabric.log_dict(metrics)
         fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
@@ -301,16 +310,34 @@ def fit(
     )
 
     if eval.initial_validation:
-        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = validate(
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=len(val_dataloader)),
+            loss_normalization=train.loss_normalization,
+        )
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2), verbose=False)  # sanity check
+        validate(  # sanity check
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=2),
+            verbose=False,
+            loss_normalization=train.loss_normalization,
+        )
         val_loss = "n/a"
 
     train_iterator = CycleIterator(train_dataloader)
+    if train.loss_normalization == "token":
+        train_iterator = TokenCountingIterator(
+            fabric, train_iterator, train.gradient_accumulation_iters(devices, num_nodes)
+        )
     throughput = ThroughputMonitor(fabric, window_size=50)
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
+    running_mean = RunningTokenMean if train.loss_normalization == "token" else RunningMean
+    running_loss = running_mean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     max_steps = train.max_steps or float("inf")
@@ -339,9 +366,15 @@ def fit(
             # shift the targets such that output n predicts token n+1
             logits[-1] = logits[-1][..., :-1, :]
             loss = chunked_cross_entropy(logits, targets[..., 1:])
-            fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
+            if train.loss_normalization == "token":
+                fabric.backward(loss * train_iterator.loss_weight)
+            else:
+                fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
-        running_loss.update(loss.detach())
+        if train.loss_normalization == "token":
+            running_loss.update(loss.detach(), train_iterator.num_targets)
+        else:
+            running_loss.update(loss.detach())
 
         if not is_accumulating:
             optimizer.step()
@@ -386,7 +419,7 @@ def fit(
 
         if not is_accumulating and step_count % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, eval)
+            val_loss = validate(fabric, model, val_dataloader, eval, loss_normalization=train.loss_normalization)
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
 
@@ -423,20 +456,27 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+    fabric: L.Fabric,
+    model: GPT,
+    val_dataloader: DataLoader,
+    eval: EvalArgs,
+    verbose: bool = True,
+    loss_normalization: Literal["micro_batch", "token"] = "micro_batch",
 ) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
+    num_targets = torch.zeros_like(losses, dtype=torch.long)
     for k, batch in enumerate(val_dataloader):
         if k >= eval.max_iters:
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+        num_targets[k] = (targets[..., 1:] != -100).sum()
 
-    val_loss = losses.mean()
+    val_loss = mean_validation_loss(fabric, losses, num_targets, loss_normalization)
 
     model.train()
     return val_loss
