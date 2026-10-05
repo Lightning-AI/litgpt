@@ -503,6 +503,8 @@ class GPT(BaseModel):
         self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
+        self._init_vision(config)
+
     @classmethod
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
