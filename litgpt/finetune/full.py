@@ -23,6 +23,7 @@ from litgpt.tokenizer import Tokenizer
 from litgpt.types import LoggerChoice
 from litgpt.utils import (
     CycleIterator,
+    RunningTokenMean,
     TokenCountingIterator,
     auto_download_checkpoint,
     check_nvlink_connectivity,
@@ -286,12 +287,14 @@ def fit(
         )
 
     if train.loss_normalization == "token":
-        # created after fast-forwarding so that the skipped batches are not counted
+        # created after fast-forwarding so that the skipped batches are not counted. The offset keeps the windows
+        # aligned with the optimizer steps if `gradient_accumulation_iters` changed since the checkpoint
         train_iterator = TokenCountingIterator(
-            fabric, train_iterator, train.gradient_accumulation_iters(devices, num_nodes)
+            fabric, train_iterator, train.gradient_accumulation_iters(devices, num_nodes), offset=initial_iter
         )
 
-    running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
+    running_mean = RunningTokenMean if train.loss_normalization == "token" else RunningMean
+    running_loss = running_mean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device
     )
     fabric.barrier()
@@ -315,7 +318,7 @@ def fit(
                 fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
         if train.loss_normalization == "token":
-            running_loss.update(loss.detach(), weight=train_iterator.logging_weight)
+            running_loss.update(loss.detach(), train_iterator.num_targets)
         else:
             running_loss.update(loss.detach())
 
@@ -399,7 +402,7 @@ def validate(
     val_dataloader: DataLoader,
     eval: EvalArgs,
     verbose: bool = True,
-    loss_normalization: str = "micro_batch",
+    loss_normalization: Literal["micro_batch", "token"] = "micro_batch",
 ) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
