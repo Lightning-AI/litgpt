@@ -114,6 +114,9 @@ class VisionEncoder(nn.Module):
         Returns:
             Image features of shape ``(B, num_patches, vision_feature_dim)``.
         """
+        encoder = self._encoder if self._encoder is not None else self.patch_embed
+        pixel_values = pixel_values.to(dtype=next(encoder.parameters()).dtype)
+
         if self._encoder is not None:
             # Frozen HF encoder: no gradients needed.
             with torch.no_grad():
