@@ -104,6 +104,7 @@ To start with random weights, for example, if you plan a pretraining script, ini
 
 ```python
 from litgpt.api import LLM
+
 llm = LLM.load("pythia-160m", init="random", tokenizer_dir="EleutherAI/pythia-160m")
 ```
 
@@ -121,15 +122,12 @@ The `generate_strategy="sequential"` setting loads different parts of the models
 ```python
 from litgpt.api import LLM
 
-llm = LLM.load(
-    "microsoft/phi-2",
-    distribute=None
-)
+llm = LLM.load("microsoft/phi-2", distribute=None)
 
 llm.distribute(
     generate_strategy="sequential",
     devices=4,  # Optional setting, otherwise uses all available GPUs
-    fixed_kv_cache_size=256  # Optionally use a small kv-cache to further reduce memory usage
+    fixed_kv_cache_size=256,  # Optionally use a small kv-cache to further reduce memory usage
 )
 ```
 
@@ -161,11 +159,7 @@ from litgpt.api import LLM
 
 
 if __name__ == "__main__":
-
-    llm = LLM.load(
-        model="meta-llama/Meta-Llama-3.1-8B-Instruct",
-        distribute=None
-    )
+    llm = LLM.load(model="meta-llama/Meta-Llama-3.1-8B-Instruct", distribute=None)
 
     llm.distribute(generate_strategy="tensor_parallel", devices=4)
 
@@ -183,10 +177,7 @@ Use the `.benchmark()` method to compare the computational performance of differ
 from litgpt.api import LLM
 from pprint import pprint
 
-llm = LLM.load(
-    model="microsoft/phi-2",
-    distribute=None
-)
+llm = LLM.load(model="microsoft/phi-2", distribute=None)
 
 llm.distribute(fixed_kv_cache_size=500)
 
@@ -355,7 +346,6 @@ lit_model.llm.generate("hello world")
 The continued pretraining or finetuning from a downloaded model checkpoint is similar to the example above, except that we can skip the initial steps of instantiating a model with random weights.
 
 ```python
-
 lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m")
 data = Alpaca2k()
 
@@ -380,8 +370,8 @@ lit_model.llm.generate("hello world")
 Suppose you trained a model and decide to follow up with a few additional training rounds. This can be achieved as follows by loading an existing Trainer checkpoint:
 
 ```python
-
 import os
+
 
 def find_latest_checkpoint(directory):
     latest_checkpoint = None
@@ -389,7 +379,7 @@ def find_latest_checkpoint(directory):
 
     for root, _, files in os.walk(directory):
         for file in files:
-            if file.endswith('.ckpt'):
+            if file.endswith(".ckpt"):
                 file_path = os.path.join(root, file)
                 file_time = os.path.getmtime(file_path)
                 if file_time > latest_time:
@@ -397,6 +387,7 @@ def find_latest_checkpoint(directory):
                     latest_checkpoint = file_path
 
     return latest_checkpoint
+
 
 lit_model = LitLLM(checkpoint_dir="EleutherAI/pythia-160m", trainer_ckpt_path=find_latest_checkpoint("lightning_logs"))
 
