@@ -15,6 +15,7 @@ from lightning import Fabric
 from lightning.fabric.loggers import CSVLogger, TensorBoardLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.pytorch.loggers import LitLogger, MLFlowLogger, WandbLogger
+from torchmetrics import RunningMean
 
 from litgpt import GPT
 from litgpt.args import TrainArgs
@@ -45,6 +46,7 @@ from litgpt.utils import (
     init_out_dir,
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
+    mean_validation_loss,
     num_parameters,
     parse_devices,
     select_sft_generate_example,
@@ -222,12 +224,60 @@ def test_token_counting_iterator():
     reference = CycleIterator(batches)
 
     # the second window straddles the epoch boundary
-    for expected_weight in (3 * 2 / 8, 1 * 2 / 8, 0 * 2 / 7, 3 * 2 / 7, 1 * 2 / 5, 0 * 2 / 5):
+    expected_loss_weights = (3 * 2 / 8, 1 * 2 / 8, 0 * 2 / 7, 3 * 2 / 7, 1 * 2 / 5, 0 * 2 / 5)
+    # the logging weights only count the target tokens of this rank
+    expected_logging_weights = (3, 1, 0, 3, 1, 0)
+    for expected_loss_weight, expected_logging_weight in zip(expected_loss_weights, expected_logging_weights):
         assert next(iterator) is next(reference)
         assert iterator.epoch == reference.epoch
-        torch.testing.assert_close(iterator.loss_weight, torch.tensor(expected_weight))
+        torch.testing.assert_close(iterator.loss_weight, torch.tensor(expected_loss_weight))
+        assert iterator.logging_weight == expected_logging_weight
     assert fabric.all_reduce.call_count == 3
     assert all(call.kwargs == {"reduce_op": "sum"} for call in fabric.all_reduce.call_args_list)
+
+
+def test_token_counting_iterator_running_loss():
+    # windows of 2 micro-batches with 2 and 1, 3 and 4, and 0 and 0 target tokens after the shift
+    batches = [{"labels": torch.tensor([[-100] * (7 - n) + [5] * n])} for n in (2, 1, 3, 4, 0, 0)]
+    # the mean losses over the target tokens, `chunked_cross_entropy` returns 0 for a micro-batch without targets
+    losses = torch.tensor([1.0, 2.0, 3.0, 4.0, 0.0, 0.0])
+    fabric = mock.Mock(world_size=1)
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor
+    iterator = TokenCountingIterator(fabric, CycleIterator(batches), window_size=2)
+    running_loss = RunningMean(window=2, sync_on_compute=False)
+
+    logged = []
+    for loss in losses:
+        next(iterator)
+        running_loss.update(loss, weight=iterator.logging_weight)
+        logged.append(running_loss.compute())
+
+    # the mean over the target tokens of the last 2 micro-batches, also when they belong to different windows
+    expected = [1.0, (1 * 2 + 2 * 1) / 3, (2 * 1 + 3 * 3) / 4, (3 * 3 + 4 * 4) / 7]
+    # the micro-batches of a window without target tokens count as one token each, so that its mean is 0, not 0/0
+    expected += [(4 * 4 + 0 * 1) / 5, 0.0]
+    torch.testing.assert_close(torch.stack(logged), torch.tensor(expected))
+
+
+def test_mean_validation_loss():
+    # the loss of the second batch, which has no target tokens, is 0/0 with `chunked_cross_entropy(..., chunk_size=0)`
+    losses = torch.tensor([1.0, float("nan"), 4.0])
+    num_targets = torch.tensor([3, 0, 1])
+    # simulate a second data-parallel rank with a loss sum of 6 over 4 target tokens
+    fabric = mock.Mock(world_size=2, device=torch.device("cpu"))
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor + (6.0 if tensor.is_floating_point() else 4)
+
+    val_loss = mean_validation_loss(fabric, losses, num_targets, "token")
+    torch.testing.assert_close(val_loss, torch.tensor((1.0 * 3 + 4.0 * 1 + 6.0) / (3 + 1 + 4)))
+    assert fabric.all_reduce.call_count == 2
+    assert all(call.kwargs == {"reduce_op": "sum"} for call in fabric.all_reduce.call_args_list)
+
+    # the mean of the per-batch means on this rank, as before the option existed
+    fabric.all_reduce.reset_mock()
+    losses = torch.tensor([1.0, 2.5, 4.0])
+    assert torch.equal(mean_validation_loss(fabric, losses, num_targets, "micro_batch"), losses.mean())
+    assert torch.equal(mean_validation_loss(fabric, losses, num_targets), losses.mean())
+    fabric.all_reduce.assert_not_called()
 
 
 def test_parse_devices():

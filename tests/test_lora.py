@@ -1228,6 +1228,7 @@ def test_load_from_full_model_state_dict():
 @pytest.mark.parametrize("loss_normalization", ["micro_batch", "token"])
 def test_lora_fit_loss_normalization(finetune_module, loss_normalization, monkeypatch, tmp_path):
     monkeypatch.setattr(finetune_module, "Tokenizer", Mock())
+    monkeypatch.setattr(finetune_module, "generate_example", Mock())
 
     # 4 micro-batches with 2, 15, 4 and 7 target tokens after the shift, accumulated into one optimizer step
     torch.manual_seed(0)
@@ -1263,7 +1264,8 @@ def test_lora_fit_loss_normalization(finetune_module, loss_normalization, monkey
         if "lora_B" in name:  # zero-initialized, which would make the gradients of `lora_A` zero
             torch.nn.init.normal_(param)
 
-    fabric = Fabric(accelerator="cpu", devices=1)
+    logger = Mock()
+    fabric = Fabric(accelerator="cpu", devices=1, loggers=logger)
     # a mock optimizer keeps the accumulated gradients around for inspection
     finetune_module.fit(
         fabric=fabric,
@@ -1276,7 +1278,7 @@ def test_lora_fit_loss_normalization(finetune_module, loss_normalization, monkey
         checkpoint_dir=tmp_path,
         out_dir=tmp_path,
         train=train,
-        eval=EvalArgs(interval=2),
+        eval=EvalArgs(interval=1, max_iters=3),
         data=Mock(),
     )
     grads = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
@@ -1293,3 +1295,22 @@ def test_lora_fit_loss_normalization(finetune_module, loss_normalization, monkey
     expected_loss[loss_normalization].backward()
     expected_grads = {name: param.grad for name, param in model.named_parameters() if param.grad is not None}
     torch.testing.assert_close(grads, expected_grads)
+
+    # the logged training loss is the running mean over the micro-batches so far, normalized like the objective: at the
+    # optimizer step, it is the objective of the step
+    sample_losses = losses.detach().sum(dim=1)
+    expected_logged_losses = {
+        "token": sample_losses.cumsum(0) / num_targets.cumsum(0),
+        "micro_batch": (sample_losses / num_targets).cumsum(0) / torch.arange(1, 5),
+    }
+    metrics = [call.kwargs["metrics"] for call in logger.log_metrics.call_args_list]
+    logged_losses = torch.tensor([m["loss"] for m in metrics if "loss" in m])
+    torch.testing.assert_close(logged_losses, expected_logged_losses[loss_normalization])
+
+    # the validation after the optimizer step is normalized in the same way, over at most `eval.max_iters` batches
+    (val_loss,) = [m["val_loss"] for m in metrics if "val_loss" in m]
+    expected_val_loss = {
+        "token": sample_losses[:3].sum() / num_targets[:3].sum(),
+        "micro_batch": (sample_losses[:3] / num_targets[:3]).mean(),
+    }
+    torch.testing.assert_close(torch.tensor(val_loss), expected_val_loss[loss_normalization])

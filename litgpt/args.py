@@ -39,9 +39,12 @@ class TrainArgs:
     max_norm: float | None = None
     min_lr: float = 6e-5
     loss_normalization: Literal["micro_batch", "token"] = "micro_batch"
-    """How the finetuning scripts normalize the loss of an optimizer step: "micro_batch" averages the per-micro-batch
-    token means, "token" averages over all target tokens of the step on all ranks, independent of the micro-batch size.
-    The logged training loss is the mean of the micro-batch means in both modes."""
+    """How the finetuning scripts average the loss: "micro_batch" takes the mean of the micro-batches' token means,
+    "token" the mean over all target tokens, independent of the micro-batch size. "token" applies to the gradient (the
+    mean over the target tokens of an optimizer step on all ranks), the logged training loss (on rank 0, the mean over
+    the target tokens of the latest micro-batches, as many as an optimizer step accumulates) and the validation loss
+    (the mean over all validated target tokens on all ranks). In both modes, `eval.max_iters` limits the number of
+    validation batches, not samples, so a larger micro-batch size validates more samples."""
 
     def __post_init__(self) -> None:
         if self.lr_warmup_fraction and self.lr_warmup_steps:

@@ -36,6 +36,7 @@ from litgpt.utils import (
     init_out_dir,
     instantiate_torch_optimizer,
     load_checkpoint,
+    mean_validation_loss,
     num_parameters,
     parse_devices,
     select_sft_generate_example,
@@ -191,7 +192,13 @@ def main(
 
     # Final evaluation
     if eval.final_validation:
-        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = validate(
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=len(val_dataloader)),
+            loss_normalization=train.loss_normalization,
+        )
         metrics = {"val_loss": val_loss, "val_ppl": math.exp(val_loss)}
         fabric.log_dict(metrics, step=state["iter_num"])
         fabric.print(f"Final evaluation | val loss: {val_loss.item():.3f} | val ppl: {math.exp(val_loss):.3f}")
@@ -241,11 +248,24 @@ def fit(
     }
 
     if eval.initial_validation:
-        val_loss = validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=len(val_dataloader)))
+        val_loss = validate(
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=len(val_dataloader)),
+            loss_normalization=train.loss_normalization,
+        )
         val_loss = f"{val_loss:.3f}"
     else:
         fabric.print("Verifying settings ...")
-        validate(fabric, model, val_dataloader, dataclasses.replace(eval, max_iters=2), verbose=False)  # sanity check
+        validate(  # sanity check
+            fabric,
+            model,
+            val_dataloader,
+            dataclasses.replace(eval, max_iters=2),
+            verbose=False,
+            loss_normalization=train.loss_normalization,
+        )
         val_loss = "n/a"
 
     initial_iter = state["iter_num"]
@@ -294,7 +314,10 @@ def fit(
             else:
                 fabric.backward(loss / train.gradient_accumulation_iters(devices, num_nodes))
 
-        running_loss.update(loss.detach())
+        if train.loss_normalization == "token":
+            running_loss.update(loss.detach(), weight=train_iterator.logging_weight)
+        else:
+            running_loss.update(loss.detach())
 
         if not is_accumulating:
             optimizer.step()
@@ -334,7 +357,7 @@ def fit(
 
         if not is_accumulating and state["step_count"] % eval.interval == 0:
             t0 = time.perf_counter()
-            val_loss = validate(fabric, model, val_dataloader, eval)
+            val_loss = validate(fabric, model, val_dataloader, eval, loss_normalization=train.loss_normalization)
             generate_example(fabric, model, tokenizer, eval, data)
             t1 = time.perf_counter() - t0
 
@@ -371,20 +394,27 @@ def fit(
 # FSDP has issues with `inference_mode`
 @torch.no_grad()
 def validate(
-    fabric: L.Fabric, model: GPT, val_dataloader: DataLoader, eval: EvalArgs, verbose: bool = True
+    fabric: L.Fabric,
+    model: GPT,
+    val_dataloader: DataLoader,
+    eval: EvalArgs,
+    verbose: bool = True,
+    loss_normalization: str = "micro_batch",
 ) -> torch.Tensor:
     if verbose:
         fabric.print("Validating ...")
     model.eval()
     losses = torch.zeros(min(len(val_dataloader), eval.max_iters))
+    num_targets = torch.zeros_like(losses, dtype=torch.long)
     for k, batch in enumerate(val_dataloader):
         if k >= eval.max_iters:
             break
         input_ids, targets = batch["input_ids"], batch["labels"]
         logits = model(input_ids)
         losses[k] = chunked_cross_entropy(logits[..., :-1, :], targets[..., 1:], chunk_size=0)
+        num_targets[k] = (targets[..., 1:] != -100).sum()
 
-    val_loss = losses.mean()
+    val_loss = mean_validation_loss(fabric, losses, num_targets, loss_normalization)
     model.train()
     return val_loss
 
