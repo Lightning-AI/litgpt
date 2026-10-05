@@ -521,6 +521,14 @@ class TokenCountingIterator:
     ranks. The weight is multiplied by the world size because the data-parallel strategies (DDP, FSDP) average the
     gradients over the ranks.
 
+    ``logging_weight`` holds the number of target tokens of the returned micro-batch on this rank, the weight of its
+    loss in the running mean of the logged training loss (``RunningMean.update(loss, weight=logging_weight)``). The
+    running mean over the last ``window_size`` micro-batches is then the mean loss over their target tokens on this rank,
+    which at the end of a window is the token mean of the window. A weight normalized per window like ``loss_weight``
+    would only give that at the end of a window, while the finetuning scripts also log in the middle of one, where the
+    running mean spans two windows. The micro-batches of a window without target tokens on this rank have a loss of 0
+    and get a weight of 1 each instead, so that the logged loss is 0, as in the default normalization, rather than 0/0.
+
     The batches must hold the targets under ``"labels"``, and the loss must be computed on the targets shifted by one
     position (``labels[..., 1:]``) as in the finetuning scripts. The iterator must be created at the start of a window.
     """
@@ -532,7 +540,8 @@ class TokenCountingIterator:
         self.ignore_index = ignore_index
         self.epoch = iterator.epoch
         self.loss_weight: torch.Tensor | None = None
-        self._window: list[tuple[Any, int, torch.Tensor]] = []
+        self.logging_weight: torch.Tensor | None = None
+        self._window: list[tuple[Any, int, torch.Tensor, torch.Tensor]] = []
 
     def __next__(self) -> Any:
         if not self._window:
@@ -540,14 +549,37 @@ class TokenCountingIterator:
             # the same targets that `chunked_cross_entropy` averages over in the finetuning scripts
             num_targets = torch.stack([(batch["labels"][..., 1:] != self.ignore_index).sum() for batch, _ in window])
             total = self.fabric.all_reduce(num_targets.sum(), reduce_op="sum")
-            weights = num_targets * self.fabric.world_size / total.clamp(min=1)
-            self._window = [(batch, epoch, weight) for (batch, epoch), weight in zip(window, weights)]
+            loss_weights = num_targets * self.fabric.world_size / total.clamp(min=1)
+            logging_weights = torch.where(num_targets.sum() > 0, num_targets, 1)
+            self._window = [
+                (batch, epoch, loss_weight, logging_weight)
+                for (batch, epoch), loss_weight, logging_weight in zip(window, loss_weights, logging_weights)
+            ]
         # report the epoch of the returned batch, not of the last prefetched one
-        batch, self.epoch, self.loss_weight = self._window.pop(0)
+        batch, self.epoch, self.loss_weight, self.logging_weight = self._window.pop(0)
         return batch
 
     def __iter__(self) -> Self:
         return self
+
+
+def mean_validation_loss(
+    fabric: L.Fabric, losses: torch.Tensor, num_targets: torch.Tensor, loss_normalization: str = "micro_batch"
+) -> torch.Tensor:
+    """Averages the losses of the validation batches as selected by ``--train.loss_normalization``.
+
+    ``losses`` holds the mean loss over the target tokens of each validation batch, and ``num_targets`` the number of
+    those tokens. With ``"micro_batch"``, the result is the mean of ``losses`` on this rank. With ``"token"``, it is the
+    mean loss over all target tokens of the validation batches of all ranks: the loss sums and the token counts are
+    summed over the ranks separately, so the result is the same on every rank and a cross-rank mean leaves it unchanged.
+    """
+    if loss_normalization == "micro_batch":
+        return losses.mean()
+    # the loss of a batch without target tokens is 0/0, which must not reach the sum
+    loss_sum = torch.where(num_targets > 0, losses * num_targets, 0).sum()
+    loss_sum = fabric.all_reduce(loss_sum.to(fabric.device), reduce_op="sum")
+    num_targets = fabric.all_reduce(num_targets.sum().to(fabric.device), reduce_op="sum")
+    return (loss_sum / num_targets.clamp(min=1)).to(losses.device)
 
 
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
