@@ -27,9 +27,7 @@ from transformers import AutoModel
 
 
 state_dict = torch.load("output_dir/model.pth")
-model = AutoModel.from_pretrained(
-    "output_dir/", local_files_only=True, state_dict=state_dict
-)
+model = AutoModel.from_pretrained("output_dir/", local_files_only=True, state_dict=state_dict)
 ```
 
 Alternatively, you can also load the model without copying the `config.json` file as follows:
@@ -107,7 +105,7 @@ litgpt convert_from_litgpt $finetuned_dir/final/ out/hf-tinyllama/converted
 import torch
 from transformers import AutoModel
 
-state_dict = torch.load('out/hf-tinyllama/converted/model.pth')
+state_dict = torch.load("out/hf-tinyllama/converted/model.pth")
 model = AutoModel.from_pretrained("TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T", state_dict=state_dict)
 ```
 

@@ -74,12 +74,7 @@ dataset = llm.prepare_dataset(
 
 
 ```python
-llm.instruction_finetune(
-    config=None,
-    dataset=dataset,
-    max_iter=10,
-    method="full | lora | adapter | adapter_v2"
-)
+llm.instruction_finetune(config=None, dataset=dataset, max_iter=10, method="full | lora | adapter | adapter_v2")
 ```
 
 ```python
@@ -100,8 +95,7 @@ Then in another Python session:
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Example input"}
+    "http://127.0.0.1:8000/predict", json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 
 print(response.json()["output"])

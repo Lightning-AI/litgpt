@@ -282,9 +282,9 @@ Test the server in a separate terminal and integrate the model API into your AI 
 ```python
 # 3) Use the server (in a separate Python session)
 import requests, json
+
 response = requests.post(
-    "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Example input"}
+    "http://127.0.0.1:8000/predict", json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 print(response.json()["output"])
 ```

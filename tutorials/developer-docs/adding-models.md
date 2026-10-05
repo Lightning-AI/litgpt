@@ -41,23 +41,25 @@ For example, suppose an entry for Llama 3 8B already exists and you want to add 
 Copy the Llama 3 8B entry:
 
 ```python
- # https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
- dict(
-     name="Llama-3-8B{}",
-     hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
-     vocab_size=128256,
-     padding_multiple=64,
-     n_layer=32,
-     n_head=32,
-     n_query_groups=8,
-     rotary_percentage=1.0,
-     parallel_residual=False,
-     bias=False,
-     norm_class_name="RMSNorm",
-     mlp_class_name="LLaMAMLP",
-     intermediate_size=14336,
-     rope_base=500000,
- ),
+# https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/config.json
+(
+    dict(
+        name="Llama-3-8B{}",
+        hf_config=dict(org="meta-llama", name="Meta-Llama-3-8B{}"),
+        vocab_size=128256,
+        padding_multiple=64,
+        n_layer=32,
+        n_head=32,
+        n_query_groups=8,
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+        norm_class_name="RMSNorm",
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=14336,
+        rope_base=500000,
+    ),
+)
 ```
 
 Then create the entry for the 70B model. Here, make sure you update the values according to the `config.json` file available on the HF hub:
@@ -130,21 +132,21 @@ If you are adding a new model class, find out its prompt style. First, check [li
 
 ```python
 class Llama3(PromptStyle):
-     def apply(self, prompt: str, **kwargs: str) -> str:
-         # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
-         return (
-             "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
-             "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
-             "<|start_header_id|>user<|end_header_id|>\n\n"
-             f"{prompt}<|eot_id|>\n"
-             "<|start_header_id|>assistant<|end_header_id|>\n\n"
-         )
+    def apply(self, prompt: str, **kwargs: str) -> str:
+        # https://github.com/meta-llama/llama3/blob/359887376f0aaf30e433f23e25df858d8c2a9833/llama/tokenizer.py#L202-L229
+        return (
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
+            "You are a helpful assistant.<|eot_id|>\n"  # The system prompt is optional
+            "<|start_header_id|>user<|end_header_id|>\n\n"
+            f"{prompt}<|eot_id|>\n"
+            "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
 
-     def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
-         return (
-             [tokenizer.eos_id],
-             [tokenizer.token_to_id("<|eot_id|>")],
-         )
+    def stop_tokens(self, tokenizer: "Tokenizer") -> Tuple[List[int], ...]:
+        return (
+            [tokenizer.eos_id],
+            [tokenizer.token_to_id("<|eot_id|>")],
+        )
 ```
 
 If your model requires a different prompt template, create a new `PromptStyle` class.
