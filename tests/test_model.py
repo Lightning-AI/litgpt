@@ -1809,3 +1809,36 @@ def test_sliding_window_kv_cache_prefill_exceeds_window():
     k_out, v_out = cache(input_pos_safe, k_safe, v_safe)
     assert k_out.shape == (batch_size, n_query_groups, safe_len, head_size)
     assert v_out.shape == (batch_size, n_query_groups, safe_len, head_size)
+
+
+@pytest.mark.parametrize("chunk_size", (2, 4, 8))
+@torch.inference_mode()
+def test_sliding_window_kv_cache_chunked_prefill_past_window(chunk_size):
+    """Chunked prefill with chunks <= `sliding_window_size` must match a full forward also after the positions
+    pass the window, where the ring-buffer KV cache wraps around (see #2182 for the single-chunk case)."""
+    torch.manual_seed(0)
+    config = Config(
+        block_size=32,
+        padded_vocab_size=64,
+        n_layer=2,
+        n_head=4,
+        n_embd=32,
+        sliding_window_size=8,
+        sliding_window_indices=[1, 0],
+        mlp_class_name="LLaMAMLP",
+        intermediate_size=48,
+        norm_class_name="RMSNorm",
+        rotary_percentage=1.0,
+        parallel_residual=False,
+        bias=False,
+    )
+    model = GPT(config).eval()
+    idx = torch.randint(0, 64, (1, 24))
+    expected = model(idx)
+
+    model.set_kv_cache(batch_size=1)
+    chunks = [
+        model(idx[:, i : i + chunk_size], torch.arange(i, min(i + chunk_size, idx.size(1))))
+        for i in range(0, idx.size(1), chunk_size)
+    ]
+    torch.testing.assert_close(torch.cat(chunks, dim=1), expected)
