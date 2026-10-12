@@ -69,7 +69,7 @@ def sample(
         # optionally crop the logits to smallest set of logits with a cumulative probability above top_p
         if top_p < 1.0:
             logits = sample_top_p(logits, top_p)
-        probs = torch.nn.functional.softmax(logits, dim=-1)
+        probs = torch.nn.functional.softmax(logits, dim=-1,dtype=torch.float32)
         return multinomial_num_samples_1(probs)
     return torch.argmax(logits, dim=-1, keepdim=True)
 
