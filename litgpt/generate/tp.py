@@ -19,7 +19,7 @@ from lightning.fabric.utilities import rank_zero_only
 import litgpt.generate.base as generate_base
 from litgpt.config import Config
 from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
-from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
+from litgpt.model import GPT, CausalSelfAttention, GemmaMLP, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
@@ -45,13 +45,54 @@ def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str
     linear.weight.data = shard
     setattr(linear, attr, shard.size(dim))
 
-    if linear.bias is not None and dim == 0:
-        shard = torch.tensor_split(linear.bias, world_size)[fabric.global_rank]
-        linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
+    if linear.bias is not None:
+        if dim == 0:
+            # Column-parallel: shard bias with the output dimension.
+            shard = torch.tensor_split(linear.bias, world_size)[fabric.global_rank]
+            linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
+        elif fabric.global_rank != 0:
+            # Row-parallel: bias is added before the sum all-reduce. Keep it only on rank 0 so it
+            # is not multiplied by world_size (see Megatron-LM / gpt-fast style TP).
+            linear.bias = None
 
 
-def tensor_parallel_mlp(fabric: L.Fabric, mlp: GptNeoxMLP | LLaMAMLP | LLaMAMoE) -> None:
-    if isinstance(mlp, LLaMAMLP):
+def _tensor_parallel_qkv(fabric: L.Fabric, qkv: torch.nn.Linear, config: Config) -> None:
+    """Column-parallel shard of fused QKV with [Q|K|V] layout.
+
+    A naive ``tensor_split`` on the fused out-feature dim would mix Q/K/V across ranks. Split each
+    of Q, K, and V along the head dimension, then concatenate so every rank gets a local [Q|K|V].
+    """
+    world_size = fabric.world_size
+    rank = fabric.global_rank
+    head_size = config.head_size
+    q_size = config.n_head * head_size
+    kv_size = config.n_query_groups * head_size
+    if qkv.out_features != q_size + 2 * kv_size:
+        raise ValueError(
+            f"Unexpected QKV out_features={qkv.out_features}; expected {q_size + 2 * kv_size} "
+            f"from n_head={config.n_head}, n_query_groups={config.n_query_groups}, head_size={head_size}"
+        )
+    for name, size in (("Q", q_size), ("K/V", kv_size)):
+        if size % world_size != 0:
+            raise ValueError(f"Cannot shard {name} size ({size}) evenly across world size ({world_size})")
+
+    def split_shard(tensor: torch.Tensor) -> torch.Tensor:
+        q, k, v = tensor.split((q_size, kv_size, kv_size), dim=0)
+        q = torch.tensor_split(q, world_size, dim=0)[rank]
+        k = torch.tensor_split(k, world_size, dim=0)[rank]
+        v = torch.tensor_split(v, world_size, dim=0)[rank]
+        return torch.cat((q, k, v), dim=0)
+
+    # overwrite `.data` for bitsandbytes Parameter subclasses
+    qkv.weight.data = split_shard(qkv.weight)
+    qkv.out_features = qkv.weight.size(0)
+    if qkv.bias is not None:
+        qkv.bias = torch.nn.Parameter(split_shard(qkv.bias), requires_grad=qkv.bias.requires_grad)
+
+
+def tensor_parallel_mlp(fabric: L.Fabric, mlp: GptNeoxMLP | LLaMAMLP | GemmaMLP | LLaMAMoE) -> None:
+    # GemmaMLP subclasses LLaMAMLP; the LLaMAMLP branch also matches GemmaMLP.
+    if isinstance(mlp, (LLaMAMLP, GemmaMLP)):
         tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
         tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
         tensor_parallel_linear(fabric, mlp.proj, "rowwise")
@@ -66,11 +107,11 @@ def tensor_parallel_mlp(fabric: L.Fabric, mlp: GptNeoxMLP | LLaMAMLP | LLaMAMoE)
         for expert in mlp.experts:
             tensor_parallel_mlp(fabric, expert)
     else:
-        raise NotImplementedError
+        raise NotImplementedError(type(mlp))
 
 
 def tensor_parallel_attn(fabric: L.Fabric, attn: CausalSelfAttention) -> None:
-    tensor_parallel_linear(fabric, attn.qkv, "colwise")
+    _tensor_parallel_qkv(fabric, attn.qkv, attn.config)
     tensor_parallel_linear(fabric, attn.proj, "rowwise")
     attn.register_forward_hook(partial(all_reduce_output, fabric.world_size))
 
@@ -86,10 +127,11 @@ def tensor_parallel(fabric: L.Fabric, model: GPT) -> GPT:
         tensor_parallel_mlp(fabric, block.mlp)
         tensor_parallel_attn(fabric, block.attn)
 
-    # update the config values to the shard sizes
-    # this is only relevant for `tensor_parallel_attn`, but it needs to run only once
+    # Update head counts to the per-rank shard sizes used in attention reshapes.
+    # Do NOT shrink `n_embd`: embeddings, norms, and `scale_embeddings` (e.g. Gemma) still use the
+    # full width; only QKV/MLP linears are sharded.
     world_size = fabric.world_size
-    attrs = ["n_head", "n_embd", "n_query_groups"]
+    attrs = ["n_head", "n_query_groups"]
     for attr in attrs:
         size = getattr(model.config, attr)
         if size % world_size != 0:
