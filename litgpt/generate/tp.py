@@ -52,8 +52,9 @@ def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str
             linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
         elif fabric.global_rank != 0:
             # Row-parallel: bias is added before the sum all-reduce. Keep it only on rank 0 so it
-            # is not multiplied by world_size (see Megatron-LM / gpt-fast style TP).
-            linear.bias = None
+            # is not multiplied by world_size (see Megatron-LM / gpt-fast style TP). Zero other
+            # ranks' bias in-place so bitsandbytes Parameter subclasses keep a valid attribute.
+            linear.bias.data = torch.zeros_like(linear.bias.data)
 
 
 def _tensor_parallel_qkv(fabric: L.Fabric, qkv: torch.nn.Linear, config: Config) -> None:

@@ -44,10 +44,10 @@ def test_tensor_parallel_linear():
     torch.testing.assert_close(linear.weight, expected)
     assert linear.bias is None
 
-    # Row-parallel bias must be kept only on rank 0 (added before sum all-reduce).
+    # Row-parallel bias must contribute only on rank 0 (added before sum all-reduce).
     linear = get_linear(bias=True)
     tensor_parallel_linear(fabric, linear, "rowwise")
-    assert linear.bias is None
+    assert torch.count_nonzero(linear.bias) == 0
 
     fabric_rank0 = Mock()
     fabric_rank0.world_size = 4
