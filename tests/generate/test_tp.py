@@ -183,7 +183,7 @@ def _tp_parity_worker(mlp_class_name: str, scale_embeddings: bool, bias: bool):
     fabric = Fabric(accelerator="cpu", devices=2, strategy="ddp")
     fabric.launch()
 
-    cfg = Config(
+    cfg_kwargs = dict(
         n_embd=64,
         intermediate_size=128,
         bias=bias,
@@ -191,7 +191,8 @@ def _tp_parity_worker(mlp_class_name: str, scale_embeddings: bool, bias: bool):
         vocab_size=128,
         n_layer=2,
         n_head=4,
-        n_query_groups=4,
+        # exercise GQA (unequal Q vs K/V block sizes) for the non-NeoX cases
+        n_query_groups=4 if mlp_class_name == "GptNeoxMLP" else 2,
         block_size=32,
         mlp_class_name=mlp_class_name,
         parallel_residual=(mlp_class_name == "GptNeoxMLP"),
@@ -199,6 +200,10 @@ def _tp_parity_worker(mlp_class_name: str, scale_embeddings: bool, bias: bool):
         scale_embeddings=scale_embeddings,
         gelu_approximate="tanh" if mlp_class_name == "GemmaMLP" else "none",
     )
+    # Gemma-7b-style: head_size is independent of n_embd // n_head
+    if mlp_class_name == "GemmaMLP":
+        cfg_kwargs["head_size"] = 24
+    cfg = Config(**cfg_kwargs)
 
     torch.manual_seed(0)
     ref_model = GPT(cfg)
@@ -222,8 +227,8 @@ def _tp_parity_worker(mlp_class_name: str, scale_embeddings: bool, bias: bool):
     with torch.no_grad():
         tp_out = tp_model(x)
 
-    if fabric.global_rank == 0:
-        torch.testing.assert_close(tp_out, ref_out, atol=1e-5, rtol=1e-4)
+    # check every rank: non-root ranks hold the zeroed row-parallel bias and must still match after all-reduce
+    torch.testing.assert_close(tp_out, ref_out, atol=1e-5, rtol=1e-4)
 
 
 @pytest.mark.parametrize(
