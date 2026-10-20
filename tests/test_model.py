@@ -1462,10 +1462,9 @@ def test_stale_kv_cache_raises_clear_error():
     model.max_seq_length = 25  # grow without resizing the kv cache
 
     idx = torch.randint(0, config.padded_vocab_size, (1, 1))
-    input_pos = torch.tensor([15])  # beyond the cache built for max_seq_length=10
+    input_pos = torch.tensor([15])
     with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
         model(idx, input_pos)
-    # checked up front from `input_pos_maxp1`, so it also works on CUDA where indexing would assert
     with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
         model(idx, input_pos, input_pos_maxp1=16)
 
@@ -1499,9 +1498,6 @@ def test_stale_kv_cache_raises_clear_error_for_adapters(model_cls):
 
 @torch.inference_mode()
 def test_kv_cache_full_context_length():
-    # exercises `set_kv_cache`/`forward` at a real model's full block_size and a realistic batch
-    # size (issue #2190, "test with full context lengths and realistic batch sizes"), rather than
-    # only the artificial block_size=25 tiny configs used elsewhere in this file.
     config = Config.from_name("pythia-14m")
     model = GPT(config)
     batch_size = 4

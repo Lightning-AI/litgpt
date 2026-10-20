@@ -89,8 +89,7 @@ def process_prompt(
         if first_turn or max_returned_tokens > model.max_seq_length:
             model.max_seq_length = max_returned_tokens
             if not first_turn:
-                # drop the old cache before reallocating so the old and new buffers don't overlap
-                # during the resize (matches the dynamic-growth path in `LLM.generate`)
+                # free the old cache first so old and new don't overlap during the resize
                 model.clear_kv_cache()
             model.set_kv_cache(batch_size=1, device=fabric.device)
 

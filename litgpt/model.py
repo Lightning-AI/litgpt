@@ -61,9 +61,7 @@ class GPT(nn.Module):
         elif value != self.cos.size(0):
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
-        # if the kv cache is expected. we also don't raise if the existing cache is now too small: callers (e.g.
-        # the chat loop) commonly grow `max_seq_length` and then immediately call `set_kv_cache` to resize it.
-        # `forward` raises a clear error if a stale, too-small cache actually ends up being used.
+        # if the kv cache is expected
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
@@ -132,8 +130,7 @@ class GPT(nn.Module):
                 sin = sin.unsqueeze(0)
             if self.mask_cache is None:
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
-            # check before indexing: on CUDA an out-of-range index is a device-side assert, not a catchable error.
-            # `input_pos_maxp1` is a python int, so this needs no device sync
+            # check up front, on CUDA an out-of-range index is a device-side assert
             if input_pos_maxp1 is not None and input_pos_maxp1 > self.mask_cache.size(-1):
                 raise RuntimeError(self._stale_kv_cache_msg(input_pos_maxp1 - 1))
             try:
@@ -284,23 +281,7 @@ class GPT(nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        """Allocates (or reallocates) the key-value cache and attention mask cache for inference.
-
-        This is the "init" step of the KV cache lifecycle: call it once before autoregressive
-        generation (with `input_pos` passed to `forward`), and call it again with a larger
-        `max_seq_length` to grow the cache. Existing cache tensors are dropped and replaced, not
-        resized in place. Pair with `clear_kv_cache()` to explicitly release the cache once
-        generation is done and the memory is needed elsewhere.
-
-        Args:
-            batch_size: The batch size the cache should be allocated for.
-            max_seq_length: Maximum sequence length the cache should support. Defaults to
-                `self.max_seq_length`.
-            rope_cache_length: Length of the rotary position embedding cache. Defaults to
-                `self.rope_cache_length()`.
-            device: Device to allocate the cache tensors on.
-            dtype: Dtype of the cache tensors.
-        """
+        """Allocates the kv and mask caches. Call again with a larger `max_seq_length` to grow them."""
         if rope_cache_length is None:
             rope_cache_length = self.rope_cache_length()
 
@@ -329,13 +310,7 @@ class GPT(nn.Module):
         )
 
     def clear_kv_cache(self) -> None:
-        """Releases the key-value cache and attention mask cache, allowing the underlying
-        tensors to be garbage collected.
-
-        This is the explicit "destroy" step of the KV cache lifecycle. It is safe to call
-        `set_kv_cache(...)` again afterwards to reallocate. Calling `forward(..., input_pos=...)`
-        after `clear_kv_cache()` without calling `set_kv_cache()` again raises `TypeError`.
-        """
+        """Frees the kv and mask caches. Call `set_kv_cache` again before forwarding with `input_pos`."""
         self.mask_cache = None
         for block in self.transformer.h:
             block.attn.kv_cache = None
