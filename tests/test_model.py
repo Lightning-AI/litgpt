@@ -1469,6 +1469,25 @@ def test_stale_kv_cache_raises_clear_error():
         model(idx, input_pos, input_pos_maxp1=16)
 
 
+@_RunIf(min_cuda_gpus=1)
+def test_stale_kv_cache_raises_clear_error_cuda():
+    # on CUDA the out-of-range index would be a device-side assert, so this relies on the `input_pos_maxp1` check
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = GPT(config).cuda()
+    model.max_seq_length = 10
+    model.set_kv_cache(1, device="cuda")
+    model.max_seq_length = 25
+
+    idx = torch.zeros(1, 1, dtype=torch.long, device="cuda")
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, torch.tensor([15], device="cuda"), input_pos_maxp1=16)
+    # the context is still usable, unlike after a device-side assert
+    assert torch.ones(1, device="cuda").sum().item() == 1
+    with pytest.raises(ValueError, match="must be in"):
+        model(idx, torch.tensor([30], device="cuda"), input_pos_maxp1=31)
+    assert torch.ones(1, device="cuda").sum().item() == 1
+
+
 @pytest.mark.parametrize("model_cls", ["adapter", "adapter_v2", "lora"])
 def test_stale_kv_cache_raises_clear_error_for_adapters(model_cls):
     if model_cls == "adapter":

@@ -123,16 +123,18 @@ class GPT(nn.Module):
                 raise ValueError(f"input_pos must have 1 or 2 dimensions, input_pos.shape = {input_pos.shape}")
             if input_pos.shape[-1] != T:
                 raise ValueError(f"input_pos.shape[-1] = {input_pos.shape[-1]} != {T} = idx.shape[1], must be the same")
+            # check before any indexing, on CUDA an out-of-range index is a device-side assert
+            if input_pos_maxp1 is not None and input_pos_maxp1 > self.max_seq_length:
+                raise ValueError(f"Positions in 'input_pos' must be in [0,{self.max_seq_length})")
+            if self.mask_cache is None:
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            if input_pos_maxp1 is not None and input_pos_maxp1 > self.mask_cache.size(-1):
+                raise RuntimeError(self._stale_kv_cache_msg(input_pos_maxp1 - 1))
             cos = batched_index_select(self.cos, 0, input_pos)
             sin = batched_index_select(self.sin, 0, input_pos)
             if input_pos.dim() == 1:
                 cos = cos.unsqueeze(0)
                 sin = sin.unsqueeze(0)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            # check up front, on CUDA an out-of-range index is a device-side assert
-            if input_pos_maxp1 is not None and input_pos_maxp1 > self.mask_cache.size(-1):
-                raise RuntimeError(self._stale_kv_cache_msg(input_pos_maxp1 - 1))
             try:
                 mask = batched_index_select(self.mask_cache, 2, input_pos)
             except IndexError as ex:
@@ -143,8 +145,6 @@ class GPT(nn.Module):
                 mask = mask.view(*(mask.shape[0:1] + mask.shape[2:]))
             if input_pos_maxp1 is not None:
                 # Shorten final dimension so it just covers all `input_pos` entries
-                if input_pos_maxp1 > self.max_seq_length:
-                    raise ValueError(f"Positions in 'input_pos' must be in [0,{self.max_seq_length})")
                 mask = mask[..., :input_pos_maxp1]
         else:
             # unsqueeze to have a batch dimension
@@ -305,8 +305,8 @@ class GPT(nn.Module):
 
     def _stale_kv_cache_msg(self, max_pos: int) -> str:
         return (
-            f"KV cache has length {self.mask_cache.size(-1)}, which is too small for `input_pos` (max index"
-            f" {max_pos}). Call `gpt.set_kv_cache(...)` again with a large enough `max_seq_length` before forwarding."
+            f"KV cache was set up for {self.mask_cache.size(-1)} positions, which is too small for `input_pos` (max"
+            f" index {max_pos}). Call `gpt.set_kv_cache(...)` again with a large enough `max_seq_length` before forwarding."
         )
 
     def clear_kv_cache(self) -> None:
