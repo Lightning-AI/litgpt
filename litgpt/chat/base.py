@@ -89,9 +89,8 @@ def process_prompt(
         if first_turn or max_returned_tokens > model.max_seq_length:
             model.max_seq_length = max_returned_tokens
             if not first_turn:
-                # explicit destroy before reallocate: growing the cache in place would otherwise
-                # hold the old (too-small) and new kv caches in memory at the same time, needlessly
-                # doubling peak memory for a REPL turn that runs for as long as the chat session does
+                # drop the old cache before reallocating so the old and new buffers don't overlap
+                # during the resize (matches the dynamic-growth path in `LLM.generate`)
                 model.clear_kv_cache()
             model.set_kv_cache(batch_size=1, device=fabric.device)
 

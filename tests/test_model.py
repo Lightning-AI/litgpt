@@ -1465,6 +1465,9 @@ def test_stale_kv_cache_raises_clear_error():
     input_pos = torch.tensor([15])  # beyond the cache built for max_seq_length=10
     with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
         model(idx, input_pos)
+    # checked up front from `input_pos_maxp1`, so it also works on CUDA where indexing would assert
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, input_pos, input_pos_maxp1=16)
 
 
 @pytest.mark.parametrize("model_cls", ["adapter", "adapter_v2", "lora"])

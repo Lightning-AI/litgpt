@@ -132,15 +132,14 @@ class GPT(nn.Module):
                 sin = sin.unsqueeze(0)
             if self.mask_cache is None:
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
+            # check before indexing: on CUDA an out-of-range index is a device-side assert, not a catchable error.
+            # `input_pos_maxp1` is a python int, so this needs no device sync
+            if input_pos_maxp1 is not None and input_pos_maxp1 > self.mask_cache.size(-1):
+                raise RuntimeError(self._stale_kv_cache_msg(input_pos_maxp1 - 1))
             try:
                 mask = batched_index_select(self.mask_cache, 2, input_pos)
             except IndexError as ex:
-                raise RuntimeError(
-                    f"KV cache has length {self.mask_cache.shape[-1]}, which is too small for the requested "
-                    f"`input_pos` (max index {int(input_pos.max())}). Call `gpt.set_kv_cache(...)` again with a "
-                    "large enough `max_seq_length` before forwarding, otherwise the stale cache would silently "
-                    "produce incorrect attention results or crash with a cryptic index error."
-                ) from ex
+                raise RuntimeError(self._stale_kv_cache_msg(int(input_pos.max()))) from ex
             if mask.dim() > 4:
                 # the mask cache has a batch dim of 1 in addition to the one
                 # we get if input_pos has a batch dimension
@@ -322,6 +321,12 @@ class GPT(nn.Module):
             # passing `attn_mask` to SDPA disables the flash implementation. since we only need the mask
             # for the kv-cache support (only during inference), we only create it in that situation
             self.mask_cache = build_mask_cache(max_seq_length, device)
+
+    def _stale_kv_cache_msg(self, max_pos: int) -> str:
+        return (
+            f"KV cache has length {self.mask_cache.size(-1)}, which is too small for `input_pos` (max index"
+            f" {max_pos}). Call `gpt.set_kv_cache(...)` again with a large enough `max_seq_length` before forwarding."
+        )
 
     def clear_kv_cache(self) -> None:
         """Releases the key-value cache and attention mask cache, allowing the underlying
