@@ -597,10 +597,6 @@ class LLM(torch.nn.Module):
                         time_to_first_token = t1 - t0
                     gen_outputs.append(e)
                 outputs = "".join(gen_outputs)
-            else:
-                outputs = self.generate(
-                    **kwargs,
-                )
             benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
 
             benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
