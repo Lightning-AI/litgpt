@@ -36,7 +36,7 @@ from transformers.models.qwen3_moe import Qwen3MoeConfig, Qwen3MoeForCausalLM
 
 import litgpt.config as config_module
 from litgpt import GPT, Config
-from litgpt.model import CausalSelfAttention, batched_index_copy_
+from litgpt.model import CausalSelfAttention, batched_index_copy_, build_rope_cache
 from litgpt.scripts.convert_hf_checkpoint import (
     copy_weights_falcon,
     copy_weights_gemma_2,
@@ -1762,6 +1762,36 @@ def test_forward_with_without_input_pos_maxp1():
     logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
     logits_no_maxp1 = model(idx, input_pos)
     torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)
+
+
+@torch.inference_mode()
+def test_attention_output_gate_halves_output_when_zeroed():
+    """A zero-initialized attention gate scales the attention output by sigmoid(0) = 0.5."""
+    config_kwargs = dict(
+        block_size=16, n_embd=32, n_head=4, head_size=8, n_query_groups=4, rotary_percentage=1.0, bias=False
+    )
+    gated = CausalSelfAttention(Config(attn_gate=True, **config_kwargs), block_idx=0)
+    plain = CausalSelfAttention(Config(attn_gate=False, **config_kwargs), block_idx=0)
+    # same weights, only the gate differs
+    plain.load_state_dict({k: v for k, v in gated.state_dict().items() if "g_proj" not in k})
+    gated.g_proj.weight.data.zero_()
+
+    cos, sin = build_rope_cache(seq_len=4, n_elem=gated.config.rope_n_elem)
+    cos, sin = cos.unsqueeze(0), sin.unsqueeze(0)
+    x = torch.randn(1, 4, config_kwargs["n_embd"])
+    torch.testing.assert_close(gated(x, cos, sin), 0.5 * plain(x, cos, sin))
+
+
+@torch.inference_mode()
+def test_attention_output_gate_is_added_per_layer():
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=8, n_embd=16, attn_gate=True)
+    model = GPT(config)
+    gate_params = [(n, p) for n, p in model.named_parameters() if n.endswith("attn.g_proj.weight")]
+    assert len(gate_params) == config.n_layer
+    assert all(param.shape == (config.n_embd, config.n_embd) for _, param in gate_params)
+
+    idx = torch.randint(0, config.padded_vocab_size, (1, 10))
+    assert model(idx).shape == (1, 10, config.padded_vocab_size)
 
 
 @torch.inference_mode()
