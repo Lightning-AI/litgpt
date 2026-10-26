@@ -125,6 +125,12 @@ def speculative_decoding(
     )
 
     # Step 3: Convert target logits to probabilities using same sampling params
+    # Models of one family can pad their vocabularies to different sizes (e.g. Qwen2.5-1.5B pads to 151936 and
+    # Qwen2.5-7B to 152064). The ids past the smaller padded size are padding, not tokens, so compare the two
+    # distributions on the shared ids only.
+    vocab_size = min(draft_probs[0].size(-1), target_logits.size(-1))
+    draft_probs = [draft_prob[:vocab_size] for draft_prob in draft_probs]
+    target_logits = target_logits[..., :vocab_size]
     target_probs = []
     for target_logit in target_logits.split(1, dim=1):
         _, target_prob = sample(target_logit, **sample_kwargs)
