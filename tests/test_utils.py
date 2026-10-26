@@ -34,6 +34,7 @@ from litgpt.utils import (
     check_file_size_on_cpu_and_warn,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
+    checkpoint_ties_embeddings,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -122,6 +123,28 @@ def test_incremental_write(tmp_path):
     for k, v_expected in sd_expected.items():
         v_actual = sd_actual[k]
         torch.testing.assert_close(v_expected, v_actual)
+
+
+def test_checkpoint_ties_embeddings(tmp_path):
+    assert not checkpoint_ties_embeddings(tmp_path / "missing.pth")
+
+    wte = torch.randn(8, 4)
+    # what `convert_hf_checkpoint` writes for a tied Hugging Face checkpoint: one tensor stored under both keys
+    with incremental_save(tmp_path / "converted.pth") as saver:
+        wte_proxy = saver.store_early(wte)
+        saver.save({"transformer.wte.weight": wte_proxy, "lm_head.weight": wte_proxy})
+    assert checkpoint_ties_embeddings(tmp_path / "converted.pth")
+
+    # what fine-tuning saves for a tied model
+    torch.save({"model": {"lm_head.weight": wte, "transformer.wte.weight": wte}}, tmp_path / "tied.pth")
+    assert checkpoint_ties_embeddings(tmp_path / "tied.pth")
+
+    # equal values in separate storage are not a tie
+    torch.save({"lm_head.weight": wte.clone(), "transformer.wte.weight": wte}, tmp_path / "untied.pth")
+    assert not checkpoint_ties_embeddings(tmp_path / "untied.pth")
+
+    torch.save({"transformer.wte.weight": wte}, tmp_path / "no_head.pth")
+    assert not checkpoint_ties_embeddings(tmp_path / "no_head.pth")
 
 
 @pytest.mark.parametrize("B", (1, 2))
