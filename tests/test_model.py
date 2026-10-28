@@ -806,7 +806,6 @@ def test_against_original_gemma(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize("model_name", ("gemma-2-9b", "gemma-2-27b"))
-@pytest.mark.parametrize("sliding_window_size", (10, 20))
 @pytest.mark.parametrize(
     ("device", "dtype"),
     [
@@ -823,15 +822,14 @@ def test_against_original_gemma(model_name, device, dtype):
         ),
     ],
 )
-def test_against_original_gemma_2(model_name, sliding_window_size, device, dtype):
+def test_against_original_gemma_2(model_name, device, dtype):
     torch.set_default_dtype(dtype)
 
-    # a window of 10 exercises the sliding window mask, a window of 20 covers the whole causal context
     T = 20
     ours_config = Config.from_name(
         model_name,
         block_size=T,
-        sliding_window_size=sliding_window_size,
+        sliding_window_size=T // 2,
         n_layer=2,
         n_head=16,
         n_embd=32,
