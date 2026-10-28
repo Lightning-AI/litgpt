@@ -29,6 +29,8 @@ from litgpt.parser_config import save_hyperparameters
 from litgpt.utils import (
     CLI,
     CycleIterator,
+    RunningTokenMean,
+    TokenCountingIterator,
     _RunIf,
     capture_hparams,
     check_file_size_on_cpu_and_warn,
@@ -44,6 +46,7 @@ from litgpt.utils import (
     init_out_dir,
     instantiate_bnb_optimizer,
     instantiate_torch_optimizer,
+    mean_validation_loss,
     num_parameters,
     parse_devices,
     select_sft_generate_example,
@@ -205,6 +208,87 @@ def test_cycle_iterator():
     assert iterator.epoch == 0
     assert next(iterator) == 0
     assert iterator.epoch == 1
+
+
+def test_token_counting_iterator():
+    # 3, 1 and 0 target tokens after the shift by one position
+    batches = [
+        {"labels": torch.tensor([[-100, 5, 5, 5]])},
+        {"labels": torch.tensor([[5, -100, 5, -100]])},
+        {"labels": torch.full((1, 4), -100)},
+    ]
+    # simulate a second data-parallel rank that has 4 target tokens in every window
+    fabric = mock.Mock(world_size=2)
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor + 4
+    iterator = TokenCountingIterator(fabric, CycleIterator(batches), window_size=2)
+    reference = CycleIterator(batches)
+
+    # the second window straddles the epoch boundary
+    expected_loss_weights = (3 * 2 / 8, 1 * 2 / 8, 0 * 2 / 7, 3 * 2 / 7, 1 * 2 / 5, 0 * 2 / 5)
+    for expected_loss_weight, expected_num_targets in zip(expected_loss_weights, (3, 1, 0, 3, 1, 0)):
+        assert next(iterator) is next(reference)
+        assert iterator.epoch == reference.epoch
+        torch.testing.assert_close(iterator.loss_weight, torch.tensor(expected_loss_weight))
+        # only the target tokens of this rank
+        assert iterator.num_targets == expected_num_targets
+    assert fabric.all_reduce.call_count == 3
+    assert all(call.kwargs == {"reduce_op": "sum"} for call in fabric.all_reduce.call_args_list)
+
+    # resuming after 3 micro-batches: the first window only holds the 4th, which completes the second window
+    fabric.all_reduce.reset_mock()
+    train_iterator = CycleIterator(batches)
+    for _ in range(3):
+        next(train_iterator)
+    iterator = TokenCountingIterator(fabric, train_iterator, window_size=2, offset=3)
+    for expected_loss_weight in (3 * 2 / 7, 1 * 2 / 5, 0 * 2 / 5):
+        next(iterator)
+        torch.testing.assert_close(iterator.loss_weight, torch.tensor(expected_loss_weight))
+    assert fabric.all_reduce.call_count == 2
+
+
+def test_running_token_mean():
+    # micro-batches with 0, 2, 1, 3, 0 and 0 target tokens, and their mean losses over these tokens. Without target
+    # tokens, `chunked_cross_entropy` returns 0, or 0/0 with `chunk_size=0`
+    num_targets = torch.tensor([0, 2, 1, 3, 0, 0])
+    losses = torch.tensor([0.0, 1.0, 2.0, 3.0, float("nan"), 0.0])
+    running_loss = RunningTokenMean(window=2, sync_on_compute=False)
+
+    logged = []
+    for loss, n in zip(losses, num_targets):
+        running_loss.update(loss, n)
+        logged.append(running_loss.compute())
+    # the mean loss over the target tokens of the last 2 micro-batches, 0 if they have none
+    expected = [0.0, 1.0, (1 * 2 + 2 * 1) / 3, (2 * 1 + 3 * 3) / 4, 3.0, 0.0]
+    torch.testing.assert_close(torch.stack(logged), torch.tensor(expected))
+
+    # a diverged loss is not hidden
+    running_loss.update(torch.tensor(float("nan")), torch.tensor(5))
+    assert running_loss.compute().isnan()
+
+
+def test_mean_validation_loss():
+    # the loss of the second batch, which has no target tokens, is 0/0 with `chunked_cross_entropy(..., chunk_size=0)`
+    losses = torch.tensor([1.0, float("nan"), 4.0])
+    num_targets = torch.tensor([3, 0, 1])
+    # simulate a second data-parallel rank with a loss sum of 6 over 4 target tokens
+    fabric = mock.Mock(world_size=2, device=torch.device("cpu"))
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor + (6.0 if tensor.is_floating_point() else 4)
+
+    val_loss = mean_validation_loss(fabric, losses, num_targets, "token")
+    torch.testing.assert_close(val_loss, torch.tensor((1.0 * 3 + 4.0 * 1 + 6.0) / (3 + 1 + 4)))
+    assert fabric.all_reduce.call_count == 2
+    assert all(call.kwargs == {"reduce_op": "sum"} for call in fabric.all_reduce.call_args_list)
+
+    # the mean of the per-batch means on this rank, as before the option existed
+    fabric.all_reduce.reset_mock()
+    losses = torch.tensor([1.0, 2.5, 4.0])
+    assert torch.equal(mean_validation_loss(fabric, losses, num_targets, "micro_batch"), losses.mean())
+    assert torch.equal(mean_validation_loss(fabric, losses, num_targets), losses.mean())
+    fabric.all_reduce.assert_not_called()
+
+    # NaN without any target tokens, like the mean over no batches with "micro_batch"
+    fabric.all_reduce.side_effect = lambda tensor, reduce_op: tensor
+    assert mean_validation_loss(fabric, torch.zeros(0), torch.zeros(0, dtype=torch.long), "token").isnan()
 
 
 def test_parse_devices():
