@@ -219,41 +219,45 @@ class Llama3(PromptStyle):
 
 
 class R1Base(PromptStyle):
+    """DeepSeek-R1 distills (Qwen and Llama). Follows the chat_template in their tokenizer_config.json.
+
+    The generation prompt opens the reasoning block with "<think>\\n", so for SFT the output should start right
+    after it. Assistant turns end with <｜end▁of▁sentence｜> and keep only the text after the last "</think>".
+    """
+
     def apply(self, prompt: str | list[dict[str, str]], *, sys_prompt: str | None = None, **kwargs: str) -> str:
         default_system_prompt = sys_prompt or ""
 
-        bos_token = "<｜begin▁of▁sentence｜>"
-        eos_token = ""
-
         if isinstance(prompt, str):
-            return f"{default_system_prompt}<｜User｜>{prompt}<｜Assistant｜>"  # Prepares for assistant response
+            return f"{default_system_prompt}<｜User｜>{prompt}<｜Assistant｜><think>\n"
         elif isinstance(prompt, list):
 
             def encode_message(message: dict[str, str]) -> str:
                 role = message["role"]
-                content = message["content"].strip()
+                content = message["content"]
 
                 if role == "system":
-                    return content  # System prompt is prepended at the start
+                    return ""  # The system prompt is placed at the start
                 elif role == "user":
                     return f"<｜User｜>{content}"
                 elif role == "assistant":
-                    return f"<｜Assistant｜>{content}{eos_token}"
+                    # Like the template, drop the reasoning (everything up to the last "</think>")
+                    return f"<｜Assistant｜>{content.split('</think>')[-1]}<｜end▁of▁sentence｜>"
                 else:
                     raise ValueError(f"Unknown role: '{role}'. Supported roles are 'assistant', 'user', and 'system'.")
 
-            # Extract system prompt (if any)
+            # Like the template, the last system message (if any) goes first
             system_prompt = ""
-            if prompt and prompt[0].get("role") == "system":
-                system_prompt = prompt[0]["content"]
-                prompt = prompt[1:]  # Remove system message from the list
+            for message in prompt:
+                if message["role"] == "system":
+                    system_prompt = message["content"]
 
             # Construct the formatted prompt
             formatted_prompt = system_prompt
             for message in prompt:
                 formatted_prompt += encode_message(message)
 
-            formatted_prompt += "<｜Assistant｜>"  # Prepares for assistant response
+            formatted_prompt += "<｜Assistant｜><think>\n"  # Prepares for assistant response
             return formatted_prompt
         else:
             raise ValueError(f"Unsupported prompt type: {type(prompt)}")
