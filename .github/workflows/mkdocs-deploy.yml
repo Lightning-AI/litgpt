@@ -3,13 +3,19 @@ name: Deploy MkDocs
 on:
   push:
     branches: [main]
+  # build-only check for docs changes; deploy runs on main
+  pull_request:
+    branches: [main]
+    paths:
+      - "tutorials/**"
+      - ".github/workflows/mkdocs-deploy.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -39,6 +45,7 @@ jobs:
           mkdocs build
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name == 'push'
         with:
           path: gh-pages/site
 
@@ -48,7 +55,11 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       pages: write # deploy to Pages
       id-token: write # verify the deployment source
