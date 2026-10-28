@@ -137,13 +137,13 @@ def test_main_compile(mocked_input, fake_checkpoint_dir, monkeypatch):
     # `generate_fn` calls the `next_token` of its own module, so that is the one `--compile` has to replace
     mocked_input.side_effect = ["Hello", ""]
 
-    # `main` sets these process-wide; register the current values so monkeypatch restores them
-    monkeypatch.setattr(torch._dynamo.config, "automatic_dynamic_shapes", torch._dynamo.config.automatic_dynamic_shapes)
-    monkeypatch.setattr(
-        torch._inductor.config.triton, "unique_kernel_names", torch._inductor.config.triton.unique_kernel_names
-    )
-    monkeypatch.setattr(
-        torch._inductor.config, "coordinate_descent_tuning", torch._inductor.config.coordinate_descent_tuning
+    # `main` sets these process-wide; `config.patch` restores them on exit (pytest>=9.2 `monkeypatch` would hide them)
+    dynamo_config = torch._dynamo.config.patch(automatic_dynamic_shapes=torch._dynamo.config.automatic_dynamic_shapes)
+    inductor_config = torch._inductor.config.patch(
+        {
+            "triton.unique_kernel_names": torch._inductor.config.triton.unique_kernel_names,
+            "coordinate_descent_tuning": torch._inductor.config.coordinate_descent_tuning,
+        }
     )
 
     config_path = fake_checkpoint_dir / "model_config.yaml"
@@ -175,7 +175,7 @@ def test_main_compile(mocked_input, fake_checkpoint_dir, monkeypatch):
     compile_mock = Mock(return_value=compiled_next_token)
     monkeypatch.setattr(torch, "compile", compile_mock)
 
-    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+    with dynamo_config, inductor_config, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
         chat.main(checkpoint_dir=fake_checkpoint_dir, compile=True)
 
     compile_mock.assert_called_once_with(original_next_token, mode="reduce-overhead", dynamic=True)
