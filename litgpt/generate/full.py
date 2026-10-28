@@ -5,17 +5,17 @@ import time
 import warnings
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional
+from typing import Literal
 
 import lightning as L
 import torch
 from lightning.fabric.plugins import BitsandbytesPrecision
 
 from litgpt import GPT, Config, PromptStyle, Tokenizer
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.generate.base import generate
 from litgpt.prompts import has_prompt_style, load_prompt_style
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_file_size_on_cpu_and_warn,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -28,14 +28,14 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     input: str = "",
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     finetuned_path: Path = Path("out/full/alpaca/lit_model_finetuned.pth"),
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
     max_new_tokens: int = 100,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    precision: Optional[str] = None,
+    precision: str | None = None,
 ) -> None:
     """For models finetuned with `litgpt finetune_full`.
 

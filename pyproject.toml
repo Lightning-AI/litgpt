@@ -1,6 +1,5 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-
 requires = [
   "setuptools>=68.2.2",
   "wheel>=0.41.2",
@@ -8,53 +7,58 @@ requires = [
 
 [project]
 name = "litgpt"
-version = "0.5.11"
+version = "0.5.13"
 description = "Hackable implementation of state-of-the-art open-source LLMs"
 readme = "README.md"
-license = { file = "LICENSE" }
-
+license = { file = "LICENSE.md" }
 authors = [
   { name = "Lightning AI", email = "contact@lightning.ai" },
 ]
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
   # download models:
-  "huggingface-hub>=0.30,<0.35",
-  "jsonargparse[signatures]>=4.31,<=4.32.1; python_version<'3.10'", # 4.33 does not seem to be compatible with Python 3.9
-  "jsonargparse[signatures]>=4.37,<=4.41; python_version>'3.9'",    # required to work with python3.12+
-  "lightning>=2.5",
-  "psutil==7",
+  "huggingface-hub>=0.30,<1.4",
+  "jsonargparse[signatures]>=4.37,<=4.41; python_version>='3.10'", # required to work with Python >=3.10
+  "lightning>=2.6.1",
+  "psutil==7.2.2",
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.21",
-  "torch>=2.6",
+  "torch>=2.7",
   # convert_hf_checkpoint
   "tqdm>4.66",
 ]
-
 optional-dependencies.compiler = [
   # compilaton:
-  "lightning-thunder>=0.2.0.dev20250119; python_version>='3.10' and sys_platform=='linux'",
+  "lightning-thunder>=0.2.dev20250119; python_version>='3.10' and sys_platform=='linux'",
+  # thunder references torch's named-tensor APIs at import time, removed in torch 2.13
+  # (pytorch/pytorch#173895). No thunder release supports 2.13 yet, so cap it here only.
+  "torch<2.13; python_version>='3.10' and sys_platform=='linux'",
 ]
 optional-dependencies.extra = [
   "bitsandbytes>=0.42,<0.43; sys_platform=='darwin'",
   # quantization:
-  "bitsandbytes>=0.45.2,<0.48; sys_platform=='linux' or sys_platform=='win32'",
+  "bitsandbytes>=0.45.2,<0.50; sys_platform=='linux' or sys_platform=='win32'",
   # litgpt.evaluate:
   "datasets>=2.18,<4",
   # download:
   "huggingface-hub[hf-transfer]>=0.21",
-  "litdata==0.2.51",
+  "litdata==0.2.59",
+  # litgpt logging:
+  "litlogger>=0.1.7",
   # litgpt.deploy:
   "litserve>0.2",
-  "lm-eval>=0.4.2,!=0.4.9.1",
+  # lm-eval: pinned <0.4.9.1 due to trust_remote_code issues with datasets like logiqa.
+  # See: https://github.com/EleutherAI/lm-evaluation-harness/issues/3171
+  "lm-eval>=0.4.2,<0.4.9.1",
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
   "pyarrow>=15.0.2",
@@ -84,28 +88,25 @@ urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
 scripts.litgpt = "litgpt.__main__:main"
 
-[tool.setuptools.packages.find]
-include = [
+[tool.setuptools]
+package-data.litgpt = [
+  "LICENSE.md",
+  "README.md",
+]
+packages.find.include = [
   "litgpt",
   "litgpt.*",
 ]
-exclude = [  ]
-
-[tool.setuptools.package-data]
-litgpt = [
-  "LICENSE",
-  "README.md",
-]
+packages.find.exclude = []
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py310"
 line-length = 120
 exclude = [
   "build",
   "dist",
   "docs",
 ]
-
 lint.select = [
   "E",
   "F",  # see: https://pypi.org/project/pyflakes
@@ -113,12 +114,12 @@ lint.select = [
   "UP", # see: https://docs.astral.sh/ruff/rules/#pyupgrade-up
   "W",  # see: https://pypi.org/project/pycodestyle
 ]
-#extend-select = [
+# extend-select = [
 #    "C4",  # see: https://pypi.org/project/flake8-comprehensions
 #    "PT",  # see: https://pypi.org/project/flake8-pytest-style
 #    "RET",  # see: https://pypi.org/project/flake8-return
 #    "SIM",  # see: https://pypi.org/project/flake8-simplify
-#]
+# ]
 lint.ignore = [
   "E501", # Line too long
   "E731", # Do not assign a lambda expression, use a def
@@ -129,17 +130,17 @@ lint.ignore = [
 lint.pydocstyle.convention = "google"
 
 [tool.codespell]
-#skip = '*.py'
+# skip = '*.py'
 quiet-level = 3
 ignore-words-list = """
   tral, \
   Rockerfeller
 """
 
-[tool.pytest.ini_options]
-addopts = [
+[tool.pytest]
+ini_options.addopts = [
   "--strict-markers",
-  #"--doctest-modules",
+  # "--doctest-modules",
   "--color=yes",
   "--disable-pytest-warnings",
 ]

@@ -5,8 +5,9 @@ import time
 import traceback
 from pathlib import Path
 
+from litgpt.constants import _LITDATA_AVAILABLE
 from litgpt.tokenizer import Tokenizer
-from litgpt.utils import _LITDATA_AVAILABLE, CLI, extend_checkpoint_dir
+from litgpt.utils import CLI, extend_checkpoint_dir
 
 if _LITDATA_AVAILABLE:
     from litdata.processing.data_processor import DataChunkRecipe

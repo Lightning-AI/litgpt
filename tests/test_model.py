@@ -1019,7 +1019,18 @@ def test_against_multimodal_gemma_3(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "model_name", ["Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B"]
+    "model_name",
+    [
+        "Qwen2.5-1.5B",
+        "Qwen2.5-Coder-1.5B",
+        "Qwen2.5-Math-1.5B",
+        "QwQ-32B-Preview",
+        "QwQ-32B",
+        "R1-Distill-Qwen-1.5B",
+        "R1-Distill-Qwen-7B",
+        "R1-Distill-Qwen-14B",
+        "R1-Distill-Qwen-32B",
+    ],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
@@ -1465,6 +1476,20 @@ def test_model_kv_cache_amp():
     assert output.dtype is torch.bfloat16
 
 
+@pytest.mark.parametrize("model_name", ["pythia-14m", "gemma-3-1b-it"])
+def test_rope_cache_length(model_name):
+    config = Config.from_name(model_name, n_layer=2)
+    model = GPT(config)
+    model.max_seq_length = 128
+
+    rope_len = model.rope_cache_length()
+    assert rope_len == config.rope_n_elem
+
+    # Verify it works with set_kv_cache
+    model.set_kv_cache(batch_size=1)
+    assert model.transformer.h[0].attn.kv_cache is not None
+
+
 # https://github.com/pytorch/pytorch/blob/ad3572a5d/torch/testing/_internal/common_cuda.py#L31-L34
 SUPPORTS_FLASH_ATTENTION = (
     torch.cuda.is_available() and torch.cuda.get_device_capability() >= (8, 0) and not _IS_WINDOWS
@@ -1748,3 +1773,50 @@ def test_forward_with_without_input_pos_maxp1():
     logits_with_maxp1 = model(idx, input_pos, input_pos_maxp1=input_pos_maxp1)
     logits_no_maxp1 = model(idx, input_pos)
     torch.testing.assert_close(logits_with_maxp1, logits_no_maxp1)
+
+
+@torch.inference_mode()
+def test_sliding_window_kv_cache_prefill_exceeds_window():
+    """Test that prefilling with more tokens than sliding_window_size raises an error.
+
+    When prefill length exceeds the sliding window size, the ring-buffer KV cache
+    overwrites entries but the attention mask (a global causal matrix truncated by
+    length) does not reflect the true absolute positions. This causes early query
+    tokens to attend to overwritten future KV entries, silently violating causality.
+
+    See: https://github.com/Lightning-AI/litgpt/issues/2182
+    """
+    from litgpt.model import KVCache
+
+    sliding_window_size = 4
+    batch_size = 1
+    n_query_groups = 2
+    head_size = 8
+
+    k_shape = (batch_size, n_query_groups, sliding_window_size, head_size)
+    v_shape = (batch_size, n_query_groups, sliding_window_size, head_size)
+
+    cache = KVCache(
+        k_shape,
+        v_shape,
+        is_sliding_window=True,
+        sliding_window_size=sliding_window_size,
+    )
+
+    # Prefill with more tokens than the sliding window size
+    prefill_len = sliding_window_size + 2  # 6 > 4
+    input_pos = torch.arange(prefill_len)
+    k = torch.randn(batch_size, n_query_groups, prefill_len, head_size)
+    v = torch.randn(batch_size, n_query_groups, prefill_len, head_size)
+
+    with pytest.raises(ValueError, match="Prefill length.*exceeds the sliding window size"):
+        cache(input_pos, k, v)
+
+    # Prefill within the window size should work fine
+    safe_len = sliding_window_size
+    input_pos_safe = torch.arange(safe_len)
+    k_safe = torch.randn(batch_size, n_query_groups, safe_len, head_size)
+    v_safe = torch.randn(batch_size, n_query_groups, safe_len, head_size)
+    k_out, v_out = cache(input_pos_safe, k_safe, v_safe)
+    assert k_out.shape == (batch_size, n_query_groups, safe_len, head_size)
+    assert v_out.shape == (batch_size, n_query_groups, safe_len, head_size)

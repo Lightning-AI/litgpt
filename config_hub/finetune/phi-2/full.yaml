@@ -78,7 +78,7 @@ eval:
   # Whether to evaluate on the validation set at the end the training
   final_validation: true
 
-# The name of the logger to send metrics to. (type: Literal['wandb', 'tensorboard', 'csv'], default: csv)
+# The name of the logger to send metrics to. (type: LoggerChoice, i.e. Literal['wandb', 'tensorboard', 'csv', 'mlflow', 'litlogger'], default: csv)
 logger_name: csv
 
 # The random seed to use for reproducibility. (type: int, default: 1337)

@@ -1,2 +1,21 @@
-* @lantiga @t-vi @lianakoleva @KaelanDt @k223kim @andyland
-/README.md                           @williamfalcon @lantiga @lianakoleva
+# Each line is a file pattern followed by one or more owners.
+
+# These owners will be the default owners for everything in the repo. Unless a later match takes precedence,
+# @global-owner1 and @global-owner2 will be requested for review when someone opens a pull request.
+* @lianakoleva @k223kim @andyland @t-vi
+
+# Core source
+/litgpt/                             @lianakoleva @k223kim @andyland
+
+# CI/CD and configs
+/.github/                            @lianakoleva @k223kim
+*.yml                                @lianakoleva @k223kim
+
+# Docs
+/README.md                           @williamfalcon @lianakoleva
+
+# Retired committers
+#   @lantiga    (Luca Antiga)
+#   @rasbt      (Sebastian Raschka)
+#   @awaelchli  (Adrian Wälchli)
+#   @borda      (Jirka Borovec)

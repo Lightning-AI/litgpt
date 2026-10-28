@@ -8,7 +8,7 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 
 import math
 from functools import partial
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -33,7 +33,7 @@ class GPT(nn.Module):
                 ln_f=config.norm_class(config.n_embd, eps=config.norm_eps),
             )
         )
-        self.mask_cache: Optional[torch.Tensor] = None
+        self.mask_cache: torch.Tensor | None = None
         self.max_seq_length = self.config.block_size
 
     @property
@@ -73,7 +73,9 @@ class GPT(nn.Module):
 
     def _init_weights(self, module: nn.Module) -> None:
         """Meant to be used with `gpt.apply(gpt._init_weights)`."""
-        if isinstance(module, nn.Linear):
+        if isinstance(module, GroupedTopkRouter):
+            torch.nn.init.normal_(module.weight.data, mean=0.0, std=0.02)
+        elif isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
@@ -83,10 +85,10 @@ class GPT(nn.Module):
     def forward(
         self,
         idx: torch.Tensor,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
         lm_head_chunk_size: int = 0,
-    ) -> Union[torch.Tensor, List[torch.Tensor]]:
+    ) -> torch.Tensor | list[torch.Tensor]:
         """
         If `input_pos` is provided, the KV cache uses K and V vectors for
         positions smaller than entries in `input_pos`. For efficiency, pass
@@ -182,33 +184,69 @@ class GPT(nn.Module):
     def from_name(cls, name: str, **kwargs: Any) -> Self:
         return cls(Config.from_name(name, **kwargs))
 
-    def rope_cache(self, device: Optional[torch.device] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def rope_cache(self, device: torch.device | None = None) -> tuple[torch.Tensor, torch.Tensor]:
         if self.config.rope_adjustments is None:
             extra_config = None
 
         else:
-            adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
-            params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
-            num_params_present = sum(params_present)
+            # Check for mutually exclusive parameter sets
+            llama3_params = ["low_freq_factor", "high_freq_factor"]
+            yarn_params = ["beta_fast", "beta_slow"]
 
-            if num_params_present == 0:
-                extra_config = None  # uses standard RoPE
-            elif num_params_present == 4:
-                # These parameters should always be used together so that we don't interfere with standard rope
-                extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+            has_llama3 = any(param in self.config.rope_adjustments for param in llama3_params)
+            has_yarn = any(param in self.config.rope_adjustments for param in yarn_params)
+
+            if has_llama3 and has_yarn:
+                raise ValueError(
+                    "RoPE adjustments cannot contain both Llama3 parameters (low_freq_factor, high_freq_factor) "
+                    "and YaRN parameters (beta_fast, beta_slow). These are mutually exclusive."
+                )
+
+            # Llama3-style RoPE
+            if has_llama3:
+                adjusted_params_required = ["factor", "low_freq_factor", "high_freq_factor", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in adjusted_params_required]
+                if all(params_present):
+                    extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
+                else:
+                    missing_params = [
+                        param for param, present in zip(adjusted_params_required, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following Llama3 RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All Llama3 parameters must be specified together."
+                    )
+
+            # YaRN-style RoPE
+            elif has_yarn:
+                # Required: factor, beta_fast, beta_slow, original_max_seq_len
+                # Optional: mscale, mscale_all_dim
+                yarn_required_params = ["factor", "beta_fast", "beta_slow", "original_max_seq_len"]
+                params_present = [param in self.config.rope_adjustments for param in yarn_required_params]
+
+                if not all(params_present):
+                    missing_params = [
+                        param for param, present in zip(yarn_required_params, params_present) if not present
+                    ]
+                    raise ValueError(
+                        f"The following YaRN RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
+                        "All YaRN required parameters must be specified together."
+                    )
+
+                extra_config = {name: self.config.rope_adjustments[name] for name in yarn_required_params}
+
+                # Add optional YaRN parameters
+                for param in ["mscale", "mscale_all_dim"]:
+                    if param in self.config.rope_adjustments:
+                        extra_config[param] = self.config.rope_adjustments[param]
+
+            # Linear or standard RoPE
             elif "factor" in self.config.rope_adjustments:
                 # linear RoPE
                 adjusted_params_required = ["factor"]
                 extra_config = {name: self.config.rope_adjustments[name] for name in adjusted_params_required}
             else:
-                # Some but not all parameters are specified; raise an error
-                missing_params = [
-                    param for param, present in zip(adjusted_params_required, params_present) if not present
-                ]
-                raise ValueError(
-                    f"The following adjusted RoPE parameters are missing in rope_adjustments: {', '.join(missing_params)}. "
-                    "All adjusted RoPE parameters must be specified together."
-                )
+                extra_config = None  # uses standard RoPE
 
         return build_rope_cache(
             seq_len=self.max_seq_length,
@@ -220,19 +258,29 @@ class GPT(nn.Module):
             rope_local_base_freq=self.config.rope_local_base_freq,
         )
 
+    def rope_cache_length(self) -> int:
+        """
+        Extract the head dimension (n_elem) from RoPE cache regardless of shape.
+
+        The RoPE cache can have different shapes depending on model configuration:
+        - Standard RoPE: (seq_len, n_elem) - 2D tensor
+        - Dual RoPE (local/global): (seq_len, n_elem, 2) - 3D tensor
+
+        Returns:
+            int: n_elem (head dimension for RoPE)
+        """
+        return self.cos.size(1)
+
     def set_kv_cache(
         self,
         batch_size: int,
-        max_seq_length: Optional[int] = None,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        max_seq_length: int | None = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         if rope_cache_length is None:
-            if len(self.cos.shape) == 2:
-                rope_cache_length = self.cos.size(-1)
-            else:
-                rope_cache_length = self.cos[..., 0].size(-1)
+            rope_cache_length = self.rope_cache_length()
 
         if max_seq_length is None:
             max_seq_length = self.max_seq_length
@@ -286,6 +334,8 @@ class Block(nn.Module):
             else (None if config.shared_attention_norm else config.norm_class(config.n_embd, eps=config.norm_eps))
         )
         self.mlp = config.mlp_class(config)
+        if config.first_k_dense_replace is not None and block_idx < config.first_k_dense_replace:
+            self.mlp = LLaMAMLP(config)
         self.post_mlp_norm = (
             config.norm_class(config.n_embd, eps=config.norm_eps) if config.post_mlp_norm else nn.Identity()
         )
@@ -297,9 +347,9 @@ class Block(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         """
         Non-parallel residual       Parallel residual
@@ -349,7 +399,7 @@ class CausalSelfAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache: KVCache | None = None
         self.apply_sliding_window_attention = False
         if config.sliding_window_size is not None and config.sliding_window_indices is not None:
             self.apply_sliding_window_attention = config.sliding_window_indices[block_idx]
@@ -364,6 +414,16 @@ class CausalSelfAttention(nn.Module):
         else:
             self.norm_q = self.norm_k = None
 
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
+        else:
+            self.mscale = 1.0
+
         self.config = config
         self.block_idx = block_idx
 
@@ -372,9 +432,9 @@ class CausalSelfAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size
@@ -443,8 +503,12 @@ class CausalSelfAttention(nn.Module):
             k = self.norm_k(k)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
-        k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope_interleave(k[..., :rope_n_elem], cos, sin)
+        else:
+            q_roped = apply_rope(q[..., :rope_n_elem], cos, sin)
+            k_roped = apply_rope(k[..., :rope_n_elem], cos, sin)
         q = torch.cat((q_roped, q[..., rope_n_elem:]), dim=-1)  # (B, nh_q, T, hs)
         k = torch.cat((k_roped, k[..., rope_n_elem:]), dim=-1)  # (B, nh_k, T, hs)
 
@@ -453,6 +517,12 @@ class CausalSelfAttention(nn.Module):
             if not isinstance(self.kv_cache, KVCache):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
+
+            if self.apply_sliding_window_attention:
+                actual_kv_len = k.size(2)
+                if mask is not None and mask.size(-1) != actual_kv_len:
+                    mask = mask[..., :actual_kv_len]
+
             if input_pos_maxp1 is not None:
                 # Subselect along sequence dimension
                 k = k[..., :input_pos_maxp1, :]
@@ -479,13 +549,18 @@ class CausalSelfAttention(nn.Module):
             │ True True  True  True  │  │ False False True True │  │ False False True  True  │
             └────────────────────────┘  └───────────────────────┘  └─────────────────────────┘
             """
-            if mask is None:
-                mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
-                mask.masked_fill_(mask.bool(), float("-inf"))
-                mask = mask.view(1, 1, *mask.shape)
-            sliding_window_bias = torch.ones_like(mask).tril(diagonal=-self.config.sliding_window_size)
-            sliding_window_bias.masked_fill_(sliding_window_bias.bool(), float("-inf"))
-            mask += sliding_window_bias
+            if input_pos is None:
+                if mask is None:
+                    mask = torch.ones(T, T, dtype=q.dtype, device=q.device).triu(diagonal=1)
+                    mask.masked_fill_(mask.bool(), float("-inf"))
+                    mask = mask.view(1, 1, *mask.shape)
+
+                sliding_window_mask = torch.full((T, T), float("-inf"), dtype=q.dtype, device=q.device)
+                for i in range(T):
+                    window_start = max(0, i - self.config.sliding_window_size + 1)
+                    sliding_window_mask[i, window_start : i + 1] = 0.0
+                sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
+                mask = sliding_window_mask
 
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
@@ -499,9 +574,10 @@ class CausalSelfAttention(nn.Module):
         return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.head_size)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -523,23 +599,40 @@ class CausalSelfAttention(nn.Module):
         self,
         batch_size: int,
         max_seq_length: int,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> "KVCache":
-        v_shape = (batch_size, self.config.n_query_groups, max_seq_length, self.config.head_size)
+        if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
+            effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
+        else:
+            effective_cache_size = max_seq_length
+
+        v_shape = (batch_size, self.config.n_query_groups, effective_cache_size, self.config.head_size)
+
         if rope_cache_length is None:
             if self.config.rotary_percentage != 1.0:
-                raise TypeError("Please pass the `rope_cache_length=gpt.cos.size(-1)` value")
+                raise TypeError(
+                    "Please pass the `rope_cache_length` parameter. "
+                    "Use `rope_cache_length=model.rope_cache_length()` to extract it automatically."
+                )
             k_shape = v_shape
         else:
             k_shape = (
                 batch_size,
                 self.config.n_query_groups,
-                max_seq_length,
+                effective_cache_size,
                 rope_cache_length + self.config.head_size - self.config.rope_n_elem,
             )
-        return KVCache(k_shape, v_shape, device=device, dtype=dtype)
+
+        return KVCache(
+            k_shape,
+            v_shape,
+            device=device,
+            dtype=dtype,
+            is_sliding_window=self.apply_sliding_window_attention,
+            sliding_window_size=self.config.sliding_window_size if self.apply_sliding_window_attention else None,
+        )
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with legacy checkpoints."""
@@ -574,7 +667,17 @@ class MultiheadLatentAttention(nn.Module):
         # output projection
         self.proj = nn.Linear(config.n_head * config.v_head_dim, config.n_embd, bias=config.bias)
         # disabled by default
-        self.kv_cache: Optional[KVCache] = None
+        self.kv_cache: KVCache | None = None
+
+        if config.rope_adjustments is not None:
+            mscale_all_dim = config.rope_adjustments.get("mscale_all_dim", None)
+            scaling_factor = config.rope_adjustments.get("factor", None)
+            if mscale_all_dim and scaling_factor:  # YaRN
+                self.mscale = yarn_get_mscale(scaling_factor, mscale_all_dim)
+            else:
+                self.mscale = 1.0
+        else:
+            self.mscale = 1.0
 
         self.config = config
         self.block_idx = block_idx
@@ -584,9 +687,9 @@ class MultiheadLatentAttention(nn.Module):
         x: torch.Tensor,
         cos: torch.Tensor,
         sin: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
-        input_pos: Optional[torch.Tensor] = None,
-        input_pos_maxp1: Optional[int] = None,
+        mask: torch.Tensor | None = None,
+        input_pos: torch.Tensor | None = None,
+        input_pos_maxp1: int | None = None,
     ) -> torch.Tensor:
         # Notation:
         # - B          | batch size
@@ -615,8 +718,12 @@ class MultiheadLatentAttention(nn.Module):
         k_rot = k_rot.view(B, 1, T, self.config.qk_rope_head_dim)  # (B, 1, T, qk_rope_head_dim)
 
         # Unlike standard positional embeddings rotary embeddings must be applied at every layer.
-        q_roped = apply_rope(q_rot, cos, sin)
-        k_roped = apply_rope(k_rot, cos, sin)
+        if self.config.rope_interleave:
+            q_roped = apply_rope_interleave(q_rot, cos, sin)
+            k_roped = apply_rope_interleave(k_rot, cos, sin)
+        else:
+            q_roped = apply_rope(q_rot, cos, sin)
+            k_roped = apply_rope(k_rot, cos, sin)
         k_roped = k_roped.expand(*k_pass.shape[:-1], -1)  # (B, n_head, T, qk_rope_head_dim)
 
         q = torch.cat((q_pass, q_roped), dim=-1)
@@ -654,9 +761,10 @@ class MultiheadLatentAttention(nn.Module):
         return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor | None = None
     ) -> torch.Tensor:
         scale = 1.0 / math.sqrt(self.config.attention_scores_scalar or self.config.qk_head_dim)
+        scale = scale * self.mscale * self.mscale
 
         # with softcapping we cannot use SDPA
         if self.config.attention_logit_softcapping is not None:
@@ -678,9 +786,9 @@ class MultiheadLatentAttention(nn.Module):
         self,
         batch_size: int,
         max_seq_length: int,
-        rope_cache_length: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        rope_cache_length: int | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> "KVCache":
         v_shape = (batch_size, self.config.n_head, max_seq_length, self.config.v_head_dim)
         k_shape = (batch_size, self.config.n_head, max_seq_length, self.config.qk_head_dim)
@@ -694,7 +802,7 @@ class MultiheadLatentAttention(nn.Module):
 
 
 class GptNeoxMLP(nn.Module):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         super().__init__()
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc = nn.Linear(config.n_embd, self.intermediate_size, bias=config.bias)
@@ -708,7 +816,7 @@ class GptNeoxMLP(nn.Module):
 
 
 class LLaMAMLP(nn.Module):
-    def __init__(self, config: Config, intermediate_size: Optional[int] = None) -> None:
+    def __init__(self, config: Config, intermediate_size: int | None = None) -> None:
         super().__init__()
         self.intermediate_size = intermediate_size or config.intermediate_size
         self.fc_1 = nn.Linear(config.n_embd, self.intermediate_size, bias=config.bias)
@@ -734,10 +842,18 @@ class GemmaMLP(LLaMAMLP):
 class LLaMAMoE(nn.Module):
     def __init__(self, config: Config) -> None:
         super().__init__()
-        self.gate = nn.Linear(config.n_embd, config.n_expert, bias=False)
+        self.gate = (
+            nn.Linear(config.n_embd, config.n_expert, bias=False)
+            if not config.n_expert_groups
+            else GroupedTopkRouter(config)
+        )
         self.experts = nn.ModuleList(
             LLaMAMLP(config, intermediate_size=config.moe_intermediate_size) for _ in range(config.n_expert)
         )
+        if config.n_shared_expert:
+            self.shared_experts = LLaMAMLP(
+                config, intermediate_size=config.moe_intermediate_size * config.n_shared_expert
+            )
         self.config = config
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -746,28 +862,89 @@ class LLaMAMoE(nn.Module):
         See also figure 1 in https://arxiv.org/abs/2211.15841
         """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
+        residual_x = x.clone()
         x = x.view(-1, C)  # (B*T, C)
-        router = self.gate(x)  # (B*T, n_expert)
-        probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
-        probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        if not self.config.n_expert_groups:
+            router = self.gate(x)  # (B*T, n_expert)
+            probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+            probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+        else:
+            probs, indices = self.gate(x)
+        if self.config.routed_scaling_factor != 1.0:
+            probs = probs * self.config.routed_scaling_factor
         masks = indices.unsqueeze(-1) == torch.arange(self.config.n_expert, device=x.device)
         masks = masks.permute(2, 0, 1)  # (n_expert, B*T, n_expert_per_token)
         y = torch.zeros_like(x)  # (B*T, C)
         for mask, expert in zip(masks, self.experts):
             token_idx, expert_idx = torch.where(mask)
             y[token_idx] += probs[token_idx, expert_idx, None] * expert(x[token_idx])
-        return y.view(B, T, C)
+
+        y = y.view(B, T, C)
+        if self.config.n_shared_expert:
+            y = y + self.shared_experts(residual_x)
+        return y
+
+
+class GroupedTopkRouter(nn.Module):
+    """
+    Derived from: https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py.
+    DeepseekV3TopkRouter class.
+    """
+
+    def __init__(self, config: Config) -> None:
+        super().__init__()
+        self.config = config
+        self.weight = nn.Parameter(torch.empty(config.n_expert, config.n_embd))
+        self.register_buffer("e_score_correction_bias", torch.zeros(config.n_expert))
+
+    @torch.no_grad()
+    def get_topk_indices(self, scores: torch.Tensor) -> torch.Tensor:
+        scores_for_choice = scores.view(-1, self.config.n_expert) + self.e_score_correction_bias.unsqueeze(0)
+        group_scores = (
+            scores_for_choice.view(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .topk(self.config.n_topk_scores_per_group, dim=-1)[0]  # Top k scores for each group
+            .sum(dim=-1)
+        )
+
+        group_idx = torch.topk(group_scores, k=self.config.n_topk_groups, dim=-1, sorted=False)[1]
+        group_mask = torch.zeros_like(group_scores)
+        group_mask.scatter_(1, group_idx, 1)
+        score_mask = (
+            group_mask.unsqueeze(-1)
+            .expand(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
+            .reshape(-1, self.config.n_expert)
+        )
+        scores_for_choice = scores_for_choice.masked_fill(~score_mask.bool(), 0.0)
+        topk_indices = torch.topk(scores_for_choice, k=self.config.n_expert_per_token, dim=-1, sorted=False)[1]
+        return topk_indices
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        router_logits = F.linear(x.type(torch.float32), self.weight.type(torch.float32))
+        scores = router_logits.sigmoid()
+        topk_indices = self.get_topk_indices(scores)
+        topk_weights = scores.gather(1, topk_indices)
+        if self.config.norm_topk_prob:
+            denominator = topk_weights.sum(dim=-1, keepdim=True) + 1e-20
+            topk_weights /= denominator
+        return topk_weights, topk_indices
+
+
+# ROPE: YaRN (Yet another RoPE extensioN) scaling function for extended context
+def yarn_get_mscale(scale=1, mscale=1):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * mscale * math.log(scale) + 1.0
 
 
 def build_rope_cache(
     seq_len: int,
     n_elem: int,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
     base: int = 10000,
     condense_ratio: int = 1,
-    extra_config: Optional[dict] = None,
-    rope_local_base_freq: Optional[float] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    extra_config: dict | None = None,
+    rope_local_base_freq: float | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Enhanced Transformer with Rotary Position Embedding.
 
@@ -787,9 +964,67 @@ def build_rope_cache(
     # Compute the inverse frequencies theta
     theta = 1.0 / (base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem))
 
+    # Initialize attention scaling factor (modified for YaRN)
+    attention_scaling = 1.0
+
     if extra_config is not None:
         factor = extra_config["factor"]
-        if "original_max_seq_len" in extra_config:
+        # Check YaRN first (has beta_fast/beta_slow)
+        if "beta_fast" in extra_config or "beta_slow" in extra_config:
+            # YaRN-style RoPE scaling
+            beta_fast = extra_config["beta_fast"]
+            beta_slow = extra_config["beta_slow"]
+            original_max_seq_len = extra_config["original_max_seq_len"]
+
+            # Calculate attention scaling factor based on mscale and mscale_all_dim
+            mscale = extra_config.get("mscale")
+            mscale_all_dim = extra_config.get("mscale_all_dim")
+            if mscale and mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale) / yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale_all_dim:
+                attention_scaling = yarn_get_mscale(factor, mscale_all_dim)
+            elif mscale:
+                attention_scaling = yarn_get_mscale(factor, mscale)
+            # else: attention_scaling remains 1.0
+
+            # Create two frequency sets: extrapolation (unscaled) and interpolation (scaled)
+            pos_freqs = base ** (torch.arange(0, n_elem, 2, device=device).float() / n_elem)
+            theta_extrapolation = 1.0 / pos_freqs
+            theta_interpolation = 1.0 / (factor * pos_freqs)
+
+            # Find correction range based on rotation counts
+            # Inverse dimension formula to find dimension based on number of rotations
+            def find_correction_dim(num_rotations, dim, base_val, max_pos):
+                return (dim * math.log(max_pos / (num_rotations * 2 * math.pi))) / (2 * math.log(base_val))
+
+            low_dim = find_correction_dim(beta_fast, n_elem, base, original_max_seq_len)
+            high_dim = find_correction_dim(beta_slow, n_elem, base, original_max_seq_len)
+
+            # Apply truncation if specified
+            if extra_config.get("truncate", True):
+                low_dim = math.floor(low_dim)
+                high_dim = math.ceil(high_dim)
+
+            low_dim = max(low_dim, 0)
+            high_dim = min(high_dim, n_elem // 2 - 1)
+
+            # Create linear ramp factor for blending
+            dim_range = torch.arange(n_elem // 2, device=device, dtype=torch.float32)
+            if low_dim == high_dim:
+                high_dim += 0.001  # Prevent singularity
+
+            linear_func = (dim_range - low_dim) / (high_dim - low_dim)
+            ramp_func = torch.clamp(linear_func, 0.0, 1.0)
+
+            # Blend extrapolation and interpolation frequencies
+            # ramp_func = 0 -> use interpolation (scaled), ramp_func = 1 -> use extrapolation (unscaled)
+            theta_extrapolation_factor = ramp_func
+            theta = (
+                theta_interpolation * (1 - theta_extrapolation_factor)
+                + theta_extrapolation * theta_extrapolation_factor
+            )
+        elif "original_max_seq_len" in extra_config:
+            # Llama3-style RoPE scaling
             orig_context_len = extra_config["original_max_seq_len"]
             low_freq_factor = extra_config["low_freq_factor"]
             high_freq_factor = extra_config["high_freq_factor"]
@@ -803,10 +1038,11 @@ def build_rope_cache(
             adjusted_theta = (1 - smooth_factor) * (theta / factor) + smooth_factor * theta
             theta = adjusted_theta
         else:
+            # Linear scaling fallback
             theta = theta / factor
 
     # Create position indices `[0, 1, ..., seq_len - 1]`
-    seq_idx = torch.arange(seq_len, device=device) / condense_ratio
+    seq_idx = torch.arange(seq_len, device=device).float() / condense_ratio
 
     # Calculate the product of position index and $\theta_i$
     idx_theta = torch.outer(seq_idx, theta).repeat(1, 2)
@@ -831,7 +1067,9 @@ def build_rope_cache(
 
         idx_theta = torch.stack((idx_theta, local_idx_theta), dim=-1)
 
-    return torch.cos(idx_theta), torch.sin(idx_theta)
+    cos = torch.cos(idx_theta) * attention_scaling
+    sin = torch.sin(idx_theta) * attention_scaling
+    return cos, sin
 
 
 def batched_index_select(t, dim, idx):
@@ -935,6 +1173,47 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
     return roped.to(dtype=x.dtype)
 
 
+def apply_rope_interleave(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply rotary position embeddings with interleaved tensor layout.
+
+    This version rearranges the input tensor to group even/odd indices separately
+    before applying the standard RoPE rotation, matching HuggingFace's
+    apply_rotary_pos_emb_interleave behavior.
+
+    Args:
+        x: Input tensor of shape (..., seq_len, head_dim)
+        cos: Cosine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+        sin: Sine component of shape (B, seq_len, head_dim) or (1, seq_len, head_dim)
+
+    Returns:
+        Tensor with RoPE applied, same shape as input
+    """
+    if cos.dim() != 3:
+        raise ValueError(f"cos must be three-dimensional, but shape is {cos.shape}")
+    if cos.shape != sin.shape:
+        raise ValueError(f"cos, sin must have same shape, but cos.shape={cos.shape}, sin.shape={sin.shape}")
+
+    # Rearrange tensor to group even/odd indices: [x0,x1,x2,x3,...] -> [x0,x2,x4,...,x1,x3,x5,...]
+    *batch_dims, d = x.shape
+    x = x.view(*batch_dims, d // 2, 2).transpose(-1, -2).reshape(*batch_dims, d)
+
+    # Standard rotation logic (same as apply_rope)
+    head_size_half = x.size(-1) // 2
+    x1 = x[..., :head_size_half]
+    x2 = x[..., head_size_half:]
+    rotated = torch.cat((-x2, x1), dim=-1)
+
+    # Auto-detect dimension mismatch and reshape cos/sin
+    dims_diff = x.dim() - cos.dim()
+    if dims_diff > 0:
+        new_shape = cos.shape[0:1] + (1,) * dims_diff + cos.shape[1:]
+        cos = cos.view(*new_shape)
+        sin = sin.view(*new_shape)
+
+    roped = (x * cos) + (rotated * sin)
+    return roped.to(dtype=x.dtype)
+
+
 def do_softcapping(x: torch.Tensor, thresh: float) -> torch.Tensor:
     return torch.tanh(x / thresh) * thresh
 
@@ -947,16 +1226,21 @@ class KVCache(nn.Module):
 
     def __init__(
         self,
-        k_shape: Tuple[int, int, int, int],
-        v_shape: Tuple[int, int, int, int],
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        k_shape: tuple[int, int, int, int],
+        v_shape: tuple[int, int, int, int],
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
+        is_sliding_window: bool = False,
+        sliding_window_size: int | None = None,
     ) -> None:
         super().__init__()
         self.register_buffer("k", torch.zeros(k_shape, device=device, dtype=dtype), persistent=False)
         self.register_buffer("v", torch.zeros(v_shape, device=device, dtype=dtype), persistent=False)
+        self.is_sliding_window = is_sliding_window
+        self.sliding_window_size = sliding_window_size
+        self.max_cache_len = k_shape[2]
 
-    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Writes new values `k` and `v` into the cache at the positions specified
         by `input_pos` along the sequence dimension (`max_seq_length`). The batch
@@ -979,8 +1263,29 @@ class KVCache(nn.Module):
             self.v = self.v.to(v.dtype)
         # update the cache
         bs = k.size(0)
-        k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
-        v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+        if self.is_sliding_window:
+            # Circular buffer for sliding window
+            prefill_len = input_pos.shape[-1]
+            if prefill_len > self.max_cache_len:
+                raise ValueError(
+                    f"Prefill length ({prefill_len}) exceeds the sliding window size ({self.max_cache_len}). "
+                    f"This causes the ring-buffer KV cache to overwrite entries, but the attention mask is not "
+                    f"rebuilt to reflect the true positions, which silently violates causality. "
+                    f"Please use chunked prefill with chunk size <= {self.max_cache_len} to avoid this issue."
+                )
+            cache_positions = input_pos % self.max_cache_len
+            k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
+
+            max_pos = input_pos.max().item()
+            if max_pos < self.max_cache_len:
+                k = k[:, :, : max_pos + 1, :]
+                v = v[:, :, : max_pos + 1, :]
+        else:
+            # Standard KV cache (global attention)
+            k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
+            v = batched_index_copy_(self.v[:bs, ...], -2, input_pos, v)
+
         return k, v
 
     def reset_parameters(self) -> None:
@@ -988,7 +1293,7 @@ class KVCache(nn.Module):
         torch.nn.init.zeros_(self.v)
 
 
-def build_mask_cache(max_seq_length: int, device: Optional[torch.device] = None) -> torch.Tensor:
+def build_mask_cache(max_seq_length: int, device: torch.device | None = None) -> torch.Tensor:
     ones = torch.ones((max_seq_length, max_seq_length), device=device, dtype=torch.bool)
     return torch.tril(ones).unsqueeze(0).unsqueeze(0)
 

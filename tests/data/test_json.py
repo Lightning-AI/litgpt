@@ -1,6 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 import json
-from typing import Optional
 
 import pytest
 
@@ -11,7 +10,7 @@ from litgpt.prompts import PromptStyle
 @pytest.mark.parametrize("as_jsonl", [False, True])
 def test_json(as_jsonl, tmp_path, mock_tokenizer):
     class Style(PromptStyle):
-        def apply(self, prompt: str, *, sys_prompt: Optional[str] = None, **kwargs) -> str:
+        def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs) -> str:
             return f"X: {prompt} {kwargs['input']} Y:"
 
     json_path = tmp_path / ("data.jsonl" if as_jsonl else "data.json")
@@ -85,8 +84,10 @@ def test_json_input_validation(tmp_path):
     with pytest.raises(FileNotFoundError, match="must be a file or a directory containing"):
         data.setup()
 
-    with pytest.raises(ValueError, match="you must set `val_split_fraction` to a value between 0 and 1"):
-        JSON(tmp_path / "train.json", val_split_fraction=None)
+    # When a single file is passed without val_split_fraction, it defaults to 0.05 and warns.
+    with pytest.warns(UserWarning, match="Defaulting to `val_split_fraction=0.05`"):
+        data = JSON(tmp_path / "train.json", val_split_fraction=None)
+    assert data.val_split_fraction == 0.05
 
 
 @pytest.mark.parametrize("as_jsonl", [False, True])

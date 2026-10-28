@@ -2,7 +2,6 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple, Union
 
 from torch.utils.data import DataLoader
 
@@ -14,11 +13,11 @@ from litgpt.tokenizer import Tokenizer
 class LitData(DataModule):
     """Loads data using LitData's StreamingDataset given a path to a folder of preprocessed data (chunks)."""
 
-    data_path: Union[str, Path] = Path("data/")
+    data_path: str | Path = Path("data/")
     """The path to the data directory containing the preprocessed chunks for the streaming dataset
     The path can also be a remote path (e.g., s3://). See also ``split_names`` if this path contains subfolders
     for training- and validation splits."""
-    split_names: Optional[Tuple[str, str]] = None
+    split_names: tuple[str, str] | None = None
     """Optional tuple for names of subfolders for training and validation under ``data_path``. If not provided,
     all data under data_path will be used for training, and the validation dataloader will be identical to the
     train dataloader."""
@@ -36,7 +35,7 @@ class LitData(DataModule):
             raise ValueError("If provided `split_names` must be a tuple of two strings, for example: ('train', 'val').")
 
     def connect(
-        self, tokenizer: Optional[Tokenizer] = None, batch_size: int = 1, max_seq_length: Optional[int] = None
+        self, tokenizer: Tokenizer | None = None, batch_size: int = 1, max_seq_length: int | None = None
     ) -> None:
         self.batch_size = batch_size
         self.seq_length = max_seq_length + 1  # Increase by one because we need the next token as well

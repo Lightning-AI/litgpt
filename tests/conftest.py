@@ -1,10 +1,10 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import gc
 import os
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 import pytest
 import torch
@@ -17,6 +17,19 @@ else:
     import warnings
 
     warnings.warn(f"Could not find extensions directory at {wd}")
+
+
+@pytest.fixture(autouse=True)
+def reclaim_cuda_memory():
+    """Free GPU memory after a test that actually used it, to avoid accumulation across CUDA tests.
+
+    Gated on ``memory_allocated`` (a cheap counter read) so the expensive ``gc.collect`` is skipped
+    for the many CPU-only tests that never touch the GPU.
+    """
+    yield
+    if torch.cuda.is_available() and torch.cuda.memory_allocated() > 0:
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 @pytest.fixture()
@@ -81,7 +94,7 @@ class MockTokenizer:
     bos_id = 0
     eos_id = 1
 
-    def encode(self, text: str, bos: Optional[bool] = None, eos: bool = False, max_length: int = -1) -> torch.Tensor:
+    def encode(self, text: str, bos: bool | None = None, eos: bool = False, max_length: int = -1) -> torch.Tensor:
         output = []
         if bos:
             output.append(self.bos_id)
@@ -125,7 +138,7 @@ def longform_path(tmp_path):
 
 
 # https://github.com/Lightning-AI/lightning/blob/6e517bd55b50166138ce6ab915abd4547702994b/tests/tests_fabric/conftest.py#L140
-def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.Config) -> None:
+def pytest_collection_modifyitems(items: list[pytest.Function], config: pytest.Config) -> None:
     initial_size = len(items)
     conditions = []
     filtered, skipped = 0, 0
@@ -174,5 +187,15 @@ def pytest_collection_modifyitems(items: List[pytest.Function], config: pytest.C
                 # which prevents pytest from recognizing it as a TypeError.
                 pytest.mark.xfail(
                     reason="currently not working, see https://github.com/Lightning-AI/lightning-thunder/issues/2085",
+                )
+            )
+        # TODO: remove once thunder supports torch>=2.12
+        # DynamoThunder tests fail with torch>=2.12 due to MappingKeysView/generator having no len()
+        # in thunder's interpreter.
+        if "DynamoThunder" in test.nodeid and torch.__version__ >= "2.12":
+            test.add_marker(
+                pytest.mark.xfail(
+                    reason="DynamoThunder tests incompatible with torch>=2.12, see thunder upstream",
+                    strict=False,
                 )
             )

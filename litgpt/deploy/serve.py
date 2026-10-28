@@ -3,12 +3,13 @@ import json
 import sys
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 import torch
 
 from litgpt.api import LLM
-from litgpt.utils import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE, auto_download_checkpoint
+from litgpt.constants import _JINJA2_AVAILABLE, _LITSERVE_AVAILABLE
+from litgpt.utils import auto_download_checkpoint
 
 if _LITSERVE_AVAILABLE:
     from litserve import LitAPI, LitServer
@@ -21,14 +22,15 @@ class BaseLitAPI(LitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-        precision: Optional[str] = None,
+        quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
     ) -> None:
         if not _LITSERVE_AVAILABLE:
             raise ImportError(str(_LITSERVE_AVAILABLE))
@@ -43,6 +45,7 @@ class BaseLitAPI(LitAPI):
         self.max_new_tokens = max_new_tokens
         self.top_p = top_p
         self.devices = devices
+        self.generate_strategy = generate_strategy
 
     def setup(self, device: str) -> None:
         if ":" in device:
@@ -60,11 +63,12 @@ class BaseLitAPI(LitAPI):
             accelerator=accelerator,
             quantize=self.quantize,
             precision=self.precision,
-            generate_strategy=("sequential" if self.devices is not None and self.devices > 1 else None),
+            generate_strategy=self.generate_strategy
+            or ("sequential" if self.devices is not None and self.devices > 1 else None),
         )
         print("Model successfully initialized.", file=sys.stderr)
 
-    def decode_request(self, request: Dict[str, Any]) -> Any:
+    def decode_request(self, request: dict[str, Any]) -> Any:
         prompt = str(request["prompt"])
         return prompt
 
@@ -73,14 +77,15 @@ class SimpleLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -92,6 +97,7 @@ class SimpleLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -107,7 +113,7 @@ class SimpleLitAPI(BaseLitAPI):
         )
         return output
 
-    def encode_response(self, output: str) -> Dict[str, Any]:
+    def encode_response(self, output: str) -> dict[str, Any]:
         # Convert the model output to a response payload.
         return {"output": output}
 
@@ -116,14 +122,15 @@ class StreamLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -135,6 +142,7 @@ class StreamLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -159,14 +167,15 @@ class OpenAISpecLitAPI(BaseLitAPI):
     def __init__(
         self,
         checkpoint_dir: Path,
-        quantize: Optional[str] = None,
-        precision: Optional[str] = None,
+        quantize: str | None = None,
+        precision: str | None = None,
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: float = 1.0,
         max_new_tokens: int = 50,
         devices: int = 1,
-        api_path: Optional[str] = None,
+        api_path: str | None = None,
+        generate_strategy: str | None = None,
     ):
         super().__init__(
             checkpoint_dir,
@@ -178,6 +187,7 @@ class OpenAISpecLitAPI(BaseLitAPI):
             max_new_tokens,
             devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         )
 
     def setup(self, device: str):
@@ -223,8 +233,8 @@ class OpenAISpecLitAPI(BaseLitAPI):
 
 def run_server(
     checkpoint_dir: Path,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq", "bnb.int8"] | None = None,
+    precision: str | None = None,
     temperature: float = 0.8,
     top_k: int = 50,
     top_p: float = 1.0,
@@ -234,8 +244,10 @@ def run_server(
     port: int = 8000,
     stream: bool = False,
     openai_spec: bool = False,
-    access_token: Optional[str] = None,
-    api_path: Optional[str] = "/predict",
+    access_token: str | None = None,
+    api_path: str | None = "/predict",
+    timeout: int = 30,
+    generate_strategy: Literal["sequential", "tensor_parallel"] | None = None,
 ) -> None:
     """Serve a LitGPT model using LitServe.
 
@@ -278,6 +290,11 @@ def run_server(
             making it easy to integrate with existing applications that use the OpenAI API.
         access_token: Optional API token to access models with restrictions.
         api_path: The custom API path for the endpoint (e.g., "/my_api/classify").
+        timeout: Request timeout in seconds. Defaults to 30.
+        generate_strategy: The generation strategy to use. The "sequential" strategy (default for devices > 1)
+            allows running models that wouldn't fit in a single card by partitioning the transformer blocks across
+            all devices and running them sequentially. "tensor_parallel" shards the model using tensor parallelism.
+            If None (default for devices = 1), the model is not distributed.
     """
     checkpoint_dir = auto_download_checkpoint(model_name=checkpoint_dir, access_token=access_token)
     pprint(locals())
@@ -295,11 +312,13 @@ def run_server(
             max_new_tokens=max_new_tokens,
             devices=devices,
             api_path=api_path,
+            generate_strategy=generate_strategy,
         ),
         spec=OpenAISpec() if openai_spec else None,
         accelerator=accelerator,
         devices=1,
         stream=stream,
+        timeout=timeout,
     )
 
     server.run(port=port, generate_client_file=False)

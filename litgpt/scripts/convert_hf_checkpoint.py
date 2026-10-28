@@ -9,7 +9,6 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedTensor
@@ -18,7 +17,6 @@ from tqdm import tqdm
 
 from litgpt.config import Config
 from litgpt.utils import (
-    _TRANSFORMERS_GREATER_EQUAL_4_52,
     extend_checkpoint_dir,
     incremental_save,
     lazy_load,
@@ -28,13 +26,13 @@ from litgpt.utils import (
 
 def copy_weights_gpt_neox(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "gpt_neox.embed_in.weight": "transformer.wte.weight",
@@ -81,13 +79,13 @@ def copy_weights_gpt_neox(
 
 def copy_weights_falcon(
     config: Config,
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "transformer.word_embeddings.weight": "transformer.wte.weight",
@@ -139,14 +137,14 @@ def copy_weights_falcon(
 
 def copy_weights_hf_llama(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -225,14 +223,14 @@ def copy_weights_hf_llama(
 
 
 def copy_weights_gemma_2(
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -292,26 +290,33 @@ def copy_weights_gemma_2(
                 pbar.update(progress_per_file)
 
 
-GEMMA3_LANGUAGE_MODEL_PREFIX = "model.language_model" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "language_model.model"
-
-GEMMA3_VISION_MODEL_PREFIX = "model.vision_tower" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "vision_tower"
-
-GEMMA3_MM_PROJECTOR_PREFIX = (
-    "model.multi_modal_projector" if _TRANSFORMERS_GREATER_EQUAL_4_52 else "multi_modal_projector"
-)
-
-
 def copy_weights_gemma_3(
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
-    config: Optional[Config] = None,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
+    config: Config | None = None,
 ) -> None:
+    GEMMA3_LANGUAGE_MODEL_PREFIX = (
+        "model.language_model"
+        if any(k.startswith("model.language_model") for k in hf_weights)
+        else "language_model.model"
+    )
+
+    GEMMA3_VISION_MODEL_PREFIX = (
+        "model.vision_tower" if any(k.startswith("model.vision_tower") for k in hf_weights) else "vision_tower"
+    )
+
+    GEMMA3_MM_PROJECTOR_PREFIX = (
+        "model.multi_modal_projector"
+        if any(k.startswith("model.multi_modal_projector") for k in hf_weights)
+        else "multi_modal_projector"
+    )
+
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
         "model.layers.{}.self_attn.q_proj.weight": None,
@@ -391,13 +396,13 @@ def copy_weights_gemma_3(
 def copy_weights_phi(
     config: Config,
     qkv_weights: dict,
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     if any(layer_name.startswith(("layers.", "transformer.")) for layer_name in hf_weights):
         raise ValueError(
@@ -486,14 +491,14 @@ def copy_weights_phi(
 
 def copy_weights_qwen_2_5(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -556,14 +561,14 @@ def copy_weights_qwen_2_5(
 
 def copy_weights_olmo2(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -635,14 +640,14 @@ def copy_weights_olmo2(
 
 def copy_weights_qwen_3(
     config: Config,
-    qkv_weights: Dict[int, List[Optional[NotYetLoadedTensor]]],
-    state_dict: Dict[str, torch.Tensor],
-    hf_weights: Dict[str, Union[torch.Tensor, NotYetLoadedTensor]],
-    saver: Optional[incremental_save] = None,
-    dtype: Optional[torch.dtype] = None,
-    pbar: Optional[tqdm] = None,
-    progress_per_file: Optional[float] = None,
-    debug_mode: Optional[bool] = False,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     weight_map = {
         "model.embed_tokens.weight": "transformer.wte.weight",
@@ -719,8 +724,8 @@ def copy_weights_qwen_3(
 
 
 def qkv_reassemble(
-    param: Union[torch.Tensor, NotYetLoadedTensor], config: Config
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    param: torch.Tensor | NotYetLoadedTensor, config: Config
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Reassemble from a normal to an interleaved placement in a QKV matrix.
     [Q, K, V, Q, K, V, ...] --> [Q, Q, ..., K, K, ..., V, V, ...]
     """
@@ -739,7 +744,7 @@ def qkv_reassemble(
     return torch.cat((q, k, v))
 
 
-def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
+def layer_template(layer_name: str, num_matches: int = 1) -> tuple[str, int]:
     pattern = r"\.(\d+)\."
     if not (search_res := re.findall(pattern, layer_name)):
         return layer_name, -1
@@ -748,7 +753,7 @@ def layer_template(layer_name: str, num_matches: int = 1) -> Tuple[str, int]:
 
 
 def load_param(
-    param: Union[torch.Tensor, NotYetLoadedTensor], name: str, dtype: Optional[torch.dtype], verbose: bool = False
+    param: torch.Tensor | NotYetLoadedTensor, name: str, dtype: torch.dtype | None, verbose: bool = False
 ) -> torch.Tensor:
     if hasattr(param, "_load_tensor"):
         # support tensors loaded via `lazy_load()`
@@ -766,9 +771,9 @@ def load_param(
 def convert_hf_checkpoint(
     checkpoint_dir: Path,
     *,
-    model_name: Optional[str] = None,
-    dtype: Optional[str] = None,
-    debug_mode: Optional[bool] = False,
+    model_name: str | None = None,
+    dtype: str | None = None,
+    debug_mode: bool | None = False,
 ) -> None:
     """
     Convert a Hugging Face Transformers checkpoint into a LitGPT compatible checkpoint.
@@ -805,7 +810,7 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_phi, config, qkv_weights)
-    elif model_name.lower().startswith(("qwen2.5", "qwq")):
+    elif model_name.lower().startswith(("qwen2.5", "qwq")) or "r1-distill-qwen" in model_name.lower():
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)

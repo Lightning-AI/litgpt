@@ -37,7 +37,7 @@ llm_2 = LLM.load("microsoft/phi-2")
 ```
 
 
-If you created a pretrained of finetuned model checkpoint via LitGPT, you can load it in a similar fashion:
+If you created a pretrained or finetuned model checkpoint via LitGPT, you can load it in a similar fashion:
 
 ```python
 my_llm = LLM.load("path/to/my/local/checkpoint")
@@ -64,7 +64,7 @@ print(text)
 Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a specialized digestive system that allows them to efficiently extract
 ```
 
-Alternative, stream the response one token at a time:
+Alternatively, stream the response one token at a time:
 
 ```python
 result = llm.generate("hi", stream=True)
@@ -78,9 +78,29 @@ Llamas are herbivores and primarily eat grass, leaves, and shrubs. They have a s
 
 
 &nbsp;
+## Saving models
+
+After finetuning or modifying a model, you can save it to disk using the `.save()` method:
+
+```python
+from litgpt import LLM
+
+llm = LLM.load("microsoft/phi-2")
+# ... perform finetuning or modifications ...
+llm.save("path/to/save/directory")
+```
+
+The saved checkpoint can then be loaded later:
+
+```python
+llm = LLM.load("path/to/save/directory")
+```
+
+
+&nbsp;
 ## Random weights
 
-To start with random weights, for example, if you plan a pretraining script, initialize the model with `init="random""`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file.
+To start with random weights, for example, if you plan a pretraining script, initialize the model with `init="random"`. Note that this requires passing a `tokenizer_dir` that contains a valid tokenizer file.
 
 ```python
 from litgpt.api import LLM
@@ -96,7 +116,7 @@ By default, the model is loaded onto a single GPU. Optionally, you can use the `
 
 ### Sequential strategy
 
-the `generate_strategy="sequential"` setting to load different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
+The `generate_strategy="sequential"` setting loads different parts of the models onto different GPUs. The goal behind this strategy is to support models that cannot fit into single-GPU memory. (Note that if you have a model that can fit onto a single GPU, this sequential strategy will be slower.)
 
 ```python
 from litgpt.api import LLM

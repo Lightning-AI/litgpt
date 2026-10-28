@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from litgpt.utils import _TRITON_AVAILABLE
+from litgpt.constants import _TRITON_AVAILABLE
 
 from .utils import calculate_settings
 

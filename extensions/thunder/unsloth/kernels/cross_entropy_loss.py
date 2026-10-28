@@ -14,7 +14,7 @@
 
 import torch
 
-from litgpt.utils import _TRITON_AVAILABLE
+from litgpt.constants import _TRITON_AVAILABLE
 
 from .utils import MAX_FUSED_SIZE, calculate_settings
 

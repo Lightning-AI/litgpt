@@ -7,7 +7,7 @@ import warnings
 from functools import partial
 from pathlib import Path
 from pprint import pprint
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import lightning as L
 import torch
@@ -18,11 +18,11 @@ from lightning.fabric.utilities import rank_zero_only
 
 import litgpt.generate.base as generate_base
 from litgpt.config import Config
+from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.model import GPT, CausalSelfAttention, GptNeoxMLP, LLaMAMLP, LLaMAMoE
 from litgpt.prompts import PromptStyle, has_prompt_style, load_prompt_style
 from litgpt.tokenizer import Tokenizer
 from litgpt.utils import (
-    _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
     extend_checkpoint_dir,
@@ -50,7 +50,7 @@ def tensor_parallel_linear(fabric: L.Fabric, linear: torch.nn.Linear, style: str
         linear.bias = torch.nn.Parameter(shard, requires_grad=linear.bias.requires_grad)
 
 
-def tensor_parallel_mlp(fabric: L.Fabric, mlp: Union[GptNeoxMLP, LLaMAMLP, LLaMAMoE]) -> None:
+def tensor_parallel_mlp(fabric: L.Fabric, mlp: GptNeoxMLP | LLaMAMLP | LLaMAMoE) -> None:
     if isinstance(mlp, LLaMAMLP):
         tensor_parallel_linear(fabric, mlp.fc_1, "colwise")
         tensor_parallel_linear(fabric, mlp.fc_2, "colwise")
@@ -104,14 +104,14 @@ def main(
     checkpoint_dir: Path,
     prompt: str = "What food do llamas eat?",
     *,
-    sys_prompt: Optional[str] = None,
+    sys_prompt: str | None = None,
     num_samples: int = 1,
     max_new_tokens: int = 50,
-    top_k: Optional[int] = 50,
+    top_k: int | None = 50,
     top_p: float = 1.0,
     temperature: float = 0.8,
-    quantize: Optional[Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"]] = None,
-    precision: Optional[str] = None,
+    quantize: Literal["bnb.nf4", "bnb.nf4-dq", "bnb.fp4", "bnb.fp4-dq"] | None = None,
+    precision: str | None = None,
     compile: bool = False,
 ) -> None:
     """Generation script that uses tensor parallelism to run across devices.
