@@ -32,7 +32,8 @@ class TrainArgs:
     max_seq_length: int | None = None
     """Limits the length of samples"""
     tie_embeddings: bool | None = None
-    """Whether to tie the embedding weights with the language modeling head weights"""
+    """Whether to tie the embedding weights with the language modeling head weights. If not set, `finetune_full`
+       ties them on a single device when the checkpoint stores them as one tensor."""
 
     # Optimization args
     max_norm: float | None = None
