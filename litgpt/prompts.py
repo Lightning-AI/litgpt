@@ -413,6 +413,19 @@ class Salamandra(ChatML):
         )
 
 
+class OLMoE(ChatML):
+    """Prompt style for OLMoE-1B-7B-0924-Instruct (ChatML template).
+
+    The instruct model was fine-tuned with the ChatML template:
+        <|im_start|>system\\n{sys}<|im_end|>
+        <|im_start|>user\\n{prompt}<|im_end|>
+        <|im_start|>assistant\\n
+    """
+
+    def __init__(self):
+        super().__init__("You are a helpful assistant.")
+
+
 # Maps prompt style names to PromptStyle classes
 prompt_styles: dict[str, type[PromptStyle]] = {
     # Dataset-specific prompt styles
@@ -446,6 +459,7 @@ prompt_styles: dict[str, type[PromptStyle]] = {
     "qwen3": Qwen3,
     "smollm2": SmolLM2,
     "salamandra": Salamandra,
+    "olmoe": OLMoE,
 }
 
 
@@ -510,6 +524,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return SmolLM2()
     if re.search(r"salamandra-.*-instruct", model_name):
         return Salamandra()
+    if re.search(r"OLMoE.*-Instruct", model_name):
+        return OLMoE()
     return Default()
 
 
