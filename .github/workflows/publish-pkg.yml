@@ -24,6 +24,8 @@ jobs:
   build:
     name: Build source and wheel distributions
     runs-on: ubuntu-latest
+    env:
+      UV_EXCLUDE_NEWER: "2 days" # skip packages uploaded too recently to trust
 
     steps:
       - name: Checkout source
@@ -47,10 +49,10 @@ jobs:
         run: uvx twine check --strict dist/*
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: github.event_name == 'release'
         with:
           name: pypi-packages-${{ github.sha }}
           path: dist
-          retention-days: 1
 
   upload-release-assets:
     name: Upload distributions to the release
