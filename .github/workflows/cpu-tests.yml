@@ -33,6 +33,7 @@ env:
   TRANSFORMERS_CACHE: .cache-HF/transformers
   DATASETS_CACHE: .cache-HF/datasets
   HF_DATASETS_CACHE: .cache-HF/datasets
+  # CPU-only torch wheels; only honored by `uv pip`, not `uv sync`
   UV_TORCH_BACKEND: cpu
 
 jobs:
@@ -56,7 +57,7 @@ jobs:
 
       - name: Install minimal dependencies
         run: |
-          uv sync --no-dev
+          uv pip install -e .
           uv pip list
 
       - name: Testing package imports
@@ -114,7 +115,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv pip install -e ".[compiler,extra,test]"
           uv pip list
 
       - name: Run tests
