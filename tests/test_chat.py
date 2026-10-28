@@ -137,6 +137,15 @@ def test_main_compile(mocked_input, fake_checkpoint_dir, monkeypatch):
     # `generate_fn` calls the `next_token` of its own module, so that is the one `--compile` has to replace
     mocked_input.side_effect = ["Hello", ""]
 
+    # `main` sets these process-wide; register the current values so monkeypatch restores them
+    monkeypatch.setattr(torch._dynamo.config, "automatic_dynamic_shapes", torch._dynamo.config.automatic_dynamic_shapes)
+    monkeypatch.setattr(
+        torch._inductor.config.triton, "unique_kernel_names", torch._inductor.config.triton.unique_kernel_names
+    )
+    monkeypatch.setattr(
+        torch._inductor.config, "coordinate_descent_tuning", torch._inductor.config.coordinate_descent_tuning
+    )
+
     config_path = fake_checkpoint_dir / "model_config.yaml"
     config = {
         "name": "Llama 3",
@@ -159,6 +168,7 @@ def test_main_compile(mocked_input, fake_checkpoint_dir, monkeypatch):
     generate_mock.__iter__.return_value = [torch.tensor([3, 2, 1])]
     monkeypatch.setattr(chat, "generate", generate_mock)
 
+    # `main` overwrites this; registering it here makes monkeypatch restore the original afterwards
     original_next_token = generate.next_token
     monkeypatch.setattr(generate, "next_token", original_next_token)
     compiled_next_token = Mock()
