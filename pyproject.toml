@@ -88,6 +88,13 @@ urls.documentation = "https://github.com/lightning-AI/litgpt/tutorials"
 urls.homepage = "https://github.com/lightning-AI/litgpt"
 scripts.litgpt = "litgpt.__main__:main"
 
+[dependency-groups]
+mkdocs = [
+  "mkdocs==1.6.1",
+  "mkdocs-material==9.8",
+  "mkdocs-pagetree-plugin==0.0.17",
+]
+
 [tool.setuptools]
 package-data.litgpt = [
   "LICENSE.md",
