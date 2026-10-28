@@ -3,36 +3,69 @@ name: Deploy MkDocs
 on:
   push:
     branches: [main]
+  # build-only check for docs changes; deploy runs on main
+  pull_request:
+    branches: [main]
+    paths:
+      - "tutorials/**"
+      - ".github/workflows/mkdocs-deploy.yml"
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  deploy:
+  build:
+    name: Build docs
     runs-on: ubuntu-24.04
     steps:
-      # Step 1: Checkout the repository
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # Step 2: Install uv
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           activate-environment: true
-          python-version: "3.10"
+          python-version: "3.12"
           enable-cache: true
 
-      # Step 3: Install MkDocs and dependencies
-      - run: uv pip install mkdocs mkdocs-material mkdocs-pagetree-plugin
+      - run: uv pip install -r tutorials/requirements-mkdocs.txt
 
-      # Step 4: Deploy to GitHub Pages
-      - run: |
+      - name: Build site
+        run: |
           mkdir -p gh-pages/docs
           cp -r tutorials/* gh-pages/docs
           cd gh-pages
           mv docs/mkdocs.yml mkdocs.yml
           echo "{{ pagetree }}" > docs/index.md
-          mkdocs gh-deploy --force
+          mkdocs build
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name == 'push'
+        with:
+          path: gh-pages/site
 
       - name: Minimize uv cache
         run: uv cache prune --ci
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      pages: write # deploy to Pages
+      id-token: write # verify the deployment source
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

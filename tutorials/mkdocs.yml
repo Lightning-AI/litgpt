@@ -5,3 +5,7 @@ plugins:
 
 theme:
   name: material
+
+# build deps for the docs workflow, not a page
+exclude_docs: |
+  requirements-mkdocs.txt
