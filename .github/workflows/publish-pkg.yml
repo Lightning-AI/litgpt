@@ -1,18 +1,24 @@
-# To create a release, create a tag and push it to GitHub:
-#git tag -a "v0.0.1-beta" -m "beta version testing"
-#git push --tags
-# https://dev.to/iamtekson/publish-package-to-pypi-and-release-new-version-using-github-actions-108k
+# Publishing a GitHub release (which creates its tag) uploads the package to PyPI.
+# Pushes to main and packaging PRs only build and check the distributions.
 name: Publish LitGPT to PyPI
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - ".github/workflows/publish-pkg.yml"
   release:
     types: [published]
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -25,24 +31,29 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+          enable-cache: false
 
       - name: Build source and wheel distributions
-        run: |
-          python -m pip install --upgrade build twine
-          pip install importlib_metadata==7.2.1
-          python -m build
-          twine check --strict dist/*
+        run: uv build
+
+      - name: Check the build left the repo unchanged
+        run: git diff --exit-code
+
+      - name: Check distributions
+        run: uvx twine@7.0.0 check --strict dist/*
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pypi-packages-${{ github.sha }}
           path: dist
+          retention-days: 1
 
   upload-release-assets:
+    name: Upload distributions to the release
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
@@ -59,19 +70,21 @@ jobs:
       - run: ls -lh dist/
 
       - name: Upload to release
-        uses: AButler/upload-release-assets@34491005a5d7ec239a784e460807ce844fde7962 # v4.0.0
-        with:
-          files: "dist/*"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        # --clobber replaces same-named assets, so re-running a release works
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
 
   publish-pypi:
+    name: Publish to PyPI
     needs: build
-    if: startsWith(github.event.ref, 'refs/tags') || github.event_name == 'release'
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: pypi
     permissions:
-      id-token: write
+      id-token: write # trusted publishing (OIDC)
 
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
