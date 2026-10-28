@@ -114,6 +114,13 @@ class Falcon(PromptStyle):
         )
 
 
+class Falcon180BChat(Falcon):
+    # https://huggingface.co/tiiuae/falcon-180B-chat (tokenizer_config.json chat_template)
+    def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
+        system = f"System: {sys_prompt}\n" if sys_prompt else ""
+        return f"{system}User: {prompt}\nFalcon:"
+
+
 class Falcon3(PromptStyle):
     def apply(self, prompt: str, *, sys_prompt: str | None = None, **kwargs: str) -> str:
         return f"<|user|>\n{prompt}<|endoftext|>\n<|assistant|>\n"
@@ -423,6 +430,7 @@ prompt_styles: dict[str, type[PromptStyle]] = {
     "stablelm-alpha": StableLMAlpha,
     "stablelm-zephyr": StableLMZephyr,
     "falcon": Falcon,
+    "falcon-180b-chat": Falcon180BChat,
     "llama2-function-calling": Llama2FunctionCalling,
     "llama2": Llama2,
     "freewilly2": FreeWilly2,
@@ -458,6 +466,8 @@ def model_name_to_prompt_style(model_name: str) -> PromptStyle:
         return StableCode()
     if re.search(r"Falcon3.*-Instruct", model_name):
         return Falcon3()
+    if re.search(r"falcon-180B-chat", model_name):
+        return Falcon180BChat()
     if re.search(r"falcon.*-instruct", model_name):
         return Falcon()
     if re.search("Llama-2-7b-chat-hf-function-calling-v2", model_name):
