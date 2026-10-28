@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
 
-      - run: uv pip install --group mkdocs
+      - run: uv pip install -r tutorials/requirements-mkdocs.txt
 
       - name: Build site
         run: |
