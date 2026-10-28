@@ -1019,7 +1019,18 @@ def test_against_multimodal_gemma_3(model_name, device, dtype):
 
 @torch.inference_mode()
 @pytest.mark.parametrize(
-    "model_name", ["Qwen2.5-1.5B", "Qwen2.5-Coder-1.5B", "Qwen2.5-Math-1.5B", "QwQ-32B-Preview", "QwQ-32B"]
+    "model_name",
+    [
+        "Qwen2.5-1.5B",
+        "Qwen2.5-Coder-1.5B",
+        "Qwen2.5-Math-1.5B",
+        "QwQ-32B-Preview",
+        "QwQ-32B",
+        "R1-Distill-Qwen-1.5B",
+        "R1-Distill-Qwen-7B",
+        "R1-Distill-Qwen-14B",
+        "R1-Distill-Qwen-32B",
+    ],
 )
 @pytest.mark.parametrize(
     ("device", "dtype"),
