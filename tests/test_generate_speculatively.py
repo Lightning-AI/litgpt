@@ -101,6 +101,55 @@ def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
     assert torch.equal(output, torch.tensor([4, 4, 9]))
 
 
+def test_generate_includes_prefill_token(monkeypatch):
+    model = nn.Module()
+    model.max_seq_length = 3
+    prompt = torch.tensor([1, 2])
+    next_token_mock = Mock(side_effect=[torch.tensor([9]), torch.tensor([7])])
+    speculative_decoding_mock = Mock()
+    monkeypatch.setattr(generate, "next_token", next_token_mock)
+    monkeypatch.setattr(generate, "speculative_decoding", speculative_decoding_mock)
+
+    output, acceptance_rate = generate.generate(model, model, prompt, 3, speculative_k=1)
+
+    assert torch.equal(output, torch.tensor([1, 2, 7]))
+    assert acceptance_rate == 0.0
+    speculative_decoding_mock.assert_not_called()
+
+
+def test_generate_does_not_exceed_max_returned_tokens(monkeypatch):
+    model = nn.Module()
+    model.max_seq_length = 8
+    prompt = torch.tensor([1, 2])
+    next_token_mock = Mock(side_effect=[torch.tensor([9]), torch.tensor([7])])
+    speculative_decoding_mock = Mock(side_effect=lambda speculative_k, **_: torch.arange(speculative_k + 1))
+    monkeypatch.setattr(generate, "next_token", next_token_mock)
+    monkeypatch.setattr(generate, "speculative_decoding", speculative_decoding_mock)
+
+    output, _ = generate.generate(model, model, prompt, 8, speculative_k=3)
+
+    assert output.size(0) == 8
+
+
+def test_generate_stops_on_prefill_token(monkeypatch):
+    model = nn.Module()
+    model.max_seq_length = 4
+    prompt = torch.tensor([1, 2])
+    next_token_mock = Mock(side_effect=[torch.tensor([9]), torch.tensor([7])])
+    speculative_decoding_mock = Mock()
+    monkeypatch.setattr(generate, "next_token", next_token_mock)
+    monkeypatch.setattr(generate, "speculative_decoding", speculative_decoding_mock)
+
+    output, acceptance_rate = generate.generate(
+        model, model, prompt, 4, stop_tokens=[7], include_prompt=False, speculative_k=1
+    )
+
+    assert output.numel() == 0
+    assert output.dtype == prompt.dtype
+    assert acceptance_rate == 0.0
+    speculative_decoding_mock.assert_not_called()
+
+
 @pytest.mark.parametrize("max_seq_length", (10, 15, 20, 25))
 @pytest.mark.parametrize("speculative_k", (1, 2, 3))
 def test_generate(max_seq_length, speculative_k):
@@ -122,7 +171,7 @@ def test_generate(max_seq_length, speculative_k):
     )
 
     # validate
-    assert out.size(0) == T + max_new_tokens - 1, (out.size(0), T + max_new_tokens - 1)
+    assert out.size(0) == T + max_new_tokens, (out.size(0), T + max_new_tokens)
     assert 0.0 <= acceptance_rate <= 1.0
 
 
