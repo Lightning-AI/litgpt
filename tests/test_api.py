@@ -273,6 +273,22 @@ def test_returned_benchmark_dir(tmp_path):
     assert isinstance(bench_d["Inference speed in tokens/sec"][0], float)
 
 
+@pytest.mark.parametrize("stream", [False, True])
+def test_benchmark_calls_generate_once_per_iteration(mock_llm, stream):
+    mock_llm.fabric = None
+    mock_llm.generate.side_effect = lambda **kwargs: (
+        iter(["hello", " world"]) if kwargs.get("stream") else "hello world"
+    )
+    mock_llm.preprocessor.encode.return_value = torch.tensor([1, 2, 3])
+
+    text, bench_d = LLM.benchmark(mock_llm, num_iterations=3, prompt="hi", stream=stream)
+
+    assert text == "hello world"
+    assert mock_llm.generate.call_count == 3
+    assert len(bench_d["Seconds total"]) == 3
+    assert bench_d["Tokens generated"] == [3, 3, 3]
+
+
 def test_benchmark_dict_to_markdown_table_single_values():
     bench_d = {
         "Inference speed in tokens/sec": [17.617540650112936],
