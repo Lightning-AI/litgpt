@@ -348,8 +348,10 @@ def main(
     Generates text samples based on pre-trained models and a tokenizer.
 
     Args:
-        draft_model: Smaller/faster model used for initial token predictions
-        target_model: Larger/more accurate model used to verify draft predictions
+        draft_model_checkpoint_dir: The checkpoint directory of the smaller/faster model used for initial
+            token predictions.
+        target_model_checkpoint_dir: The checkpoint directory of the larger/more accurate model used to
+            verify draft predictions.
         prompt: The prompt string to use for generating the samples.
         sys_prompt: The system prompt to use for generating the samples.
         num_samples: The number of text samples to generate.

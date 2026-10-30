@@ -474,7 +474,6 @@ class LLM(torch.nn.Module):
         Takes a conditioning sequence (prompt) as input and continues to generate as many tokens as requested.
 
         Arguments:
-            model: The model to use.
             prompt: The prompt string to use for generating the samples.
             sys_prompt: The system prompt string to use for generating the samples.
                 The system prompt allows the user to provide additional instructions to shape all responses by providing additional context, behavioral guidelines, style, and constraints.
