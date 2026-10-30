@@ -623,7 +623,7 @@ We welcome all individual contributors, regardless of their level of experience 
 &nbsp;
 
 > [!TIP]
-> Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/) guide.
+> Unsure about contributing? Check out our [How to Contribute to LitGPT](https://lightning.ai/blog/how-to-contribute-to-litgpt/) guide.
 
 &nbsp;
 

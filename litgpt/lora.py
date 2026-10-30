@@ -252,7 +252,7 @@ class LoRAQKVLinear(LoRALinear):
 
             # Scaling:
             # This balances the pretrained model`s knowledge and the new task-specific adaptation
-            # https://lightning.ai/pages/community/tutorial/lora-llm/
+            # https://lightning.ai/blog/lora-llm/
             # So, set alpha to 1.0 to fully add LoRA. If the LoRA seems to have too much effect (i.e., overfitted), set
             # alpha to lower value. If the LoRA seems to have too little effect, set alpha to higher than 1.0. You can
             # tune these values to your needs. This value can be even slightly greater than 1.0!
