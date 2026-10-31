@@ -66,6 +66,56 @@ def test_generate(monkeypatch, generated, stop_tokens, expected):
         assert actual_list == expected, (actual_list, expected)
 
 
+def test_process_prompt_clears_kv_cache_before_growing(monkeypatch):
+    monkeypatch.setattr(chat, "generate", lambda *a, **k: iter([]))
+
+    model = MagicMock()
+    model.max_seq_length = 10
+    model.mask_cache = None
+    tokenizer = MagicMock()
+    tokenizer.encode.return_value = torch.zeros(3, dtype=torch.long)
+    tokenizer.decode_stream.side_effect = lambda *a, **k: iter(["x"])
+    prompt_style = MagicMock()
+    prompt_style.apply.return_value = "prompt"
+    fabric = MagicMock()
+
+    common_kwargs = dict(
+        model=model,
+        tokenizer=tokenizer,
+        prompt_style=prompt_style,
+        fabric=fabric,
+        temperature=1.0,
+        max_new_tokens=5,
+        top_k=None,
+        top_p=1.0,
+        stop_tokens=(),
+    )
+
+    # first turn allocates, nothing to clear
+    chat.process_prompt("hi", **common_kwargs)
+    model.set_kv_cache.assert_called_once()
+    model.clear_kv_cache.assert_not_called()
+
+    # fits in the existing cache, no reallocation
+    model.mask_cache = MagicMock()
+    tokenizer.encode.return_value = torch.zeros(2, dtype=torch.long)
+    common_kwargs["max_new_tokens"] = 2
+    chat.process_prompt("hi again", **common_kwargs)
+    model.set_kv_cache.assert_called_once()
+    model.clear_kv_cache.assert_not_called()
+
+    # needs a bigger cache, clear before set
+    tokenizer.encode.return_value = torch.zeros(20, dtype=torch.long)
+    common_kwargs["max_new_tokens"] = 20
+    chat.process_prompt("a much longer prompt", **common_kwargs)
+    assert model.clear_kv_cache.call_count == 1
+    assert model.set_kv_cache.call_count == 2
+    call_names = [str(c) for c in model.mock_calls]
+    clear_index = next(i for i, c in enumerate(call_names) if c.startswith("call.clear_kv_cache"))
+    set_indices = [i for i, c in enumerate(call_names) if c.startswith("call.set_kv_cache")]
+    assert clear_index < set_indices[-1]
+
+
 def test_decode():
     checkpoint_dir = auto_download_checkpoint("EleutherAI/pythia-14m")
     tokenizer = Tokenizer(checkpoint_dir)

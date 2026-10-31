@@ -1465,6 +1465,81 @@ def test_kv_cache(max_seq_length):
         input_pos = input_pos[-1:] + 1
 
 
+def test_stale_kv_cache_raises_clear_error():
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = GPT(config)
+    model.max_seq_length = 10
+    model.set_kv_cache(1)
+    model.max_seq_length = 25  # grow without resizing the kv cache
+
+    idx = torch.randint(0, config.padded_vocab_size, (1, 1))
+    input_pos = torch.tensor([15])
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, input_pos)
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, input_pos, input_pos_maxp1=16)
+
+
+@_RunIf(min_cuda_gpus=1)
+def test_stale_kv_cache_raises_clear_error_cuda():
+    # on CUDA the out-of-range index would be a device-side assert, so this relies on the `input_pos_maxp1` check
+    config = Config(block_size=25, padded_vocab_size=5, n_layer=2, n_head=2, n_embd=8)
+    model = GPT(config).cuda()
+    model.max_seq_length = 10
+    model.set_kv_cache(1, device="cuda")
+    model.max_seq_length = 25
+
+    idx = torch.zeros(1, 1, dtype=torch.long, device="cuda")
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, torch.tensor([15], device="cuda"), input_pos_maxp1=16)
+    # the context is still usable, unlike after a device-side assert
+    assert torch.ones(1, device="cuda").sum().item() == 1
+    with pytest.raises(ValueError, match="must be in"):
+        model(idx, torch.tensor([30], device="cuda"), input_pos_maxp1=31)
+    assert torch.ones(1, device="cuda").sum().item() == 1
+
+
+@pytest.mark.parametrize("model_cls", ["adapter", "adapter_v2", "lora"])
+def test_stale_kv_cache_raises_clear_error_for_adapters(model_cls):
+    if model_cls == "adapter":
+        from litgpt.adapter import GPT as Model
+        from litgpt.adapter import Config
+
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16, adapter_start_layer=0)
+    elif model_cls == "adapter_v2":
+        from litgpt.adapter_v2 import GPT as Model
+        from litgpt.adapter_v2 import Config
+
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
+    else:
+        from litgpt.lora import GPT as Model
+        from litgpt.lora import Config
+
+        config = Config(n_layer=1, n_head=2, n_embd=8, block_size=25, vocab_size=16)
+
+    model = Model(config)
+    model.max_seq_length = 10
+    model.set_kv_cache(1)
+    model.max_seq_length = 25
+    idx = torch.randint(0, config.padded_vocab_size, (1, 1))
+    with pytest.raises(RuntimeError, match="Call `gpt.set_kv_cache"):
+        model(idx, torch.tensor([15]))
+
+
+@torch.inference_mode()
+def test_kv_cache_full_context_length():
+    config = Config.from_name("pythia-14m")
+    model = GPT(config)
+    batch_size = 4
+    model.set_kv_cache(batch_size)
+
+    idx = torch.randint(0, config.padded_vocab_size, (batch_size, config.block_size))
+    input_pos = torch.arange(config.block_size)
+    logits = model(idx, input_pos)
+
+    assert logits.shape == (batch_size, config.block_size, config.padded_vocab_size)
+
+
 @torch.inference_mode()
 def test_model_kv_cache_amp():
     config = Config.from_name("pythia-14m", n_layer=2)

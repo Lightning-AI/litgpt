@@ -88,6 +88,9 @@ def process_prompt(
         max_returned_tokens = encoded_prompt.size(0) + max_new_tokens
         if first_turn or max_returned_tokens > model.max_seq_length:
             model.max_seq_length = max_returned_tokens
+            if not first_turn:
+                # free the old cache first so old and new don't overlap during the resize
+                model.clear_kv_cache()
             model.set_kv_cache(batch_size=1, device=fabric.device)
 
     y: Iterator[torch.Tensor] = generate(

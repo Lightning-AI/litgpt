@@ -62,10 +62,6 @@ class GPT(nn.Module):
             self.cos, self.sin = self.rope_cache(device=self.cos.device)
         # the mask and kv cache size will get updated on `set_kv_cache`. we cannot update it here because we don't know
         # if the kv cache is expected
-        if self.mask_cache is not None and self.mask_cache.shape[-1] < value:
-            print(
-                f"Warning: KV cache has length {self.mask_cache.shape[-1]} < {value} = max_seq_length. Call 'set_kv_cache' before doing any forwards!"
-            )
 
     def reset_parameters(self) -> None:
         # Trigger resetting the rope-cache
@@ -127,22 +123,28 @@ class GPT(nn.Module):
                 raise ValueError(f"input_pos must have 1 or 2 dimensions, input_pos.shape = {input_pos.shape}")
             if input_pos.shape[-1] != T:
                 raise ValueError(f"input_pos.shape[-1] = {input_pos.shape[-1]} != {T} = idx.shape[1], must be the same")
+            # check before any indexing, on CUDA an out-of-range index is a device-side assert
+            if input_pos_maxp1 is not None and input_pos_maxp1 > self.max_seq_length:
+                raise ValueError(f"Positions in 'input_pos' must be in [0,{self.max_seq_length})")
+            if self.mask_cache is None:
+                raise TypeError("You need to call `gpt.set_kv_cache()`")
+            if input_pos_maxp1 is not None and input_pos_maxp1 > self.mask_cache.size(-1):
+                raise RuntimeError(self._stale_kv_cache_msg(input_pos_maxp1 - 1))
             cos = batched_index_select(self.cos, 0, input_pos)
             sin = batched_index_select(self.sin, 0, input_pos)
             if input_pos.dim() == 1:
                 cos = cos.unsqueeze(0)
                 sin = sin.unsqueeze(0)
-            if self.mask_cache is None:
-                raise TypeError("You need to call `gpt.set_kv_cache()`")
-            mask = batched_index_select(self.mask_cache, 2, input_pos)
+            try:
+                mask = batched_index_select(self.mask_cache, 2, input_pos)
+            except IndexError as ex:
+                raise RuntimeError(self._stale_kv_cache_msg(int(input_pos.max()))) from ex
             if mask.dim() > 4:
                 # the mask cache has a batch dim of 1 in addition to the one
                 # we get if input_pos has a batch dimension
                 mask = mask.view(*(mask.shape[0:1] + mask.shape[2:]))
             if input_pos_maxp1 is not None:
                 # Shorten final dimension so it just covers all `input_pos` entries
-                if input_pos_maxp1 > self.max_seq_length:
-                    raise ValueError(f"Positions in 'input_pos' must be in [0,{self.max_seq_length})")
                 mask = mask[..., :input_pos_maxp1]
         else:
             # unsqueeze to have a batch dimension
@@ -279,6 +281,7 @@ class GPT(nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
+        """Allocates the kv and mask caches. Call again with a larger `max_seq_length` to grow them."""
         if rope_cache_length is None:
             rope_cache_length = self.rope_cache_length()
 
@@ -300,7 +303,14 @@ class GPT(nn.Module):
             # for the kv-cache support (only during inference), we only create it in that situation
             self.mask_cache = build_mask_cache(max_seq_length, device)
 
+    def _stale_kv_cache_msg(self, max_pos: int) -> str:
+        return (
+            f"KV cache was set up for {self.mask_cache.size(-1)} positions, which is too small for `input_pos` (max"
+            f" index {max_pos}). Call `gpt.set_kv_cache(...)` again with a large enough `max_seq_length` before forwarding."
+        )
+
     def clear_kv_cache(self) -> None:
+        """Frees the kv and mask caches. Call `set_kv_cache` again before forwarding with `input_pos`."""
         self.mask_cache = None
         for block in self.transformer.h:
             block.attn.kv_cache = None
