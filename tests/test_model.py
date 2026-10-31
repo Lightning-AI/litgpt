@@ -1000,7 +1000,7 @@ def test_against_multimodal_gemma_3(model_name, device, dtype):
         )
     )
 
-    theirs_model = Gemma3ForConditionalGeneration(theirs_config).to(device)
+    theirs_model = Gemma3ForConditionalGeneration(theirs_config).to(device).eval()
     theirs_state_dict = theirs_model.state_dict()
 
     state_dict = {}
