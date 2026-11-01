@@ -130,6 +130,8 @@ class LLM(torch.nn.Module):
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         if prompt_style is None:
+            prompt_style = self.prompt_style
+        if prompt_style is None:
             prompt_style = PromptStyle.from_config(self.config)
         if self.fabric is None:
             torch.save(self.state_dict(), save_path)
