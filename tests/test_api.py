@@ -9,9 +9,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+from lightning import Fabric
 from lightning.fabric.accelerators import CUDAAccelerator
 
 from litgpt.api import LLM, benchmark_dict_to_markdown_table, calculate_number_of_devices
+from litgpt.config import Config
+from litgpt.model import GPT
+from litgpt.prompts import Alpaca, Default, load_prompt_style
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
 
@@ -368,6 +372,30 @@ def test_state_dict(tmp_path):
         )
     assert isinstance(llm.state_dict(), OrderedDict)
     assert llm.state_dict()["lm_head.weight"].shape == torch.Size([50304, 128])
+
+
+@pytest.mark.parametrize("use_fabric", [False, True])
+@pytest.mark.parametrize(
+    ("current_style", "override", "expected_style"),
+    [
+        (Alpaca(), None, Alpaca),
+        (Alpaca(), Default(), Default),
+        (None, None, Default),
+        (Default(), Alpaca(), Alpaca),
+    ],
+)
+def test_save_prompt_style(tmp_path, use_fabric, current_style, override, expected_style):
+    config = Config(name="pythia-14m", n_layer=1, n_head=2, n_embd=8, block_size=8, vocab_size=16, padding_multiple=1)
+    model = GPT(config)
+    fabric = Fabric(accelerator="cpu", devices=1, precision="32-true") if use_fabric else None
+    if fabric is not None:
+        model = fabric.setup_module(model)
+    llm = LLM(model=model, config=config, prompt_style=current_style, fabric=fabric)
+
+    llm.save(tmp_path, prompt_style=override)
+
+    assert isinstance(load_prompt_style(tmp_path), expected_style)
+    assert llm.prompt_style is current_style
 
 
 def test_save_method(tmp_path):
