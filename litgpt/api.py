@@ -583,6 +583,7 @@ class LLM(torch.nn.Module):
         kwargs: Keyword arguments that are passed to the .generate() method.
         """
         benchmark_dict = {}
+        return_as_token_ids = kwargs.get("return_as_token_ids", False)
 
         for i in range(num_iterations):
             time_to_first_token = None
@@ -596,7 +597,14 @@ class LLM(torch.nn.Module):
                         t1 = time.perf_counter()
                         time_to_first_token = t1 - t0
                     gen_outputs.append(e)
-                outputs = "".join(gen_outputs)
+                if return_as_token_ids:
+                    outputs = (
+                        torch.cat(gen_outputs)
+                        if gen_outputs
+                        else torch.empty(0, dtype=torch.long, device=self.preprocessor.device)
+                    )
+                else:
+                    outputs = "".join(gen_outputs)
             else:
                 outputs = self.generate(
                     **kwargs,
@@ -604,7 +612,7 @@ class LLM(torch.nn.Module):
             benchmark_dict.setdefault("Seconds total", []).append(time.perf_counter() - t0)
 
             benchmark_dict.setdefault("Seconds to first token", []).append(time_to_first_token)
-            tokens_generated = self.preprocessor.encode(outputs).size(0)
+            tokens_generated = outputs.size(0) if return_as_token_ids else self.preprocessor.encode(outputs).size(0)
             benchmark_dict.setdefault("Tokens generated", []).append(tokens_generated)
             benchmark_dict.setdefault("Inference speed in tokens/sec", []).append(
                 benchmark_dict["Tokens generated"][-1] / benchmark_dict["Seconds total"][-1]
