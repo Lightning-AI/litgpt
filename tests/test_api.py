@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import json
 import os
 import re
 import sys
@@ -10,8 +11,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 from lightning.fabric.accelerators import CUDAAccelerator
+from tokenizers import Tokenizer as HFTokenizer
+from tokenizers.models import WordLevel
+from tokenizers.pre_tokenizers import Whitespace
 
-from litgpt.api import LLM, benchmark_dict_to_markdown_table, calculate_number_of_devices
+from litgpt import GPT, Config, Tokenizer
+from litgpt.api import LLM, Preprocessor, benchmark_dict_to_markdown_table, calculate_number_of_devices
+from litgpt.prompts import Default
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
 
@@ -415,3 +421,45 @@ def test_precision_selection(tmp_path):
     assert llm.model._forward_module.lm_head.weight.dtype == torch.float16, (
         f"Expected float16, but got {llm.model._forward_module.lm_head.weight.dtype}"
     )
+
+
+@pytest.fixture
+def cpu_llm(tmp_path):
+    tokenizer = HFTokenizer(WordLevel({"hello": 0, "world": 1, "[UNK]": 2, "[EOS]": 3}, unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = Whitespace()
+    tokenizer.save(str(tmp_path / "tokenizer.json"))
+    (tmp_path / "tokenizer_config.json").write_text(json.dumps({"eos_token": "[EOS]", "add_bos_token": False}))
+    config = Config(name="tiny", block_size=8, vocab_size=4, padding_multiple=1, n_layer=1, n_head=2, n_embd=8)
+    model = GPT(config)
+    with torch.no_grad():
+        model.lm_head.weight.zero_()
+    return LLM(
+        model, preprocessor=Preprocessor(Tokenizer(tmp_path), device="cpu"), prompt_style=Default(), config=config
+    )
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_benchmark_token_ids(cpu_llm, stream):
+    outputs, metrics = cpu_llm.benchmark(
+        num_iterations=2, prompt="hello", max_new_tokens=2, temperature=0.0, return_as_token_ids=True, stream=stream
+    )
+
+    assert isinstance(outputs, torch.Tensor)
+    assert outputs.device.type == "cpu"
+    assert outputs.tolist() == [0, 0]
+    assert metrics["Tokens generated"] == [2, 2]
+
+
+def test_benchmark_token_ids_empty_stream(cpu_llm):
+    cpu_llm.preprocessor.tokenizer.eos_id = 0
+
+    outputs, metrics = cpu_llm.benchmark(
+        prompt="world", max_new_tokens=2, temperature=0.0, return_as_token_ids=True, stream=True
+    )
+
+    assert isinstance(outputs, torch.Tensor)
+    assert outputs.device.type == "cpu"
+    assert outputs.dtype == torch.long
+    assert outputs.tolist() == []
+    assert metrics["Tokens generated"] == [0]
+    assert metrics["Seconds to first token"] == [None]
