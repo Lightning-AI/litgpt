@@ -55,7 +55,13 @@ def sample(
             logits = sample_top_p(logits, top_p)
         probs = F.softmax(logits, dim=-1) if apply_softmax else logits
         return multinomial_num_samples_1(probs), probs
-    return torch.argmax(logits, dim=-1, keepdim=True), F.softmax(logits, dim=-1)
+    # Greedy decoding draws a point mass on the argmax token, so the returned distribution must be
+    # one-hot. Returning the full softmax would make speculative decoding compare the draft and
+    # target probabilities of *different* tokens instead of their agreement on the greedy token.
+    token = torch.argmax(logits, dim=-1, keepdim=True)
+    probs = torch.zeros_like(logits)
+    probs.scatter_(-1, token, 1.0)
+    return token, probs
 
 
 def speculative_decoding(

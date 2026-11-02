@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import copy
 import re
 import subprocess
 from contextlib import redirect_stderr, redirect_stdout
@@ -9,96 +10,84 @@ from unittest.mock import ANY, Mock, call
 import pytest
 import torch
 import yaml
-from torch import nn
 
 import litgpt.generate.speculative_decoding as generate
 from litgpt import GPT, Config
 from litgpt.utils import _RunIf
 
-
-def test_speculative_decoding_target_never_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([1, 2, 3, 4, 5, 0, 0, 0, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
-
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            _, T = idx.shape
-            return torch.tensor([[0, 0, 0, 0, 0, 6, 7, 8, 9, 10]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
-
-    draft_model = DraftModel()
-    target_model = TargetModel()
-
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
-    )
-
-    # target model never accepts draft model's output, thus the output of the `speculative_decoding`
-    # is a single token sampled from the target model
-    assert len(output) == 1
-    assert output > 5
+# The two ways of asking for greedy decoding: `sample` treats both as a point mass on the argmax.
+GREEDY_SAMPLE_KWARGS = (
+    pytest.param(dict(temperature=0.0, top_p=1.0, top_k=None), id="temperature-0"),
+    pytest.param(dict(temperature=1.0, top_p=0.0, top_k=None), id="top-p-0"),
+)
 
 
-def test_speculative_decoding_target_always_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+def _tiny_model_pair(prompt: torch.Tensor, draft_agrees: bool) -> tuple[GPT, GPT]:
+    """A tiny target model and a draft model that either mirrors it or prefers a different token."""
+    with torch.random.fork_rng(), torch.inference_mode():
+        torch.manual_seed(0)
+        config = Config(block_size=16, vocab_size=16, padded_vocab_size=16, n_layer=1, n_head=2, n_embd=16)
+        draft_model = GPT(config)
+        target_model = copy.deepcopy(draft_model)
+        if draft_agrees:
+            return draft_model, target_model
 
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            _, T = idx.shape
-            return torch.tensor([[0, 0, 3, 4, 5, 6, 7, 8, 0, 0]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
-
-    draft_model = DraftModel()
-    target_model = TargetModel()
-
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
-    )
-
-    # target model always accepts draft model's output, thus the output of the `speculative_decoding`
-    # is 4 tokens (3 accepted draft tokens + 1 sampled from target model's output)
-    assert len(output) == 4
-    assert torch.all((output >= 3) & (output <= 8))
+        # Make the target prefer the draft's second choice, so the draft's greedy token is not the target's
+        preferred, runner_up = draft_model(prompt.view(1, -1))[0, -1].topk(2).indices.tolist()
+        with torch.no_grad():
+            for param in (target_model.lm_head.weight, target_model.lm_head.bias):
+                if param is not None:
+                    param[[preferred, runner_up]] = param[[runner_up, preferred]].clone()
+    return draft_model, target_model
 
 
-def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
-    class DraftModel(nn.Module):
-        def forward(self, **kwargs):
-            return torch.tensor([0, 0, 3, 4, 10, 9, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+def _target_only_greedy(model: GPT, prompt: torch.Tensor, num_tokens: int) -> torch.Tensor:
+    """Reference decoder: greedy decoding with the target model alone, without a KV cache and without `sample`."""
+    tokens = prompt.clone()
+    generated = []
+    for _ in range(num_tokens):
+        next_token = model(tokens.view(1, -1))[0, -1].argmax()
+        generated.append(next_token)
+        tokens = torch.cat((tokens, next_token.view(1)))
+    return torch.stack(generated)
 
-    class TargetModel(nn.Module):
-        def forward(self, idx, **kwargs):
-            return torch.tensor(
-                [
-                    [0, 0, 0, 0, 10, 9, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 10, 9, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 10],
-                ],
-                dtype=torch.float,
-            )[None, ...]  # (B, T, C)
 
-    draft_model = DraftModel()
-    target_model = TargetModel()
+@torch.inference_mode()
+@pytest.mark.parametrize("sample_kwargs", GREEDY_SAMPLE_KWARGS)
+@pytest.mark.parametrize("speculative_k", (1, 3))
+@pytest.mark.parametrize("draft_agrees", (True, False))
+def test_speculative_decoding_greedy_matches_target_only(sample_kwargs, speculative_k, draft_agrees):
+    prompt = torch.tensor([1, 4, 2, 7, 3])
+    with torch.random.fork_rng():
+        draft_model, target_model = _tiny_model_pair(prompt, draft_agrees)
+        # The reference continuation, starting with the token the target picks after the prompt
+        expected = _target_only_greedy(copy.deepcopy(target_model), prompt, speculative_k + 2)
 
-    token = torch.tensor([-1])
-    input_pos = torch.tensor([0])
-    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
-    output = generate.speculative_decoding(
-        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
-    )
+        for model in (draft_model, target_model):
+            model.set_kv_cache(batch_size=1)
+        prompt_pos = torch.arange(0, prompt.size(0))
+        draft_model(prompt.view(1, -1), prompt_pos, input_pos_maxp1=prompt.size(0))
+        target_logits = target_model(prompt.view(1, -1), prompt_pos, input_pos_maxp1=prompt.size(0))
 
-    # target model accepts only 2 out of 3 draft model's output, thus the output of the `speculative_decoding`
-    # is 3 tokens (2 accepted draft tokens + 1 sampled from adjusted distribution)
-    assert len(output) == 3
-    assert torch.equal(output, torch.tensor([4, 4, 9]))
+        token = target_logits[0, -1].argmax().view(1)
+        output = generate.speculative_decoding(
+            draft_model,
+            target_model,
+            token=token,
+            input_pos=torch.tensor([prompt.size(0)]),
+            input_pos_maxp1=prompt.size(0) + 1,
+            speculative_k=speculative_k,
+            **sample_kwargs,
+        )
+
+    # Sanity check of the reference: the prefilled target model picks the same token as the target-only decoder
+    assert torch.equal(token, expected[:1])
+    # Greedy speculative decoding has to reproduce the target model's own greedy continuation: accepted
+    # draft tokens are exactly the tokens the target would have picked, and so is the resampled token.
+    # A single returned token when the draft and the target disagree means the draft token was rejected.
+    expected_length = speculative_k + 1 if draft_agrees else 1
+    assert output.size(0) == expected_length
+    assert torch.equal(output, expected[1 : 1 + expected_length])
 
 
 @pytest.mark.parametrize("max_seq_length", (10, 15, 20, 25))
