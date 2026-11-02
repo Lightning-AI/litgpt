@@ -213,3 +213,54 @@ def test_cli():
     output = subprocess.check_output(args)
     output = str(output.decode())
     assert "Default generation option" in output
+
+
+@pytest.mark.parametrize(("draft_padding", "target_padding"), [(0, 2), (2, 0)])
+def test_speculative_decoding_with_different_padded_vocab_sizes(draft_padding, target_padding):
+    # Models of one family can pad their vocabularies differently (e.g. Qwen2.5-1.5B to 151936, Qwen2.5-7B to 152064).
+    # Rejecting a draft token compares the two distributions elementwise, so this used to raise a shape mismatch.
+    class DraftModel(nn.Module):
+        def forward(self, **kwargs):
+            logits = [0, 0, 3, 4, 10, 9, 7, 8, 0, 0] + [0] * draft_padding
+            return torch.tensor(logits, dtype=torch.float)[None, None, ...]  # (B, T, C)
+
+    class TargetModel(nn.Module):
+        def forward(self, idx, **kwargs):
+            rows = [[0, 0, 0, 0, 10, 9, 0, 0, 0, 0]] * 2 + [[0, 0, 0, 0, 0, 0, 0, 0, 0, 10]] * 2
+            # the target's padding ids get the largest logits, but only ids that both models have may be returned
+            rows = [row + [20] * target_padding for row in rows]
+            return torch.tensor(rows, dtype=torch.float)[None, ...]  # (B, T, C)
+
+    token = torch.tensor([-1])
+    input_pos = torch.tensor([0])
+    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
+    output = generate.speculative_decoding(
+        DraftModel(), TargetModel(), token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+    )
+
+    # same result as with equal vocab sizes: 2 accepted draft tokens + 1 sampled from the adjusted distribution
+    assert torch.equal(output, torch.tensor([4, 4, 9]))
+
+
+def test_speculative_decoding_all_accepted_with_different_padded_vocab_sizes():
+    # When every draft token is accepted, one more token is sampled from the target. The draft has to be able to
+    # embed it in the next step, so it must not be one of the target's extra padding ids.
+    class DraftModel(nn.Module):
+        def forward(self, **kwargs):
+            return torch.tensor([0, 0, 1, 0, 0, 0], dtype=torch.float)[None, None, ...]  # (B, T, C)
+
+    class TargetModel(nn.Module):
+        def forward(self, idx, **kwargs):
+            _, T = idx.shape
+            # 2 more ids than the draft, and the largest logit is on one of them (id 6)
+            return torch.tensor([[0, 0, 10, 0, 0, 0, 10.5, 0]] * T, dtype=torch.float)[None, ...]  # (B, T, C)
+
+    token = torch.tensor([-1])
+    input_pos = torch.tensor([0])
+    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)  # to make sampling consistent
+    output = generate.speculative_decoding(
+        DraftModel(), TargetModel(), token, input_pos, input_pos, speculative_k=2, **sample_kwargs
+    )
+
+    # both draft tokens are accepted, and the extra token is the target's most likely id among the shared ids
+    assert torch.equal(output, torch.tensor([2, 2, 2]))
