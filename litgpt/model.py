@@ -518,12 +518,11 @@ class CausalSelfAttention(nn.Module):
                 raise TypeError("You need to call `gpt.set_kv_cache()`")
             k, v = self.kv_cache(input_pos, k, v)
 
-            if self.apply_sliding_window_attention:
-                actual_kv_len = k.size(2)
-                if mask is not None and mask.size(-1) != actual_kv_len:
-                    mask = mask[..., :actual_kv_len]
-
-            if input_pos_maxp1 is not None:
+            if self.kv_cache.is_sliding_window:
+                # The ring buffer holds keys in slot order, not position order: mask by the absolute
+                # position stored in each slot (empty slots, future and out-of-window positions are hidden).
+                mask = self.kv_cache.sliding_window_mask(input_pos, B)
+            elif input_pos_maxp1 is not None:
                 # Subselect along sequence dimension
                 k = k[..., :input_pos_maxp1, :]
                 v = v[..., :input_pos_maxp1, :]
@@ -604,7 +603,9 @@ class CausalSelfAttention(nn.Module):
         dtype: torch.dtype | None = None,
     ) -> "KVCache":
         if self.apply_sliding_window_attention and self.config.sliding_window_size is not None:
-            effective_cache_size = min(max_seq_length, self.config.sliding_window_size)
+            # 2x the window, so that a multi-token forward (chunked prefill, speculative verification) of up to
+            # `sliding_window_size` tokens never overwrites keys that its own earlier queries still attend to
+            effective_cache_size = min(max_seq_length, 2 * self.config.sliding_window_size)
         else:
             effective_cache_size = max_seq_length
 
@@ -1239,6 +1240,11 @@ class KVCache(nn.Module):
         self.is_sliding_window = is_sliding_window
         self.sliding_window_size = sliding_window_size
         self.max_cache_len = k_shape[2]
+        if is_sliding_window:
+            # absolute position stored in each ring-buffer slot, -1 for empty
+            self.register_buffer(
+                "pos", torch.full(k_shape[:1] + k_shape[2:3], -1, device=device, dtype=torch.long), persistent=False
+            )
 
     def forward(self, input_pos: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -1266,21 +1272,26 @@ class KVCache(nn.Module):
         if self.is_sliding_window:
             # Circular buffer for sliding window
             prefill_len = input_pos.shape[-1]
-            if prefill_len > self.max_cache_len:
-                raise ValueError(
-                    f"Prefill length ({prefill_len}) exceeds the sliding window size ({self.max_cache_len}). "
-                    f"This causes the ring-buffer KV cache to overwrite entries, but the attention mask is not "
-                    f"rebuilt to reflect the true positions, which silently violates causality. "
-                    f"Please use chunked prefill with chunk size <= {self.max_cache_len} to avoid this issue."
-                )
+            window = self.sliding_window_size or self.max_cache_len
             cache_positions = input_pos % self.max_cache_len
+            # Writing this chunk must not evict a key that one of its own queries still attends to: the earliest
+            # query, at position `min(input_pos)`, attends to positions > `min(input_pos) - window`.
+            evicted = self.pos[:bs].gather(-1, cache_positions.expand(bs, -1))
+            first = input_pos.min(dim=-1, keepdim=True).values
+            if (
+                prefill_len > self.max_cache_len
+                or ((evicted >= 0) & (evicted > first - window) & (evicted < first)).any()
+            ):
+                raise ValueError(
+                    f"Prefill length ({prefill_len}) exceeds the sliding window size: this forward would overwrite "
+                    f"ring-buffer KV cache entries that its own queries attend to, which silently gives wrong "
+                    f"attention. Please use chunked prefill with chunk size <= "
+                    f"{self.max_cache_len - window + 1} to avoid this issue."
+                )
             k = batched_index_copy_(self.k[:bs, ...], -2, cache_positions, k)
             v = batched_index_copy_(self.v[:bs, ...], -2, cache_positions, v)
-
-            max_pos = input_pos.max().item()
-            if max_pos < self.max_cache_len:
-                k = k[:, :, : max_pos + 1, :]
-                v = v[:, :, : max_pos + 1, :]
+            positions = input_pos.expand(bs, -1) if input_pos.dim() == 1 else input_pos
+            batched_index_copy_(self.pos[:bs], -1, cache_positions, positions)
         else:
             # Standard KV cache (global attention)
             k = batched_index_copy_(self.k[:bs, ...], -2, input_pos, k)
@@ -1288,9 +1299,19 @@ class KVCache(nn.Module):
 
         return k, v
 
+    def sliding_window_mask(self, input_pos: torch.Tensor, bs: int) -> torch.Tensor:
+        """Boolean attention mask `(bs, 1, T, max_cache_len)` over the ring-buffer slots, built from the
+        absolute position held by each slot, so it is correct in whatever order the slots were written."""
+        window = self.sliding_window_size or self.max_cache_len
+        query_pos = input_pos.expand(bs, -1)[:, None, :, None]
+        key_pos = self.pos[:bs, None, None, :]
+        return (key_pos >= 0) & (key_pos <= query_pos) & (key_pos > query_pos - window)
+
     def reset_parameters(self) -> None:
         torch.nn.init.zeros_(self.k)
         torch.nn.init.zeros_(self.v)
+        if self.is_sliding_window:
+            self.pos.fill_(-1)
 
 
 def build_mask_cache(max_seq_length: int, device: torch.device | None = None) -> torch.Tensor:
