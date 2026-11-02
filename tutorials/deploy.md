@@ -135,6 +135,11 @@ print(response.choices[0].message.content)
 ```
 
 &nbsp;
+## Deploy on Nebius Serverless Endpoints
+
+For a container recipe with managed HTTPS, token authentication, readiness checks, and cleanup, see [Deploy LitGPT on Nebius Serverless Endpoints](deploy-nebius.md).
+
+&nbsp;
 ## Serve an LLM UI with Chainlit
 
 If you are interested in developing a simple ChatGPT-like UI prototype, see the Chainlit tutorial in the following Studio:
