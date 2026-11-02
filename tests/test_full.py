@@ -4,14 +4,99 @@ import os
 from contextlib import redirect_stdout
 from io import StringIO
 from unittest import mock
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
+import pytest
 import torch
 import yaml
+from lightning import Fabric
 
 import litgpt.finetune.full as module
 from litgpt.args import EvalArgs, TrainArgs
-from litgpt.data import Alpaca
+from litgpt.data import Alpaca, get_sft_collate_fn
+from litgpt.model import GPT, Config
+
+
+@pytest.mark.parametrize("loss_normalization", ["micro_batch", "token"])
+def test_full_fit_loss_normalization(loss_normalization, monkeypatch, tmp_path):
+    monkeypatch.setattr(module, "Tokenizer", Mock())
+    monkeypatch.setattr(module, "generate_example", Mock())
+
+    # 4 micro-batches with 2, 15, 4 and 7 target tokens after the shift, accumulated into one optimizer step
+    torch.manual_seed(0)
+    samples = []
+    for length, prompt_length in ((16, 14), (16, 1), (5, 0), (10, 3)):
+        input_ids = torch.randint(0, 16, (length,))
+        labels = torch.where(torch.arange(length) < prompt_length, -100, input_ids)
+        samples.append(
+            {"input_ids": input_ids, "labels": labels, "token_counts": {"raw": 0, "raw_plus_prompt_template": 0}}
+        )
+    collate_fn = get_sft_collate_fn()
+    dataloader = torch.utils.data.DataLoader(samples, batch_size=1, collate_fn=collate_fn)
+    train = TrainArgs(
+        global_batch_size=4, micro_batch_size=1, epochs=1, max_steps=1, loss_normalization=loss_normalization
+    )
+
+    model = GPT(Config(n_layer=2, n_head=2, n_embd=8, block_size=16, padded_vocab_size=16))
+
+    logger = Mock()
+    fabric = Fabric(accelerator="cpu", devices=1, loggers=logger)
+    # a mock optimizer keeps the accumulated gradients around for inspection
+    state = {
+        "model": fabric.setup(model),
+        "optimizer": Mock(),
+        "scheduler": MagicMock(),
+        "iter_num": 0,
+        "step_count": 0,
+    }
+    module.fit(
+        fabric=fabric,
+        state=state,
+        train_dataloader=dataloader,
+        val_dataloader=dataloader,
+        devices=1,
+        resume=False,
+        checkpoint_dir=tmp_path,
+        out_dir=tmp_path,
+        train=train,
+        eval=EvalArgs(interval=1, max_iters=3),
+        data=Mock(),
+    )
+    grads = {name: param.grad.clone() for name, param in model.named_parameters() if param.grad is not None}
+    model.zero_grad()
+
+    # the objective of the whole batch in a single forward pass
+    batch = collate_fn(samples)
+    logits = model(batch["input_ids"])[:, :-1]
+    targets = batch["labels"][:, 1:]
+    losses = torch.nn.functional.cross_entropy(logits.flatten(0, 1), targets.flatten(), reduction="none").view_as(
+        targets
+    )
+    num_targets = (targets != -100).sum(dim=1)
+    expected_loss = {"token": losses.sum() / num_targets.sum(), "micro_batch": (losses.sum(dim=1) / num_targets).mean()}
+    assert not torch.allclose(expected_loss["token"], expected_loss["micro_batch"])
+    expected_loss[loss_normalization].backward()
+    expected_grads = {name: param.grad for name, param in model.named_parameters() if param.grad is not None}
+    torch.testing.assert_close(grads, expected_grads)
+
+    # the logged training loss is the running mean over the micro-batches so far, normalized like the objective: at the
+    # optimizer step, it is the objective of the step
+    sample_losses = losses.detach().sum(dim=1)
+    expected_logged_losses = {
+        "token": sample_losses.cumsum(0) / num_targets.cumsum(0),
+        "micro_batch": (sample_losses / num_targets).cumsum(0) / torch.arange(1, 5),
+    }
+    metrics = [call.kwargs["metrics"] for call in logger.log_metrics.call_args_list]
+    logged_losses = torch.tensor([m["loss"] for m in metrics if "loss" in m])
+    torch.testing.assert_close(logged_losses, expected_logged_losses[loss_normalization])
+
+    # the validation after the optimizer step is normalized in the same way, over at most `eval.max_iters` batches
+    (val_loss,) = [m["val_loss"] for m in metrics if "val_loss" in m]
+    expected_val_loss = {
+        "token": sample_losses[:3].sum() / num_targets[:3].sum(),
+        "micro_batch": (sample_losses[:3] / num_targets[:3]).mean(),
+    }
+    torch.testing.assert_close(torch.tensor(val_loss), expected_val_loss[loss_normalization])
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
