@@ -130,6 +130,20 @@ def speculative_decoding(
         _, target_prob = sample(target_logit, **sample_kwargs)
         target_probs.append(target_prob)
 
+    # Align vocab dimensions when draft and target use different padded_vocab_size
+    # (e.g. Qwen2.5-1.5B padded to 151936 vs 7B padded to 152064).
+    # Pad the shorter probability vector with zeros so the subtraction works;
+    # padding entries carry near-zero mass in trained models.
+    draft_vocab = draft_probs[0].size(-1)
+    target_vocab = target_probs[0].size(-1)
+    if draft_vocab != target_vocab:
+        min_vocab = min(draft_vocab, target_vocab)
+        pad_to = max(draft_vocab, target_vocab)
+        if draft_vocab < pad_to:
+            draft_probs = [F.pad(p, (0, pad_to - draft_vocab)) for p in draft_probs]
+        else:
+            target_probs = [F.pad(p, (0, pad_to - target_vocab)) for p in target_probs]
+
     # Step 4: Accept/reject draft tokens based on probability comparison
     # Using rejection sampling: keep token if target_prob >= draft_prob.
     # Otherwise reject with probability 1 - target_prob / draft_prob.
@@ -165,6 +179,8 @@ def speculative_decoding(
     # 1. Update draft model's key-value cache
     # 2. Sample one more token from target model
     draft_model(idx=draft_token.unsqueeze(0), input_pos=draft_input_pos, input_pos_maxp1=draft_input_pos_maxp1)
+    if target_vocab > draft_vocab:
+        target_logits[..., draft_vocab:] = float("-inf")
     new_token, _ = sample(target_logits, **sample_kwargs)
     return torch.cat((*accepted_tokens, new_token))
 
