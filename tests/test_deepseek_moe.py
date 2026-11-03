@@ -5,7 +5,7 @@ import torch
 from transformers.models.deepseek_v3 import DeepseekV3Config, DeepseekV3ForCausalLM
 
 from litgpt import Config
-from litgpt.model import GPT, LLaMAMLP
+from litgpt.model import GPT, GroupedTopkRouter, LLaMAMLP, LLaMAMoE
 
 
 @torch.inference_mode()
@@ -89,6 +89,62 @@ def test_deepseek_moe_litgpt_vs_hf(batch_size, seq_len, device):
     output_hf = moe_hf(hidden_states)
 
     assert torch.allclose(output_litgpt, output_hf, atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    ("e_score_correction_bias", "expected_experts"),
+    [
+        # Every eligible corrected score is negative: masking excluded experts with zero used to let them win.
+        ([-0.6, -0.7, -1.0, -1.1], [0, 1]),
+        # An eligible corrected score of exactly zero must still beat the excluded experts.
+        ([-0.5, -0.7, -1.0, -1.1], [0, 1]),
+        # A positive eligible score mixed with a negative one: only experts from the selected group may contribute.
+        ([-0.4, -0.6, -1.0, -1.1], [0, 1]),
+        # A rejected group may hold the highest individual corrected score; it must still be masked out.
+        ([-0.6, -0.7, 0.3, -2.4], [0, 1]),
+    ],
+)
+def test_grouped_topk_router_masks_excluded_experts(e_score_correction_bias, expected_experts):
+    """Rejected groups must never contribute, even when they hold the highest score or eligible scores are <= 0."""
+    torch.manual_seed(0)
+    config = Config(
+        n_layer=1,
+        n_head=2,
+        n_embd=8,
+        vocab_size=16,
+        mlp_class_name="LLaMAMoE",
+        moe_intermediate_size=4,
+        n_expert=4,
+        n_expert_groups=2,
+        n_topk_groups=1,
+        n_topk_scores_per_group=2,
+        n_expert_per_token=2,
+        norm_topk_prob=True,
+    )
+    moe = LLaMAMoE(config)
+    assert isinstance(moe.gate, GroupedTopkRouter)
+    with torch.no_grad():
+        # A zero router gives every token the same uncorrected score, so the bias alone decides the selection.
+        moe.gate.weight.zero_()
+        moe.gate.e_score_correction_bias.copy_(torch.tensor(e_score_correction_bias))
+
+    x = torch.ones(1, 1, config.n_embd, requires_grad=True)
+    y = moe(x)
+
+    mixture_weights, topk_indices = moe.gate(x.detach().view(-1, config.n_embd))
+    assert sorted(topk_indices[0].tolist()) == expected_experts
+    # The correction bias must not leak into the mixture weights: all uncorrected sigmoid scores are 0.5.
+    expected_weights = torch.full((len(expected_experts),), 0.5)
+    torch.testing.assert_close(mixture_weights, expected_weights.unsqueeze(0))
+
+    # Independently weight only the experts of the known selected group, using the actual LLaMAMLP experts.
+    x_ref = torch.ones_like(x, requires_grad=True)
+    y_ref = sum(weight * moe.experts[expert](x_ref) for weight, expert in zip(expected_weights, expected_experts))
+    torch.testing.assert_close(y, y_ref)
+
+    (grad,) = torch.autograd.grad(y.sum(), x)
+    (grad_ref,) = torch.autograd.grad(y_ref.sum(), x_ref)
+    torch.testing.assert_close(grad, grad_ref)
 
 
 def sync_weights(litgpt_model, hf_model):
