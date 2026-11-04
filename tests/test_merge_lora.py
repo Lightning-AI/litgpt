@@ -74,6 +74,38 @@ def test_merge_lora(tmp_path, fake_checkpoint_dir, pretrained_dtype, lora_dtype)
     assert "LoRA weights have already been merged" in stdout.getvalue()
 
 
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
+def test_merge_lora_avoids_16_mixed_cpu_warning(tmp_path, fake_checkpoint_dir, caplog):
+    """Training precision 16-mixed must not trigger Fabric's CPU AMP warning (#1242)."""
+    pretrained_checkpoint_dir = tmp_path / "pretrained"
+    lora_checkpoint_dir = tmp_path / "lora"
+    shutil.copytree(fake_checkpoint_dir, pretrained_checkpoint_dir)
+    shutil.copytree(fake_checkpoint_dir, lora_checkpoint_dir)
+    (lora_checkpoint_dir / "lit_model.pth").unlink()
+    shutil.rmtree(tmp_path / "checkpoints")
+
+    config = dict(block_size=128, padded_vocab_size=256, n_layer=3, n_head=8, n_embd=16)
+    with open(pretrained_checkpoint_dir / "model_config.yaml", "w", encoding="utf-8") as fp:
+        yaml.dump(config, fp)
+    torch.save(GPT.from_name("pythia-14m", **config).state_dict(), pretrained_checkpoint_dir / "lit_model.pth")
+
+    lora_kwargs = dict(lora_r=8, lora_alpha=16, lora_dropout=0.05, lora_query=True, lora_value=True)
+    lora_model = LoRAGPT.from_name("pythia-14m", **config, **lora_kwargs)
+    state_dict = {k: v for k, v in lora_model.state_dict().items() if lora_filter(k, v)}
+    torch.save(state_dict, lora_checkpoint_dir / "lit_model.pth.lora")
+    hparams = dict(checkpoint_dir=str(pretrained_checkpoint_dir), precision="16-mixed", **lora_kwargs)
+    with open(lora_checkpoint_dir / "hyperparameters.yaml", "w", encoding="utf-8") as file:
+        yaml.dump(hparams, file)
+    shutil.copyfile(pretrained_checkpoint_dir / "model_config.yaml", lora_checkpoint_dir / "model_config.yaml")
+
+    with caplog.at_level("WARNING"):
+        merge_lora(lora_checkpoint_dir)
+
+    joined = "\n".join(record.getMessage() for record in caplog.records)
+    assert "AMP with fp16 is not supported on CPU" not in joined
+    assert (lora_checkpoint_dir / "lit_model.pth").is_file()
+
+
 def test_load_lora_metadata(fake_checkpoint_dir):
     assert not (fake_checkpoint_dir / "hyperparameters.yaml").is_file()
     with pytest.raises(FileNotFoundError, match="missing a `hyperparameters.yaml` file"):
