@@ -253,6 +253,39 @@ def test_batch_generate(tmp_path):
     # print()
 
 
+@pytest.mark.parametrize(
+    ("first_stream", "expected_first_stream"),
+    [
+        ([1, 2, 9, 9], []),
+        ([1, 1, 2, 9], [1]),
+    ],
+)
+def test_batched_generate_multitoken_stop(monkeypatch, first_stream, expected_first_stream):
+    class MockModel:
+        max_seq_length = 100
+
+    second_stream = [5, 6, 7, 8]
+    generated = iter(torch.tensor([[first], [second]]) for first, second in zip(first_stream, second_stream))
+    monkeypatch.setattr("litgpt.generate.base.batched_next_token", lambda *args, **kwargs: next(generated))
+
+    output = list(
+        batched_generate_fn(
+            MockModel(),
+            prompts=torch.tensor([[10], [20]]),
+            max_returned_tokens=5,
+            sample_args={},
+            stop_tokens=([1, 2],),
+            include_prompt=False,
+            include_eos=False,
+        )
+    )
+
+    actual_first_stream = [tokens[0].item() for tokens in output if tokens[0] is not None]
+    actual_second_stream = [tokens[1].item() for tokens in output if tokens[1] is not None]
+    assert actual_first_stream == expected_first_stream
+    assert actual_second_stream == second_stream
+
+
 @_RunIf(min_cuda_gpus=1)
 def test_batch_generate_equivalence(tmp_path):
     torch.use_deterministic_algorithms(True)
