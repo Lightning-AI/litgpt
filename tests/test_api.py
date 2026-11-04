@@ -12,6 +12,7 @@ import torch
 from lightning.fabric.accelerators import CUDAAccelerator
 
 from litgpt.api import LLM, benchmark_dict_to_markdown_table, calculate_number_of_devices
+from litgpt.prompts import Alpaca
 from litgpt.scripts.download import download_from_hub
 from litgpt.utils import _RunIf
 
@@ -393,6 +394,20 @@ def test_save_method(tmp_path):
     for file_name in expected_files:
         assert file_name in files_in_directory, f"{file_name} is missing from {target_dir}"
 
+
+
+def test_save_preserves_prompt_style(tmp_path):
+    with patch("torch.backends.mps.is_available", return_value=USE_MPS):
+        llm = LLM.load(model="EleutherAI/pythia-14m")
+
+    llm.prompt_style = Alpaca()
+    target_dir = tmp_path / "saved_model"
+
+    llm.save(target_dir)
+
+    reloaded_llm = LLM.load(model=str(target_dir))
+
+    assert isinstance(reloaded_llm.prompt_style, Alpaca)
 
 def test_forward_method(tmp_path):
     with patch("torch.backends.mps.is_available", return_value=USE_MPS):
