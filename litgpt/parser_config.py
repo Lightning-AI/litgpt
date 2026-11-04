@@ -39,17 +39,30 @@ def save_hyperparameters(
     """Captures the CLI parameters passed to `function` without running `function` and saves them to the checkpoint."""
     from jsonargparse import capture_parser
 
-    # TODO: Make this more robust
-    # This hack strips away the subcommands from the top-level CLI
-    # to parse the file as if it was called as a script
     if known_commands is None:
         known_commands = parser_commands()
+    args = sys.argv[1:]
     known_commands = [(c,) for c in known_commands]
-    for known_command in known_commands:
-        unwanted = slice(1, 1 + len(known_command))
-        if tuple(sys.argv[unwanted]) == known_command:
-            sys.argv[unwanted] = []
+    known_commands.extend(
+        [
+            ("finetune", "full"),
+            ("finetune", "lora"),
+            ("finetune", "adapter"),
+            ("finetune", "adapter_v2"),
+        ]
+    )
+    found_known = False
+    for known_command in sorted(known_commands, key=len, reverse=True):
+        if tuple(args[: len(known_command)]) == known_command:
+            args = args[len(known_command) :]
+            found_known = True
+            break
 
     parser = capture_parser(lambda: CLI(function))
-    config = parser.parse_args()
+    try:
+        config = parser.parse_args(args)
+    except SystemExit:
+        if not found_known:
+            return
+        raise
     parser.save(config, checkpoint_dir / "hyperparameters.yaml", overwrite=True)
