@@ -17,7 +17,39 @@ litgpt finetune_adapter_v2
 &nbsp;
 
 
-The following section provides more details about these methods, including links for additional resources.
+The following sections explain tokenizer considerations when finetuning on a new language and provide more details about these methods, including links for additional resources.
+
+
+&nbsp;
+## Finetuning on a new language
+
+### Do I need to add tokens?
+
+Not necessarily. A word or character does not need its own vocabulary entry to be represented by a tokenizer. For example, [Falcon-7B's tokenizer](https://huggingface.co/tiiuae/falcon-7b/blob/main/tokenizer.json) uses byte-level BPE, so Chinese text can be represented using existing tokens even when a complete Chinese character is not a single token. Finetuning uses the checkpoint's tokenizer; it does not learn a new vocabulary or automatically add tokens from the training dataset.
+
+Start with the original tokenizer and check representative samples from your dataset:
+
+- Encode and decode complete samples with `litgpt.Tokenizer`, without adding beginning-of-sequence or end-of-sequence tokens (`bos=False, eos=False`), and inspect whether the text is preserved. Check for unexpected normalization or unknown tokens when using other tokenizers.
+- Measure the tokenized sequence lengths. A language may require multiple tokens per character, leaving less text within the training sequence length and increasing truncation.
+- Evaluate the finetuned model on held-out examples in the target language. Being able to encode the text does not mean the pretrained model already understands that language well.
+
+Use the [custom dataset preparation guide](prepare_dataset.md) to prepare your data for finetuning.
+
+### Why doesn't the embedding parameter count increase?
+
+The number of embedding parameters depends on the model's vocabulary capacity and embedding dimension, not on the number of distinct words or characters in your dataset. With the original tokenizer and model configuration, this count stays unchanged. Full finetuning updates existing embedding weights without adding parameters. LitGPT's standard LoRA finetuning freezes the original token embeddings and trains the selected low-rank adapters instead; the reported trainable parameter count is not a count of newly encountered tokens.
+
+### What if I intentionally extend the vocabulary?
+
+Adding tokens is a separate model adaptation task, not a prerequisite for using Chinese data with Falcon-7B. LitGPT's finetuning commands do not automatically resize a checkpoint when its tokenizer changes. Editing only `tokenizer.json` or `model_config.yaml` is insufficient:
+
+- Preserve all existing token IDs so that they still refer to the pretrained embedding rows.
+- Ensure that both the input embedding (`transformer.wte`) and output projection (`lm_head`) cover every token ID. LitGPT uses `padded_vocab_size` for these dimensions; newly added IDs may fit within existing padding, but those rows have not been trained to represent the new tokens.
+- If expansion is needed, preserve existing weights and initialize the new rows in both matrices. Keep the saved model configuration and checkpoint tensor shapes consistent; changing the configuration alone causes shape mismatches when loading the original weights.
+- Make the input and output rows for the added tokens trainable and include them in the optimizer and saved checkpoint. The standard LoRA workflow is not sufficient for learning and saving newly initialized input embeddings because it freezes those embeddings and saves adapter weights.
+- Save the matching tokenizer with the adapted checkpoint and use it consistently for dataset preparation, training, and inference. Retokenize any previously prepared token-ID datasets after changing the tokenizer.
+
+Vocabulary expansion therefore needs a custom training and checkpoint-saving workflow. Keep the original vocabulary unless you have measured a need for this additional work.
 
 
 &nbsp;
