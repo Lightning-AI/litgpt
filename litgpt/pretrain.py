@@ -230,11 +230,15 @@ def main(
         "iter_num": 0,
         "step_count": 0,
     }
+    train_iterator = CycleIterator(train_dataloader)
 
     resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
-        fabric.load(resume, state)
+        checkpoint = fabric.load(resume, state)
+        if "train_iterator" in checkpoint:
+            train_iterator.load_state_dict(checkpoint["train_iterator"])
+    state["train_iterator"] = train_iterator
 
     train_time = time.perf_counter()
 
@@ -323,7 +327,7 @@ def fit(
     max_iters = max_tokens_per_device // tokens_per_iter
     log_iter_interval = train.log_interval * train.gradient_accumulation_iters(devices, num_nodes)
     initial_iter = state["iter_num"]
-    train_iterator = CycleIterator(train_dataloader)
+    train_iterator = state.get("train_iterator") or CycleIterator(train_dataloader)
 
     running_loss = RunningMean(window=train.gradient_accumulation_iters(devices, num_nodes), sync_on_compute=False).to(
         fabric.device

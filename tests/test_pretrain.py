@@ -1,8 +1,9 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
 import os
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 from io import StringIO
+from types import SimpleNamespace
 from unittest import mock
 from unittest.mock import ANY, Mock
 
@@ -15,7 +16,11 @@ from litgpt import pretrain
 from litgpt.args import EvalArgs, TrainArgs
 from litgpt.config import Config
 from litgpt.pretrain import initialize_weights
-from litgpt.utils import _RunIf
+from litgpt.utils import CycleIterator, _RunIf
+
+
+def _identity(item):
+    return item
 
 
 @_RunIf(min_cuda_gpus=1, standalone=True)
@@ -129,3 +134,92 @@ def test_initialize_weights(strategy, expected):
     initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
     assert model.reset_parameters.call_count == int(expected)
     assert model.child.reset_parameters.call_count == int(expected)
+
+
+@pytest.mark.parametrize(("num_consumed", "num_resumed"), [(20, 12), (8, 9)])
+def test_stateful_dataloader_resume_preserves_cursor_and_cycle_epoch(tmp_path, num_consumed, num_resumed):
+    from lightning import Fabric
+    from litdata import optimize
+    from litdata.streaming import StreamingDataLoader, StreamingDataset
+
+    optimize(fn=_identity, inputs=list(range(8)), output_dir=tmp_path, num_workers=1, chunk_size=1)
+
+    def create_dataloader():
+        dataset = StreamingDataset(input_dir=tmp_path, shuffle=False, drop_last=False)
+        return StreamingDataLoader(dataset, batch_size=1, num_workers=0)
+
+    fabric = Fabric(accelerator="cpu", devices=1)
+    train_dataloader = fabric.setup_dataloaders(create_dataloader())
+    train_iterator = CycleIterator(train_dataloader)
+
+    assert [next(train_iterator).item() for _ in range(num_consumed)] == [i % 8 for i in range(num_consumed)]
+    assert train_iterator.epoch == (num_consumed - 1) // 8
+    assert train_iterator.state_dict() == {"epoch": num_consumed // 8}
+
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    fabric.save(
+        checkpoint_path,
+        {"train_dataloader": train_dataloader, "train_iterator": train_iterator},
+    )
+
+    resumed_dataloader = fabric.setup_dataloaders(create_dataloader())
+    resumed_iterator = CycleIterator(resumed_dataloader)
+    checkpoint = fabric.load(checkpoint_path, {"train_dataloader": resumed_dataloader})
+    resumed_iterator.load_state_dict(checkpoint["train_iterator"])
+
+    assert [next(resumed_iterator).item() for _ in range(num_resumed)] == [
+        (num_consumed + i) % 8 for i in range(num_resumed)
+    ]
+    assert resumed_iterator.epoch == (num_consumed + num_resumed - 1) // 8
+
+
+@pytest.mark.parametrize(("checkpoint", "expected_epoch"), [({}, 0), ({"train_iterator": {"epoch": 2}}, 2)])
+def test_main_restores_train_iterator(monkeypatch, tmp_path, checkpoint, expected_epoch):
+    model = torch.nn.Linear(1, 1)
+    model.config = SimpleNamespace(n_layer=1, n_embd=1)
+    model.max_seq_length = 2
+    dataloader = DataLoader(torch.tensor([[0, 1, 2]]))
+
+    fabric = mock.Mock()
+    fabric.device = torch.device("cpu")
+    fabric.global_rank = 0
+    fabric.world_size = 1
+    fabric.init_module.return_value = nullcontext()
+    fabric.setup.side_effect = lambda module: module
+    fabric.setup_optimizers.side_effect = lambda optimizer: optimizer
+    fabric.setup_dataloaders.side_effect = lambda *dataloaders: dataloaders
+
+    def load(_, state):
+        assert "train_iterator" not in state
+        state["iter_num"] = 1
+        return checkpoint
+
+    fabric.load.side_effect = load
+    fit = mock.Mock()
+    save_checkpoint = mock.Mock()
+    monkeypatch.setattr(pretrain, "GPT", lambda _: model)
+    monkeypatch.setattr(pretrain, "fit", fit)
+    monkeypatch.setattr(pretrain, "get_dataloaders", mock.Mock(return_value=(dataloader, dataloader)))
+    monkeypatch.setattr(pretrain, "initialize_weights", mock.Mock())
+    monkeypatch.setattr(pretrain, "save_checkpoint", save_checkpoint)
+    monkeypatch.setattr(pretrain.torch, "compile", lambda module: module)
+
+    pretrain.main(
+        fabric=fabric,
+        devices=1,
+        seed=42,
+        initial_checkpoint_dir=None,
+        resume=tmp_path / "checkpoint.pt",
+        config=model.config,
+        data=mock.Mock(),
+        out_dir=tmp_path / "out",
+        tokenizer_dir=None,
+        tokenizer=None,
+        train=TrainArgs(global_batch_size=1, max_tokens=2, micro_batch_size=1, max_norm=1.0),
+        eval=EvalArgs(final_validation=False),
+        optimizer="SGD",
+    )
+
+    train_iterator = fit.call_args.kwargs["state"]["train_iterator"]
+    assert train_iterator.epoch == expected_epoch
+    assert save_checkpoint.call_args.args[1]["train_iterator"] is train_iterator
