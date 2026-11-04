@@ -127,9 +127,16 @@ def test_tokenizer_config_without_tokenizer_class(tmp_path):
 @pytest.mark.parametrize("encode_use_bos", (None, True, False))
 @pytest.mark.parametrize("encode_use_eos", (True, False))
 @pytest.mark.parametrize("processor_returns_bos", (True, False))
+@pytest.mark.parametrize("processor_returns_eos", (True, False))
 @pytest.mark.parametrize("fake_return_ids", ([], [34, 8, 17, 2]))
 def test_tokenizer_bos_eos(
-    tmp_path, use_bos_by_default, encode_use_bos, encode_use_eos, processor_returns_bos, fake_return_ids
+    tmp_path,
+    use_bos_by_default,
+    encode_use_bos,
+    encode_use_eos,
+    processor_returns_bos,
+    processor_returns_eos,
+    fake_return_ids,
 ):
     # let `Tokenizers` create a proper (albeit empty) vocab in json format
     HFTokenizer(BPE()).save(str(tmp_path / "tokenizer.json"))
@@ -141,6 +148,8 @@ def test_tokenizer_bos_eos(
 
     if processor_returns_bos:
         fake_return_ids = [tokenizer.bos_id] + fake_return_ids
+    if processor_returns_eos:
+        fake_return_ids = fake_return_ids + [tokenizer.eos_id]
     fake_return_ids = SimpleNamespace(**dict(ids=fake_return_ids))
 
     with mock.patch.object(tokenizer.processor, "encode", return_value=fake_return_ids):
