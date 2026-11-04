@@ -18,6 +18,53 @@ from litgpt.pretrain import initialize_weights
 from litgpt.utils import _RunIf
 
 
+@pytest.mark.parametrize(
+    ("max_steps", "initial_steps", "expected_steps"),
+    [(2, 0, 2), (2, 1, 2), (2, 2, 2), (None, 0, 4), (6, 0, 4)],
+)
+def test_fit_max_steps(tmp_path, monkeypatch, max_steps, initial_steps, expected_steps):
+    fabric = pretrain.L.Fabric(accelerator="cpu", devices=1)
+    model = pretrain.GPT(Config(block_size=2, n_layer=1, n_embd=4, n_head=2, padded_vocab_size=8))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    model, optimizer = fabric.setup(model, optimizer)
+    dataloader = DataLoader(torch.tensor([[0, 1, 2], [3, 4, 5]]))
+    state = {
+        "model": model,
+        "optimizer": optimizer,
+        "iter_num": initial_steps * 2,
+        "step_count": initial_steps,
+    }
+    monkeypatch.setattr(pretrain, "measure_flops", Mock(return_value=0))
+    monkeypatch.setattr(pretrain, "save_hyperparameters", Mock())
+    pretrain.fit(
+        fabric,
+        1,
+        state,
+        dataloader,
+        dataloader,
+        tmp_path,
+        None,
+        TrainArgs(
+            global_batch_size=2,
+            micro_batch_size=1,
+            max_tokens=16,
+            max_steps=max_steps,
+            save_interval=2,
+            max_norm=1.0,
+            lr_warmup_steps=0,
+        ),
+        EvalArgs(interval=100, max_iters=1, final_validation=False),
+    )
+    assert state["step_count"] == expected_steps
+    assert state["iter_num"] == expected_steps * 2
+    expected_dirs = {f"step-{step:08d}" for step in range(initial_steps + 1, expected_steps + 1) if step % 2 == 0}
+    assert {path.name for path in tmp_path.iterdir()} == expected_dirs
+    for name in expected_dirs:
+        checkpoint = torch.load(tmp_path / name / "lit_model.pth", weights_only=True)
+        assert checkpoint["step_count"] == int(name.removeprefix("step-"))
+        assert (tmp_path / name / "model_config.yaml").is_file()
+
+
 @_RunIf(min_cuda_gpus=1, standalone=True)
 @mock.patch("litgpt.pretrain.save_hyperparameters")
 def test_optimizer_args(_, tmp_path):

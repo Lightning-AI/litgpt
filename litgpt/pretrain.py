@@ -336,6 +336,8 @@ def fit(
     for train_data in train_iterator:
         if state["iter_num"] >= max_iters:
             break
+        if train.max_steps is not None and state["step_count"] >= train.max_steps:
+            break
 
         # determine and set the learning rate for this iteration
         lr = get_lr(optimizer.defaults["lr"], state["iter_num"], warmup_iters, max_iters, train.min_lr)
