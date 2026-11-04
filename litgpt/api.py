@@ -130,6 +130,9 @@ class LLM(torch.nn.Module):
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
         if prompt_style is None:
+            prompt_style = self.prompt_style
+
+        if prompt_style is None:
             prompt_style = PromptStyle.from_config(self.config)
         if self.fabric is None:
             torch.save(self.state_dict(), save_path)
@@ -231,9 +234,9 @@ class LLM(torch.nn.Module):
             preprocessor = Preprocessor(tokenizer, device=fabric.device)
 
             if checkpoint_dir is not None:
-                checkpoint_path = checkpoint_dir / "lit_model.pth"
-                check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
-                load_checkpoint(fabric, model, checkpoint_path)
+              checkpoint_path = checkpoint_dir / "lit_model.pth"
+              check_file_size_on_cpu_and_warn(checkpoint_path, fabric.device)
+              load_checkpoint(fabric, model, checkpoint_path)
 
             model = fabric.setup_module(model)
 
