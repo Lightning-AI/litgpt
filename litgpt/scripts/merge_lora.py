@@ -10,7 +10,7 @@ import lightning as L
 import torch
 import yaml
 
-from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights
+from litgpt.lora import GPT, Config, lora_filter, merge_lora_weights, normalize_lora_r_by_layer
 from litgpt.utils import check_valid_checkpoint_dir, extend_checkpoint_dir
 
 
@@ -96,6 +96,8 @@ def load_lora_metadata(checkpoint_dir: Path) -> tuple[dict[str, Any], Path, str 
         hparams = yaml.safe_load(file)
 
     lora_params = {k: v for k, v in hparams.items() if k.startswith("lora_")}
+    if "lora_r_by_layer" in lora_params:
+        lora_params["lora_r_by_layer"] = normalize_lora_r_by_layer(lora_params["lora_r_by_layer"])
     pretrained_checkpoint_dir = Path(hparams["checkpoint_dir"])
     precision = hparams.get("precision")
     return lora_params, pretrained_checkpoint_dir, precision
