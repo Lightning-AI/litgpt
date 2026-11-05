@@ -11,7 +11,7 @@ from lightning.fabric.utilities.load import _NotYetLoadedTensor as NotYetLoadedT
 
 from litgpt import Config
 from litgpt.scripts.convert_hf_checkpoint import layer_template, load_param
-from litgpt.utils import extend_checkpoint_dir, incremental_save, lazy_load
+from litgpt.utils import copy_config_files, extend_checkpoint_dir, incremental_save, lazy_load
 
 
 def copy_weights_falcon(
@@ -550,7 +550,8 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
     config = Config.from_file(checkpoint_dir / "model_config.yaml")
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / "model.pth"
+    # use the Hugging Face filename so `transformers.AutoModel.from_pretrained(output_dir)` finds the weights
+    output_path = output_dir / "pytorch_model.bin"
 
     if "falcon" in config.name:
         copy_fn = partial(copy_weights_falcon, config)
@@ -581,3 +582,7 @@ def convert_lit_checkpoint(checkpoint_dir: Path, output_dir: Path) -> None:
         copy_fn(sd, lit_weights, saver=saver)
         gc.collect()
         saver.save(sd)
+
+    # copy the config and tokenizer files so the output directory can be loaded directly with
+    # `transformers.AutoModel.from_pretrained(output_dir)`
+    copy_config_files(source_dir=checkpoint_dir, out_dir=output_dir)
