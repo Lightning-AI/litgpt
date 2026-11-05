@@ -467,6 +467,9 @@ def get_lr(learning_rate: float, it: int, warmup_iters: int, max_iters: int, min
     # 2) if it > max_iters, return min learning rate
     if it > max_iters:
         return min_lr
+    # Edge case: warmup covers the entire run, avoid division by zero
+    if warmup_iters >= max_iters:
+        return min_lr
     # 3) in between, use cosine decay down to min learning rate
     decay_ratio = (it - warmup_iters) / (max_iters - warmup_iters)
     assert 0 <= decay_ratio <= 1
