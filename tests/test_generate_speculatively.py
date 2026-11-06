@@ -101,6 +101,73 @@ def test_speculative_decoding_target_sometimes_accepts_draft_tokens():
     assert torch.equal(output, torch.tensor([4, 4, 9]))
 
 
+def test_speculative_decoding_mismatched_padded_vocab_size():
+    """Regression test for #2363: draft and target models with different
+    padded_vocab_size must not crash on the probability subtraction."""
+
+    class DraftModel(nn.Module):
+        def forward(self, **kwargs):
+            return torch.tensor([0, 0, 3, 4, 10, 9, 7, 8, 0, 0], dtype=torch.float)[None, None, ...]
+
+    class TargetModel(nn.Module):
+        def forward(self, idx, **kwargs):
+            logits_base = [0, 0, 0, 0, 10, 9, 0, 0, 0, 0]
+            return torch.tensor(
+                [logits_base + [0, 0]] * idx.shape[1],
+                dtype=torch.float,
+            )[None, ...]
+
+    draft_model = DraftModel()
+    target_model = TargetModel()
+
+    token = torch.tensor([-1])
+    input_pos = torch.tensor([0])
+    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)
+    output = generate.speculative_decoding(
+        draft_model, target_model, token, input_pos, input_pos, speculative_k=3, **sample_kwargs
+    )
+
+    assert len(output) >= 1
+    assert output.dim() == 1
+
+
+def test_speculative_decoding_mismatched_vocab_both_directions():
+    """Test vocab alignment when target is wider (common) and when draft is wider."""
+
+    class SmallVocabModel(nn.Module):
+        def forward(self, **kwargs):
+            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8], dtype=torch.float)[None, None, ...]
+
+    class LargeVocabModel(nn.Module):
+        def forward(self, idx, **kwargs):
+            logits_base = [0, 0, 0, 0, 10, 9, 0, 0, 0, 0, 0, 0]
+            return torch.tensor([logits_base] * idx.shape[1], dtype=torch.float)[None, ...]
+
+    sample_kwargs = dict(top_k=None, top_p=0.0, temperature=0.0)
+
+    # Target vocab larger than draft (the common Qwen scenario)
+    output = generate.speculative_decoding(
+        SmallVocabModel(), LargeVocabModel(),
+        torch.tensor([-1]), torch.tensor([0]), 0, speculative_k=3, **sample_kwargs,
+    )
+    assert len(output) >= 1
+
+    # Draft vocab larger than target
+    class LargeDraft(nn.Module):
+        def forward(self, **kwargs):
+            return torch.tensor([0, 0, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0], dtype=torch.float)[None, None, ...]
+
+    class SmallTarget(nn.Module):
+        def forward(self, idx, **kwargs):
+            return torch.tensor([[0, 0, 0, 0, 10, 9, 7, 8]] * idx.shape[1], dtype=torch.float)[None, ...]
+
+    output = generate.speculative_decoding(
+        LargeDraft(), SmallTarget(),
+        torch.tensor([-1]), torch.tensor([0]), 0, speculative_k=3, **sample_kwargs,
+    )
+    assert len(output) >= 1
+
+
 @pytest.mark.parametrize("max_seq_length", (10, 15, 20, 25))
 @pytest.mark.parametrize("speculative_k", (1, 2, 3))
 def test_generate(max_seq_length, speculative_k):
