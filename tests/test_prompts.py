@@ -8,6 +8,7 @@ import litgpt.config
 from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
+    CodeLlama,
     Default,
     Llama3,
     Phi3,
@@ -215,3 +216,21 @@ def test_phi4_reasoning_uses_well_formed_im_start_token():
     assert "<|im_start>" not in output
     assert output.startswith("<|im_start|>system<|im_sep|>")
     assert output.count("<|im_start|>") == 3
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "CodeLlama-7b-Instruct-hf",
+        "CodeLlama-13b-Instruct-hf",
+        "CodeLlama-34b-Instruct-hf",
+        "CodeLlama-70b-Instruct-hf",
+    ],
+)
+def test_codellama_instruct_uses_codellama_prompt_style(model_name):
+    # Regression test: the broad ``Llama-3.*-Instruct`` pattern matched the
+    # ``Llama-34...b-Instruct`` substring in "CodeLlama-34b-Instruct-hf", so that
+    # single checkpoint was mis-assigned the Llama3 prompt style while its
+    # 7b/13b/70b siblings correctly used CodeLlama.
+    style = PromptStyle.from_config(Config.from_name(model_name))
+    assert isinstance(style, CodeLlama)
