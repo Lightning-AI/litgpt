@@ -16,6 +16,21 @@ from litgpt import GPT, Config
 from litgpt.utils import _RunIf
 
 
+@pytest.mark.parametrize("top_k", (0, -1))
+def test_sample_rejects_top_k_below_one(top_k):
+    """Same guard as `litgpt.generate.base.sample`: `top_k` below 1 selects nothing.
+
+    Here the silent mode is worse than in base: with `apply_softmax=False` the masked
+    logits are filled with 0 instead of -inf, so the draft distribution handed to the
+    acceptance test is all zeros rather than an error.
+    """
+    logits = torch.tensor([[[0.5, -1.2, 3.1, 0.8, -0.3, 2.7, -0.9, 1.4]]])
+
+    for temperature in (0.0, 1.0):
+        with pytest.raises(ValueError, match=re.escape(f"top_k must be >= 1, got {top_k}")):
+            generate.sample(logits, temperature=temperature, top_k=top_k)
+
+
 def test_speculative_decoding_target_never_accepts_draft_tokens():
     class DraftModel(nn.Module):
         def forward(self, **kwargs):

@@ -39,6 +39,8 @@ def sample(
 ) -> torch.Tensor:
     if top_p < 0.0 or top_p > 1.0:
         raise ValueError(f"top_p must be in [0, 1], got {top_p}")
+    if top_k is not None and top_k < 1:
+        raise ValueError(f"top_k must be >= 1, got {top_k}")
     logits = logits[0, -1]
     # optionally crop the logits to only the top k options
     if top_k is not None:
