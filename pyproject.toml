@@ -29,6 +29,7 @@ dependencies = [
   "jsonargparse[signatures]>=4.37,<=4.41; python_version>='3.10'", # required to work with Python >=3.10
   "lightning>=2.6.1",
   "psutil==7.2.2",
+  "requests>=2.31",
   "safetensors>=0.4.3",
   # tokenization in most models:
   "tokenizers>=0.21",
@@ -62,8 +63,6 @@ optional-dependencies.extra = [
   # litgpt.data.prepare_starcoder.py:
   "pandas>=1.9",
   "pyarrow>=15.0.2",
-  # litgpt.data:
-  "requests>=2.31",
   # llama-based models:
   "sentencepiece>=0.2",
   # litgpt.pretrain:
