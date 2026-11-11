@@ -20,7 +20,7 @@ from litgpt.args import EvalArgs, LogArgs, TrainArgs
 from litgpt.constants import _BITANDBYTES_AVAILABLE_NOT_EQUAL_0_42_0
 from litgpt.data import Alpaca, DataModule
 from litgpt.generate.base import generate
-from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable
+from litgpt.lora import GPT, Block, Config, mark_only_lora_as_trainable, normalize_lora_r_by_layer
 from litgpt.parser_config import save_hyperparameters
 from litgpt.prompts import save_prompt_style
 from litgpt.scripts.merge_lora import merge_lora
@@ -54,6 +54,7 @@ def setup(
     devices: int | str = 1,
     num_nodes: int = 1,
     lora_r: int = 8,
+    lora_r_by_layer: dict[int, int] | None = None,
     lora_alpha: int = 16,
     lora_dropout: float = 0.05,
     lora_query: bool = True,
@@ -91,6 +92,7 @@ def setup(
         devices: How many devices/GPUs to use.
         num_nodes: How many nodes the code is being run on.
         lora_r: The LoRA rank.
+        lora_r_by_layer: The LoRA rank for each layer (zero-based index). lora_r is used for non-specified layers.
         lora_alpha: The LoRA alpha.
         lora_dropout: The LoRA dropout value.
         lora_query: Whether to apply LoRA to the query weights in attention.
@@ -118,6 +120,7 @@ def setup(
     config = Config.from_file(
         checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
+        lora_r_by_layer=normalize_lora_r_by_layer(lora_r_by_layer),
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         lora_query=lora_query,

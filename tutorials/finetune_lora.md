@@ -71,6 +71,30 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 
 &nbsp;
 
+## Layer-wise LoRA Ranks
+
+By default, LitGPT uses the same LoRA rank for all transformer blocks.
+Layer-wise LoRA allows assigning different ranks to individual blocks while retaining a global rank
+as a fallback.
+
+To assign those different ranks, use the '--lora_r_by_layer' argument:
+
+```bash
+litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
+  --lora_r 8 \
+  --lora_r_by_layer '{"0": 2, "2":4}'
+```
+
+In this example, blocks 0 and 2 use ranks 2 and 4, respectively, while all remaining blocks use the
+global rank of 8. Setting a block's rank to 0 disables LoRA for that block.
+
+In particular, the rank applies to all enabled LoRA adapters within each transformer block, but the
+language modeling head retains the global rank.
+
+Omitting '--lora_r_by_layer' preserves the standard LoRA behavior.
+
+Note that ranks are statically configured and do not change during training.
+
 ## Test the Model
 
 You can test the finetuned model with your own instructions by running:
