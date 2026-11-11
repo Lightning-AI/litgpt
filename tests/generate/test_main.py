@@ -166,3 +166,11 @@ def test_generate_different_results_with_different_top_p():
     output2 = generate.generate(model, input_idx, 20, top_p=0.1)
 
     assert not torch.equal(output1, output2)
+
+
+def test_sample_fp16_top_k_never_picks_zero_probability_token():
+    logits = torch.zeros(1, 1, 50304, dtype=torch.float16)
+    logits[0, -1, 253] = 10.0
+    for seed in range(3000):
+        torch.manual_seed(seed)
+        assert generate.sample(logits.clone(), temperature=1.0, top_k=1).item() == 253
