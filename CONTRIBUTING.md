@@ -53,5 +53,5 @@ pytest tests/
 ## Community
 
 - [Request a feature or report a bug](https://github.com/Lightning-AI/litgpt/issues)
-- [Contribution tutorial](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/)
+- [Contribution tutorial](https://lightning.ai/blog/how-to-contribute-to-litgpt/)
 - [Join our Discord](https://discord.gg/VptPCZkGNa)

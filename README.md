@@ -685,7 +685,7 @@ The research paper ["Pre-training Small Base LMs with Fewer Tokens"](https://arx
 We welcome all individual contributors, regardless of their level of experience or hardware. Your contributions are valuable, and we are excited to see what you can accomplish in this collaborative and supportive environment.
 
 - [Request a feature](https://github.com/Lightning-AI/litgpt/issues)
-- [Submit your first contribution](https://lightning.ai/pages/community/tutorial/how-to-contribute-to-litgpt/)
+- [Submit your first contribution](https://lightning.ai/blog/how-to-contribute-to-litgpt/)
 - [Join our Discord](https://discord.gg/VptPCZkGNa)
 
 &nbsp;

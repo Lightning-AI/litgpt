@@ -52,7 +52,7 @@ LoRA and QLoRA are parameter-efficient finetuning technique that only require up
 
 - the LitGPT [tutorials/finetune_lora](finetune_lora.md) tutorial
 - the LoRA paper by ([Hu et al. 2021](https://arxiv.org/abs/2106.09685))
-- the conceptual tutorial [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/pages/community/tutorial/lora-llm/)
+- the conceptual tutorial [Parameter-Efficient LLM Finetuning With Low-Rank Adaptation (LoRA)](https://lightning.ai/blog/lora-llm/)
 
 
 &nbsp;
@@ -74,4 +74,4 @@ Similar to LoRA, adapter finetuning is a parameter-efficient finetuning techniqu
 
 - the LitGPT [tutorials/finetune_adapter](finetune_adapter.md) tutorial
 - the Llama-Adapter ([Gao et al. 2023](https://arxiv.org/abs/2304.15010)) and Llama-Adapter v2  ([Zhang et al. 2023](https://arxiv.org/abs/2303.16199)) papers that originally introduces these methods
-- the conceptual tutorial [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/pages/community/article/understanding-llama-adapters/)
+- the conceptual tutorial [Understanding Parameter-Efficient Finetuning of Large Language Models: From Prefix Tuning to LLaMA-Adapters](https://lightning.ai/blog/understanding-llama-adapters/)
