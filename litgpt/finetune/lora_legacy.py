@@ -449,11 +449,11 @@ def generate_example(fabric: L.Fabric, model: GPT, tokenizer: Tokenizer, eval: E
     fabric.print(instruction)
     prompt = data.prompt_style.apply(instruction)
     encoded = tokenizer.encode(prompt, device=fabric.device)
-    model.eval()
 
     max_returned_tokens = len(encoded) + eval.max_new_tokens
 
     if max_returned_tokens < model.max_seq_length:
+        model.eval()
         with fabric.init_tensor():
             # do not set `max_seq_length=max_returned_token` because memory is not a concern here
             model.set_kv_cache(batch_size=1)
