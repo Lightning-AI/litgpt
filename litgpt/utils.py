@@ -317,7 +317,8 @@ def chunked_cross_entropy(
             logits = torch.cat(logits, dim=1)
             logits = logits.reshape(-1, logits.size(-1))
             targets = targets.reshape(-1)
-            return torch.nn.functional.cross_entropy(logits, targets, ignore_index=ignore_index)
+            loss = torch.nn.functional.cross_entropy(logits, targets, ignore_index=ignore_index)
+            return torch.where((targets != ignore_index).any(), loss, 0.0)
 
         # chunk cross entropy
         logit_chunks = [logit_chunk.reshape(-1, logit_chunk.size(-1)) for logit_chunk in logits]
@@ -334,7 +335,8 @@ def chunked_cross_entropy(
     logits = logits.reshape(-1, logits.size(-1))
     targets = targets.reshape(-1)
     if chunk_size == 0:
-        return torch.nn.functional.cross_entropy(logits, targets, ignore_index=ignore_index)
+        loss = torch.nn.functional.cross_entropy(logits, targets, ignore_index=ignore_index)
+        return torch.where((targets != ignore_index).any(), loss, 0.0)
 
     # lm_head wasn't chunked, chunk cross entropy
     logit_chunks = logits.split(chunk_size)
