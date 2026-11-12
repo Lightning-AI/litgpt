@@ -82,7 +82,7 @@ class SFTDataset(Dataset):
     def __getitem__(self, idx: int) -> dict[str, Tensor | dict[str, int]]:
         example = self.data[idx]
         if self.transform is not None:
-            example = self.transform(example)
+            example = self.transform(example.copy())
         prompt = self.prompt_style.apply(prompt=example["instruction"], **example)
         encoded_prompt = self.tokenizer.encode(prompt, max_length=self.max_seq_length)
         encoded_response = self.tokenizer.encode(example["output"], bos=False, eos=True, max_length=self.max_seq_length)
