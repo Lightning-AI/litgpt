@@ -441,8 +441,8 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
                 p.requires_grad = True
     elif bias == "lora_only":
         for m in model.modules():
-            if isinstance(m, LoRALayer) and hasattr(m, "bias") and m.bias is not None:
-                m.bias.requires_grad = True
+            if isinstance(m, LoRALinear) and m.linear.bias is not None:
+                m.linear.bias.requires_grad = True
     else:
         raise NotImplementedError
 
