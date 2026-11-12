@@ -886,9 +886,20 @@ class LLaMAMoE(nn.Module):
 
 
 class GroupedTopkRouter(nn.Module):
-    """
+    """Selects `n_expert_per_token` experts from the `n_topk_groups` highest-scoring expert groups.
+
     Derived from: https://github.com/huggingface/transformers/blob/main/src/transformers/models/deepseek_v3/modeling_deepseek_v3.py.
     DeepseekV3TopkRouter class.
+
+    Invariants:
+    - Group ranking and the expert top-k both use corrected scores, i.e. the sigmoid router scores plus
+      `e_score_correction_bias`.
+    - Each group score is the sum of its top `n_topk_scores_per_group` corrected scores; the `n_topk_groups`
+      groups with the largest such sums are selected.
+    - Experts outside the selected groups are masked to negative infinity before the expert top-k, so a rejected
+      group can never contribute, even when every eligible corrected score is negative or zero.
+    - `e_score_correction_bias` only shifts ranking. Mixture weights are gathered from the uncorrected sigmoid
+      scores in ``forward`` and renormalized only when ``norm_topk_prob`` is set; the bias never enters them.
     """
 
     def __init__(self, config: Config) -> None:
@@ -914,7 +925,8 @@ class GroupedTopkRouter(nn.Module):
             .expand(-1, self.config.n_expert_groups, self.config.n_expert // self.config.n_expert_groups)
             .reshape(-1, self.config.n_expert)
         )
-        scores_for_choice = scores_for_choice.masked_fill(~score_mask.bool(), 0.0)
+        # Masking with zero would let excluded experts outrank eligible experts whose corrected score is <= 0.
+        scores_for_choice = scores_for_choice.masked_fill(~score_mask.bool(), float("-inf"))
         topk_indices = torch.topk(scores_for_choice, k=self.config.n_expert_per_token, dim=-1, sorted=False)[1]
         return topk_indices
 
