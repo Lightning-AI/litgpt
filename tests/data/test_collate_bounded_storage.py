@@ -10,7 +10,7 @@ from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
 from torch.utils.data import DataLoader
 
-from litgpt import Config, GPT, Tokenizer
+from litgpt import GPT, Config, Tokenizer
 from litgpt.data.base import SFTDataset, get_sft_collate_fn
 from litgpt.prompts import PromptStyle
 
