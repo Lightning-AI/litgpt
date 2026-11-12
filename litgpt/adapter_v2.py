@@ -51,8 +51,9 @@ class AdapterV2Linear(torch.nn.Module):
     def __init__(self, in_features: int, out_features: int, **kwargs) -> None:
         super().__init__()
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
-        self.adapter_bias = torch.nn.Parameter(torch.zeros(out_features), requires_grad=False)
-        self.adapter_scale = torch.nn.Parameter(torch.ones(out_features), requires_grad=False)
+        factory_kwargs = {"device": kwargs.get("device"), "dtype": kwargs.get("dtype")}
+        self.adapter_bias = torch.nn.Parameter(torch.zeros(out_features, **factory_kwargs), requires_grad=False)
+        self.adapter_scale = torch.nn.Parameter(torch.ones(out_features, **factory_kwargs), requires_grad=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.adapter_scale * (self.linear(x) + self.adapter_bias)
