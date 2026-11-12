@@ -660,7 +660,7 @@ def instantiate_torch_optimizer(optimizer, model_parameters, **kwargs):
         valid_params = set(inspect.signature(optimizer_cls).parameters)
         kwargs = {key: value for key, value in dict(kwargs).items() if key in valid_params}
 
-        optimizer["init_args"].update(kwargs)
+        optimizer["init_args"] = {**optimizer["init_args"], **kwargs}
         optimizer = instantiate_class(model_parameters, optimizer)
     else:
         raise ValueError(f'Unrecognized "optimizer" value: {optimizer}')
