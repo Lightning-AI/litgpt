@@ -13,6 +13,7 @@ from litgpt.prompts import (
     Phi3,
     Phi4Reasoning,
     PromptStyle,
+    R1Base,
     has_prompt_style,
     load_prompt_style,
     prompt_styles,
@@ -83,6 +84,9 @@ def test_prompt_style_from_config():
     ]
 
     for c in litgpt.config.platypus:
+        model_names.append(c["name"])
+
+    for c in litgpt.config.r1_distill_llama:
         model_names.append(c["name"])
 
     for c in litgpt.config.r1_distill_qwen:
@@ -215,3 +219,75 @@ def test_phi4_reasoning_uses_well_formed_im_start_token():
     assert "<|im_start>" not in output
     assert output.startswith("<|im_start|>system<|im_sep|>")
     assert output.count("<|im_start|>") == 3
+
+
+# The expected strings are the chat_template from the tokenizer_config.json of the DeepSeek-R1 distills (the same in
+# all six), rendered with apply_chat_template(..., add_generation_prompt=True, tokenize=False), minus the leading
+# <｜begin▁of▁sentence｜>, which the tokenizer adds
+@pytest.mark.parametrize(
+    ("prompt", "sys_prompt", "expected"),
+    [
+        pytest.param("What is 2+2?", None, "<｜User｜>What is 2+2?<｜Assistant｜><think>\n", id="str"),
+        pytest.param(
+            [{"role": "user", "content": "What is 2+2?"}],
+            None,
+            "<｜User｜>What is 2+2?<｜Assistant｜><think>\n",
+            id="list",
+        ),
+        pytest.param(
+            "What is 2+2?", "Be brief.", "Be brief.<｜User｜>What is 2+2?<｜Assistant｜><think>\n", id="sys_prompt"
+        ),
+        pytest.param(
+            [{"role": "system", "content": "Be brief."}, {"role": "user", "content": "What is 2+2?"}],
+            None,
+            "Be brief.<｜User｜>What is 2+2?<｜Assistant｜><think>\n",
+            id="system_message",
+        ),
+        pytest.param(
+            [
+                {"role": "user", "content": "What is 2+2?"},
+                {"role": "assistant", "content": "The answer is 4."},
+                {"role": "user", "content": "And 3+3?"},
+            ],
+            None,
+            "<｜User｜>What is 2+2?<｜Assistant｜>The answer is 4.<｜end▁of▁sentence｜>"
+            "<｜User｜>And 3+3?<｜Assistant｜><think>\n",
+            id="multiturn",
+        ),
+        pytest.param(
+            [
+                {"role": "user", "content": "What is 2+2?"},
+                {
+                    "role": "assistant",
+                    "content": "<think>\nThe user asks 2+2. That is 4.\n</think>\n\nThe answer is 4.",
+                },
+                {"role": "user", "content": "And 3+3?"},
+            ],
+            None,
+            "<｜User｜>What is 2+2?<｜Assistant｜>\n\nThe answer is 4.<｜end▁of▁sentence｜>"
+            "<｜User｜>And 3+3?<｜Assistant｜><think>\n",
+            id="multiturn_reasoning",
+        ),
+        pytest.param(
+            [{"role": "user", "content": "  What is 2+2?\n"}],
+            None,
+            "<｜User｜>  What is 2+2?\n<｜Assistant｜><think>\n",
+            id="whitespace",
+        ),
+        pytest.param(
+            [
+                {"role": "system", "content": "A."},
+                {"role": "user", "content": "Hi"},
+                {"role": "system", "content": "B."},
+                {"role": "user", "content": "Again"},
+            ],
+            None,
+            "B.<｜User｜>Hi<｜User｜>Again<｜Assistant｜><think>\n",
+            id="last_system_message",
+        ),
+        # apply_chat_template raises IndexError on [], but the template itself renders this
+        pytest.param([], None, "<｜Assistant｜><think>\n", id="empty_list"),
+    ],
+)
+def test_r1base_matches_hf_chat_template(prompt, sys_prompt, expected):
+    assert R1Base().apply(prompt, sys_prompt=sys_prompt) == expected
