@@ -862,7 +862,7 @@ class LLaMAMoE(nn.Module):
         See also figure 1 in https://arxiv.org/abs/2211.15841
         """
         B, T, C = x.size()  # batch size, sequence length, embedding dimensionality (n_embd)
-        residual_x = x.clone()
+        residual_x = x
         x = x.view(-1, C)  # (B*T, C)
         if not self.config.n_expert_groups:
             router = self.gate(x)  # (B*T, n_expert)
