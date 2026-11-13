@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import importlib.util
 import math
 import pprint
 import time
@@ -72,6 +73,7 @@ def setup(
     tokenizer_dir: Path | None = None,
     logger_name: LoggerChoice = "tensorboard",
     seed: int = 42,
+    compile: bool = True,
 ):
     """Pretrain a model.
 
@@ -98,6 +100,8 @@ def setup(
             module require this.
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
+        compile: Whether to compile the model with ``torch.compile``. Skipped with a message on CUDA when Triton is
+            not installed (e.g. on Windows), since compiling the model would fail.
     """
     if model_name == "list":
         available_models = "\n".join(sorted(name_to_config))
@@ -170,7 +174,13 @@ def setup(
         train=train,
         eval=eval,
         optimizer=optimizer,
+        compile=compile,
     )
+
+
+def _compile_is_supported(device: torch.device) -> bool:
+    """Whether ``torch.compile``'s default backend can compile for ``device``: it generates CUDA kernels with Triton."""
+    return device.type != "cuda" or importlib.util.find_spec("triton") is not None
 
 
 def main(
@@ -188,6 +198,7 @@ def main(
     eval: EvalArgs,
     optimizer: str | dict,
     num_nodes: int = 1,
+    compile: bool = True,
 ) -> None:
     validate_args(train, eval, initial_checkpoint_dir, resume)
 
@@ -210,7 +221,14 @@ def main(
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters: {num_parameters(model):,}")
 
-    model = torch.compile(model)
+    if compile and not _compile_is_supported(fabric.device):
+        fabric.print(
+            "Skipping torch.compile: compiling for CUDA requires Triton, which is not installed (e.g. on Windows)."
+            " Pass `--compile false` to skip compilation without this message."
+        )
+        compile = False
+    if compile:
+        model = torch.compile(model)
     model = fabric.setup(model)
 
     extra_kwargs = {"fused": fabric.device.type == "cuda"}
