@@ -129,3 +129,15 @@ def test_initialize_weights(strategy, expected):
     initialize_weights(fabric_mock, model, n_layer=2, n_embd=8)
     assert model.reset_parameters.call_count == int(expected)
     assert model.child.reset_parameters.call_count == int(expected)
+
+
+def test_compile_is_supported(monkeypatch):
+    # torch.compile's default backend needs Triton to generate CUDA kernels, which is not installed on e.g. Windows
+    find_spec = Mock(return_value=None)
+    monkeypatch.setattr(pretrain.importlib.util, "find_spec", find_spec)
+    assert pretrain._compile_is_supported(torch.device("cpu"))
+    assert not pretrain._compile_is_supported(torch.device("cuda"))
+    find_spec.assert_called_with("triton")
+
+    find_spec.return_value = Mock()  # a module spec: Triton is installed
+    assert pretrain._compile_is_supported(torch.device("cuda"))
