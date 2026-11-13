@@ -138,8 +138,9 @@ def main(
     )
     t = time.perf_counter() - t0
 
-    output = tokenizer.decode(y)
-    output = output.split("### Response:")[1].strip()
+    # Decode only the generated tokens. Splitting on Alpaca's "### Response:" marker raised IndexError
+    # for every other prompt style, e.g. the model's own one when the checkpoint has no prompt_style.yaml
+    output = tokenizer.decode(y[prompt_length:]).strip()
     fabric.print(output)
 
     tokens_generated = y.size(0) - prompt_length
