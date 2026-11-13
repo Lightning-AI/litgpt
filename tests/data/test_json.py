@@ -130,3 +130,17 @@ def test_json_with_splits(as_jsonl, tmp_path, mock_tokenizer):
 
     assert len(train_dataloader) == 2
     assert len(val_dataloader) == 1
+
+
+@pytest.mark.parametrize("num_workers", [0, 2])
+def test_json_dataloaders_keep_workers_alive(tmp_path, mock_tokenizer, num_workers):
+    # Recreating worker processes for every epoch and every validation run is slow where workers are
+    # spawned (Windows, macOS), so the dataloaders keep them alive whenever they use any
+    json_path = tmp_path / "data.json"
+    json_path.write_text(json.dumps([{"instruction": "Add", "input": "2+2", "output": "4"}] * 4), encoding="utf-8")
+    data = JSON(json_path, val_split_fraction=0.5, num_workers=num_workers)
+    data.connect(tokenizer=mock_tokenizer, batch_size=2)
+    data.setup()
+
+    assert data.train_dataloader().persistent_workers is (num_workers > 0)
+    assert data.val_dataloader().persistent_workers is (num_workers > 0)
