@@ -126,14 +126,12 @@ def _sft_collate_fn(
     for key in ("input_ids", "labels"):
         pad_value = pad_id if key == "input_ids" else ignore_index
 
-        # Pad right based on the longest sequence
-        batched[key] = torch.nn.utils.rnn.pad_sequence(
-            [sample[key] for sample in samples], batch_first=True, padding_value=pad_value
-        )
-
-        # Truncate if needed
+        sequences = [sample[key] for sample in samples]
         if max_seq_length > 0:
-            batched[key] = batched[key][:, :max_seq_length]
+            sequences = [sequence[:max_seq_length] for sequence in sequences]
+
+        # Pad right after truncating so the backing storage also respects the sequence limit.
+        batched[key] = torch.nn.utils.rnn.pad_sequence(sequences, batch_first=True, padding_value=pad_value)
 
     batched["token_counts"] = {}
     batched["token_counts"]["raw"] = torch.tensor(  # Token count without padding and without prompt template
