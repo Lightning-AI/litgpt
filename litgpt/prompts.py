@@ -145,8 +145,7 @@ class Llama2FunctionCalling(PromptStyle):
             "You are a helpful, respectful and honest assistant. Always answer as helpfully as"
             "possible. Your only response should be JSON formatted functions"
         )
-        # replace the curly braces with double curly braces to escape them
-        function_list = dumps(function_metadata).replace("{", "{{").replace("}", "}}")
+        function_list = dumps(function_metadata)
         return (
             f"{b_func}{function_list.strip()}{e_func}{b_inst}{b_sys}{system_prompt.strip()}{e_sys}{prompt}{e_inst}\n\n"
         )

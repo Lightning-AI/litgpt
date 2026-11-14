@@ -1,5 +1,6 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
 
+import json
 
 import pytest
 import yaml
@@ -9,6 +10,7 @@ from litgpt import Config
 from litgpt.prompts import (
     Alpaca,
     Default,
+    Llama2FunctionCalling,
     Llama3,
     Phi3,
     Phi4Reasoning,
@@ -102,6 +104,12 @@ def test_apply_prompts():
         assert prompt in output
         if isinstance(style, Alpaca):
             assert inp in output
+
+
+def test_llama2_function_calling_prompt():
+    output = Llama2FunctionCalling().apply("Search for coconuts.")
+    functions = output.split("<FUNCTIONS>")[1].split("</FUNCTIONS>")[0]
+    assert json.loads(functions)["function"] == "search_bing"
 
 
 class CustomPromptStyle(PromptStyle):
