@@ -76,6 +76,7 @@ def setup(
     log: LogArgs = LogArgs(),
     eval: EvalArgs = EvalArgs(interval=100, max_new_tokens=100, max_iters=100),
     optimizer: str | dict = "AdamW",
+    lora_plus_lr_ratio: float | None = None,
     logger_name: LoggerChoice = "csv",
     seed: int = 1337,
     access_token: str | None = None,
@@ -103,6 +104,9 @@ def setup(
         train: Training-related arguments. See ``litgpt.args.TrainArgs`` for details.
         eval: Evaluation-related arguments. See ``litgpt.args.EvalArgs`` for details.
         optimizer: An optimizer name (such as "AdamW") or config.
+        lora_plus_lr_ratio: When set, enables LoRA+ (Hayou et al., 2024) by applying this multiplier to
+            the learning rate of lora_B parameters relative to lora_A. The paper recommends a ratio of
+            ``16.0`` for standard fine-tuning. Has no effect when ``None`` (default LoRA behaviour).
         logger_name: The name of the logger to send metrics to.
         seed: The random seed to use for reproducibility.
         access_token: Optional API token to access models with restrictions.
@@ -176,7 +180,19 @@ def setup(
         check_nvlink_connectivity(fabric)
 
     fabric.launch(
-        main, devices, seed, config, data, checkpoint_dir, out_dir, train, eval, optimizer, num_nodes, precision
+        main,
+        devices,
+        seed,
+        config,
+        data,
+        checkpoint_dir,
+        out_dir,
+        train,
+        eval,
+        optimizer,
+        num_nodes,
+        precision,
+        lora_plus_lr_ratio,
     )
 
 
@@ -193,6 +209,7 @@ def main(
     optimizer: str | dict,
     num_nodes: int = 1,
     precision: str | None = None,
+    lora_plus_lr_ratio: float | None = None,
 ) -> None:
     validate_args(train, eval)
 
@@ -228,7 +245,12 @@ def main(
             device=old_embedding.weight.device, dtype=old_embedding.weight.dtype
         )
     else:
-        optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
+        if lora_plus_lr_ratio is not None:
+            from litgpt.utils import create_lora_plus_optimizer
+
+            optimizer = create_lora_plus_optimizer(optimizer, model, lora_plus_lr_ratio)
+        else:
+            optimizer = instantiate_torch_optimizer(optimizer, model.parameters())
 
     optimizer = fabric.setup_optimizers(optimizer)
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
