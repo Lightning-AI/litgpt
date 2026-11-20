@@ -10,6 +10,7 @@ from litgpt.prompts import (
     Alpaca,
     Default,
     Llama3,
+    OLMo,
     Phi3,
     Phi4Reasoning,
     PromptStyle,
@@ -91,6 +92,32 @@ def test_prompt_style_from_config():
     for model_name in model_names:
         # by asserting the returned style is not the Default, we show that at least one of the regex patterns matched
         assert not isinstance(PromptStyle.from_config(Config.from_name(model_name)), Default)
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "OLMo-2-1124-7B-Instruct",
+        "OLMo-2-1124-7B-SFT",
+        "OLMo-2-1124-7B-DPO",
+        "OLMo-2-1124-13B-Instruct",
+        "OLMo-2-1124-13B-SFT",
+        "OLMo-2-1124-13B-DPO",
+    ],
+)
+def test_olmo2_instruct_uses_olmo_prompt_style(model_name):
+    # OLMo-2 instruct/SFT/DPO checkpoints use the OLMo (Tulu) chat template
+    # ("<|user|>\n...\n<|assistant|>\n" with "<|endoftext|>" as BOS/EOS), not the
+    # Llama 3 template. See https://huggingface.co/allenai/OLMo-2-1124-7B-Instruct
+    style = PromptStyle.from_config(Config.from_name(model_name))
+    assert isinstance(style, OLMo)
+
+    rendered = style.apply("What is 2+2?")
+    assert rendered == "<|endoftext|><|user|>\nWhat is 2+2?\n<|assistant|>\n"
+    # the Llama 3 control tokens must not leak into an OLMo-2 prompt
+    assert "<|begin_of_text|>" not in rendered
+    assert "<|start_header_id|>" not in rendered
+    assert "<|eot_id|>" not in rendered
 
 
 def test_apply_prompts():
