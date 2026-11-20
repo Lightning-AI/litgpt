@@ -137,8 +137,9 @@ class Tokenizer:
         elif tokens and tokens[0] == self.bos_id:
             tokens = tokens[1:]
 
-        if eos and (not tokens or tokens[-1] != self.eos_id):
-            tokens = tokens + [self.eos_id]
+        if eos:
+            if not tokens or tokens[-1] != self.eos_id:
+                tokens = tokens + [self.eos_id]
         # if the processor misbehaves and adds `eos` token no matter what
         elif tokens and tokens[-1] == self.eos_id:
             tokens = tokens[:-1]
