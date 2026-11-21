@@ -10,6 +10,7 @@ from typing import Literal
 
 import lightning as L
 import torch
+from lightning.fabric.loggers import CSVLogger
 from lightning.fabric.plugins import BitsandbytesPrecision
 from lightning.fabric.strategies import ModelParallelStrategy
 from lightning.fabric.utilities import ThroughputMonitor
@@ -205,6 +206,17 @@ def main(
 
     if fabric.global_rank == 0:
         os.makedirs(out_dir, exist_ok=True)
+        if fabric.loggers and not isinstance(fabric.logger, CSVLogger):
+            fabric.logger.log_hyperparams(
+                {
+                    "model_name": config.name,
+                    "seed": seed,
+                    "optimizer": optimizer,
+                    "train": dataclasses.asdict(train),
+                    "eval": dataclasses.asdict(eval),
+                    **{name: value for name, value in vars(config).items() if name.startswith("lora_")},
+                }
+            )
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
     with fabric.init_module(empty_init=(fabric.world_size > 1)):

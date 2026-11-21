@@ -243,7 +243,8 @@ def test_lora_filter(tmp_path):
 
 
 @mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
-def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
+@pytest.mark.parametrize("logger_name", ["csv", "tensorboard"])
+def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path, logger_name):
     model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
     (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
     monkeypatch.setattr(module, "load_checkpoint", Mock())
@@ -254,6 +255,8 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
+    record_hparams = Mock()
+    monkeypatch.setattr("lightning.fabric.loggers.TensorBoardLogger.log_hyperparams", record_hparams)
     out_dir = tmp_path / "out"
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]):
@@ -264,6 +267,7 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             ),
             out_dir=out_dir,
             precision="32-true",
+            logger_name=logger_name,
             train=TrainArgs(global_batch_size=1, save_interval=2, epochs=1, max_steps=6, micro_batch_size=1),
             eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
         )
@@ -281,7 +285,14 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
             "hyperparameters.yaml",
             "prompt_style.yaml",
         }
-    assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
+    if logger_name == "csv":
+        assert (out_dir / "logs" / "csv" / "version_0" / "metrics.csv").is_file()
+    else:
+        record_hparams.assert_called_once()
+        (hparams,) = record_hparams.call_args.args
+        assert hparams["lora_r"] == 8
+        assert hparams["train"]["max_steps"] == 6
+        assert hparams["eval"]["max_iters"] == 2
 
     logs = stdout.getvalue()
     assert logs.count("(step)") == 6
