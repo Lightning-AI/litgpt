@@ -28,7 +28,7 @@ litgpt finetune_lora stabilityai/stablelm-base-alpha-3b \
 
 The finetuning requires at least one GPU with ~24 GB memory (RTX 3090).
 
-This script will save checkpoints periodically to the folder `out/`.
+This script saves checkpoints under `out/finetune/lora/` by default.
 
 > [!NOTE]
 > LoRA can be applied to not only `query`, `key` or `value` matrices, but also to `projection`, `mlp` and classification `head`.
@@ -73,17 +73,20 @@ For additional benchmarks and resource requirements, please see the [Resource Ta
 
 ## Test the Model
 
-You can test the finetuned model with your own instructions by running:
+Open the final checkpoint in an interactive chat.
 
 ```bash
-litgpt generate "out/lora/final" \
-  --prompt "Recommend a movie to watch on the weekend."
+litgpt chat out/finetune/lora/final
 ```
 
-Output:
+At the prompt, enter an instruction such as `Recommend a movie to watch on the weekend.` Press Enter on an empty prompt to exit.
+If you set `--out_dir`, use the `final` directory inside it.
 
-```text
-I would recommend the movie The Martian (2015). It is a sci-fi movie starring Matt Damon that follows the story of...
+For a single response, pass the instruction to `litgpt generate`.
+
+```bash
+litgpt generate out/finetune/lora/final \
+  --prompt "Recommend a movie to watch on the weekend."
 ```
 
 If your GPU supports `bfloat16`, you can additionally pass `--precision "bf16-true"` to bring the memory consumption down to ~7.6 GB for StableLM-3B (versus ~15.2  GB for `--precision "32-full"`). In addition, you may use quantization methods, for example `--precision "bf16-true" --quantize "bnb.nf4"` brings the memory consumption further down to ~4.4 GB for StableLM-3B.
