@@ -47,18 +47,20 @@ Note that `mps` as the accelerator will be picked up automatically by Fabric whe
 
 ## Test the model
 
-You can test the finetuned model with your own instructions by running:
+Open the final checkpoint from the `--out_dir` example above in an interactive chat.
 
 ```bash
-litgpt generate tiiuae/falcon-7b \
-    --prompt "Recommend a movie to watch on the weekend." \
-    --finetuned_path out/full/my-model-finetuned/lit_model_finetuned.pth
+litgpt chat out/full/my-model-finetuned/final
 ```
 
-Output:
+If you used the default output directory, run `litgpt chat out/finetune/full/final` instead.
+At the prompt, enter an instruction such as `Recommend a movie to watch on the weekend.` Press Enter on an empty prompt to exit.
 
-```text
-A good movie to watch on the weekend would be The Lion King, since it's a classic family film that everyone can enjoy...
+For a single response, pass the instruction to `litgpt generate`.
+
+```bash
+litgpt generate out/full/my-model-finetuned/final \
+  --prompt "Recommend a movie to watch on the weekend."
 ```
 
 If your GPU supports `bfloat16`, the script will automatically use it.
@@ -82,10 +84,10 @@ You can easily train on your own instruction dataset saved in JSON format.
     ]
     ```
 
-2. Run `litgpt finetune` by passing in the location of your data (and optionally other parameters):
+2. Pass the location of your data to `litgpt finetune_full`.
 
     ```bash
-    litgpt finetune tiiuae/falcon-7b \
+    litgpt finetune_full tiiuae/falcon-7b \
         --data JSON \
         --data.json_path data/mydata.json \
         --out_dir data/mydata-finetuned
