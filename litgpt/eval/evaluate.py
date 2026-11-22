@@ -8,7 +8,7 @@ from pprint import pprint
 import torch
 
 from litgpt.scripts.convert_lit_checkpoint import convert_lit_checkpoint
-from litgpt.utils import auto_download_checkpoint, copy_config_files
+from litgpt.utils import auto_download_checkpoint
 
 
 def prepare_results(results, save_filepath, print_results=True):
@@ -44,7 +44,7 @@ def convert_and_evaluate(
         out_dir: Directory in which to save the converted checkpoints for evaluation.
             Saves to `checkpoint_dir`/evaluate by default.
         force_conversion: Set to `True` to reconvert the model and override
-            an existing model.pth from a previous evaluation call.
+            an existing pytorch_model.bin from a previous evaluation call.
         tasks: CSV of task names to evaluate. Example: "hellaswag,truthfulqa_mc2,mmlu"
         num_fewshot: Number of examples in few-shot context.
         batch_size: Batch size configuration as positive integer value (default: 1),
@@ -92,15 +92,7 @@ def convert_and_evaluate(
 
     model_path = out_dir / "pytorch_model.bin"
     if not model_path.exists() or force_conversion:
-        copy_config_files(source_dir=checkpoint_dir, out_dir=out_dir)
         convert_lit_checkpoint(checkpoint_dir=checkpoint_dir, output_dir=out_dir)
-
-        # Hack: LitGPT's conversion doesn't save a pickle file that is compatible to be loaded with
-        # `torch.load(..., weights_only=True)`, which is a requirement in HFLM.
-        # So we're `torch.load`-ing and `torch.save`-ing it again to work around this.
-        state_dict = torch.load(out_dir / "model.pth")
-        torch.save(state_dict, model_path)
-        os.remove(out_dir / "model.pth")
 
     from lm_eval.models.huggingface import HFLM
 
