@@ -3,7 +3,7 @@
 import sys
 import time
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from pprint import pprint
 from typing import Any, Literal
@@ -125,6 +125,29 @@ def batched_next_token(model: GPT, input_pos: torch.Tensor, x: torch.Tensor, kwa
     return batched_sample(logits_list, kwargs=_kwargs)
 
 
+def _build_stop_sequence_prefix_table(sequence: Sequence[int]) -> list[int]:
+    if not sequence:
+        raise ValueError("stop sequences must not be empty")
+
+    prefix_table = [0] * len(sequence)
+    progress = 0
+    for index in range(1, len(sequence)):
+        while progress and sequence[index] != sequence[progress]:
+            progress = prefix_table[progress - 1]
+        if sequence[index] == sequence[progress]:
+            progress += 1
+        prefix_table[index] = progress
+    return prefix_table
+
+
+def _advance_stop_sequence(sequence: Sequence[int], prefix_table: Sequence[int], progress: int, token: int) -> int:
+    while progress and token != sequence[progress]:
+        progress = prefix_table[progress - 1]
+    if token == sequence[progress]:
+        progress += 1
+    return progress
+
+
 @torch.inference_mode()
 def generate_fn(
     model: GPT,
@@ -167,6 +190,7 @@ def generate_fn(
         yield prompt
 
     stop_progress = [0] * len(stop_tokens)
+    stop_prefix_tables = [_build_stop_sequence_prefix_table(sequence) for sequence in stop_tokens]
     yielded_idx = 0
 
     # Generate output tokens.
@@ -195,18 +219,20 @@ def generate_fn(
         int_token = token.item()
 
         # Check for stop sequences
-        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
-        # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold off on yielding the token.
+        # For each stop sequence, retain the longest generated suffix that is also a sequence prefix.
+        # Tokens in these partial matches are held back until they become safe to yield.
+        matched_stop_length = 0
         for i, seq in enumerate(stop_tokens):
-            if int_token == seq[stop_progress[i]]:
-                stop_progress[i] += 1
-                if stop_progress[i] == len(seq):
-                    if include_eos:
-                        yield from tokens[yielded_idx:]
-                    return
+            stop_progress[i] = _advance_stop_sequence(seq, stop_prefix_tables[i], stop_progress[i], int_token)
+            if stop_progress[i] == len(seq):
+                matched_stop_length = max(matched_stop_length, len(seq))
+
+        if matched_stop_length:
+            if include_eos:
+                yield from tokens[yielded_idx:]
             else:
-                stop_progress[i] = 0
+                yield from tokens[yielded_idx : len(tokens) - matched_stop_length]
+            return
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
@@ -290,6 +316,7 @@ def batched_generate_fn(
             yield [prompt[i].view(-1) for prompt in prompts]
 
     stop_progresses = [[0] * len(stop_tokens) for _ in range(batch_size)]  # [batch_size, ~len(stop_tokens)]
+    stop_prefix_tables = [_build_stop_sequence_prefix_table(sequence) for sequence in stop_tokens]
     stop_idxes = [-1] * batch_size
     yielded_idx = 0
 
@@ -310,22 +337,20 @@ def batched_generate_fn(
         int_tokens = [token.item() for token in tokens]
 
         # Check for stop sequences
-        # For each stop sequence, we keep a running total of how many are matched in stop_progress.
-        # If the current token matches the next token in the stop sequence, we increment the
-        # running total and hold off on yielding the token.
+        # For each stop sequence, retain the longest generated suffix that is also a sequence prefix.
+        # Tokens in these partial matches are held back until they become safe to yield.
         for batch_idx, int_token in enumerate(int_tokens):
             if stop_idxes[batch_idx] != -1:
                 continue
+            matched_stop_length = 0
             for seq_idx, seq in enumerate(stop_tokens):
-                seq_pos = stop_progresses[batch_idx][seq_idx]
-                if seq_pos >= len(seq):
-                    continue
-                if int_token == seq[seq_pos]:
-                    stop_progresses[batch_idx][seq_idx] += 1
-                    if stop_progresses[batch_idx][seq_idx] == len(seq):
-                        stop_idxes[batch_idx] = current_idx
-                else:
-                    stop_progresses[batch_idx][seq_idx] = 0
+                stop_progresses[batch_idx][seq_idx] = _advance_stop_sequence(
+                    seq, stop_prefix_tables[seq_idx], stop_progresses[batch_idx][seq_idx], int_token
+                )
+                if stop_progresses[batch_idx][seq_idx] == len(seq):
+                    matched_stop_length = max(matched_stop_length, len(seq))
+            if matched_stop_length:
+                stop_idxes[batch_idx] = current_idx - matched_stop_length + 1
 
         # Yield tokens that are not part of a stop sequence in progress.
         # If there are no stop sequences, then that's all of them.
