@@ -53,7 +53,10 @@ def merge_lora(
         pretrained_checkpoint_dir = meta_pretrained_checkpoint_dir
         pretrained_checkpoint_dir = extend_checkpoint_dir(pretrained_checkpoint_dir)
 
-    fabric = L.Fabric(devices=1, precision=precision, accelerator="cpu")
+    # Merge only cares about weights (dtype is set from the LoRA checkpoint below). Using the
+    # training precision (often "16-mixed") on CPU makes Fabric warn about unsupported AMP fp16
+    # and switch to bf16-mixed, which is a false positive for this script (#1242).
+    fabric = L.Fabric(devices=1, precision="32-true", accelerator="cpu")
     config = Config.from_file(checkpoint_dir / "model_config.yaml", **lora_params)
 
     with fabric.init_module(), torch.device("meta"):
