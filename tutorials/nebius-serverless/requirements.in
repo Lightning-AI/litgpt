@@ -1,0 +1,7 @@
+# Runtime for the Nebius Serverless Endpoints tutorial (Python 3.12, Linux x86_64).
+litgpt==0.5.13
+litserve==0.2.19
+torch==2.7.1
+huggingface-hub==0.34.4
+jinja2==3.1.6
+litdata==0.2.59
