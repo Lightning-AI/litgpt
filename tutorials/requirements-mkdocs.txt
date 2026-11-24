@@ -1,0 +1,3 @@
+mkdocs==1.6.1
+mkdocs-material==9.8.0
+mkdocs-pagetree-plugin==0.0.17
