@@ -112,15 +112,11 @@ Suppose you have a test dataset with the following structure:
 
 ```python
 test_data = [
-    {
-        "instruction": "Name the author of 'Pride and Prejudice'.",
-        "input": "",
-        "output": "Jane Austen."
-    },
+    {"instruction": "Name the author of 'Pride and Prejudice'.", "input": "", "output": "Jane Austen."},
     {
         "instruction": "Pick out the adjective from the following list.",
         "input": "run, tall, quickly",
-        "output": "The correct adjective from the list is 'tall.'"
+        "output": "The correct adjective from the list is 'tall.'",
     },
 ]
 ```
@@ -173,7 +169,7 @@ Next, we use a second LLM to calculate the response quality on a scale from 0 to
 
 
 ```python
-del llm # delete previous `llm` to free up GPU memory
+del llm  # delete previous `llm` to free up GPU memory
 scorer = LLM.load("meta-llama/Meta-Llama-3-8B-Instruct", access_token="...")
 ```
 
@@ -207,7 +203,7 @@ def generate_model_scores(data_dict, model, response_field="response", target_fi
 scores = generate_model_scores(test_data, model=scorer)
 print(f"\n{llm}")
 print(f"Number of scores: {len(scores)} of {len(test_data)}")
-print(f"Average score: {sum(scores)/len(scores):.2f}\n")
+print(f"Average score: {sum(scores) / len(scores):.2f}\n")
 ```
 
 This will print out the average score on all test set entries:

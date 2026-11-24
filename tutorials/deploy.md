@@ -35,8 +35,7 @@ You can now send requests to the inference server you started in step 2. For exa
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Example input"}
+    "http://127.0.0.1:8000/predict", json={"prompt": "Fix typos in the following sentence: Example input"}
 )
 
 print(response.json()["output"])
@@ -63,9 +62,7 @@ Then, use the following updated code to query the inference server:
 import requests, json
 
 response = requests.post(
-    "http://127.0.0.1:8000/predict",
-    json={"prompt": "Fix typos in the following sentence: Example input"},
-    stream=True
+    "http://127.0.0.1:8000/predict", json={"prompt": "Fix typos in the following sentence: Example input"}, stream=True
 )
 
 # stream the response
@@ -121,14 +118,11 @@ from openai import OpenAI
 # Configure the client to use your local LitGPT server
 client = OpenAI(
     base_url="http://127.0.0.1:8000/v1",
-    api_key="not-needed"  # LitGPT doesn't require authentication by default
+    api_key="not-needed",  # LitGPT doesn't require authentication by default
 )
 
 response = client.chat.completions.create(
-    model="SmolLM2-135M-Instruct",
-    messages=[
-        {"role": "user", "content": "Hello! How are you?"}
-    ]
+    model="SmolLM2-135M-Instruct", messages=[{"role": "user", "content": "Hello! How are you?"}]
 )
 
 print(response.choices[0].message.content)
