@@ -34,3 +34,10 @@ def test_compute_warmup_iters():
     assert train.warmup_iters(devices=1, num_nodes=1, max_iters=20, train_dataloader=range(100)) == 20
     # lr_warmup_fraction rounds up
     assert train.warmup_iters(devices=1, num_nodes=1, max_iters=1000, train_dataloader=range(5)) == 2
+
+
+def test_loss_normalization():
+    assert TrainArgs().loss_normalization == "micro_batch"
+    assert TrainArgs(loss_normalization="token").loss_normalization == "token"
+    with pytest.raises(ValueError, match="must be 'micro_batch' or 'token'"):
+        TrainArgs(loss_normalization="tokens")
