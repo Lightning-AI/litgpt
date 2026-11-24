@@ -638,6 +638,141 @@ def copy_weights_olmo2(
                 pbar.update(progress_per_file)
 
 
+def copy_weights_olmoe(
+    config: Config,
+    qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
+    state_dict: dict[str, torch.Tensor],
+    hf_weights: dict[str, torch.Tensor | NotYetLoadedTensor],
+    saver: incremental_save | None = None,
+    dtype: torch.dtype | None = None,
+    pbar: tqdm | None = None,
+    progress_per_file: float | None = None,
+    debug_mode: bool | None = False,
+) -> None:
+    """Convert OLMoE-1B-7B-0924 HF weights to LitGPT format.
+
+    HF OLMoE stores per-expert weights individually:
+      model.layers.{L}.mlp.experts.{E}.gate_proj.weight
+      model.layers.{L}.mlp.experts.{E}.up_proj.weight
+      model.layers.{L}.mlp.experts.{E}.down_proj.weight
+
+    These map to LitGPT's individual expert Linear weights:
+      transformer.h.{L}.mlp.experts.{E}.fc_1.weight  (gate)
+      transformer.h.{L}.mlp.experts.{E}.fc_2.weight  (up)
+      transformer.h.{L}.mlp.experts.{E}.proj.weight  (down)
+
+    HF OLMoE also has per-head q_norm / k_norm weights that map to
+    LitGPT's attn.norm_q / attn.norm_k.
+    """
+    weight_map = {
+        "model.embed_tokens.weight": "transformer.wte.weight",
+        "model.layers.{}.input_layernorm.weight": "transformer.h.{}.norm_1.weight",
+        "model.layers.{}.self_attn.q_proj.weight": None,  # merged into qkv below
+        "model.layers.{}.self_attn.k_proj.weight": None,
+        "model.layers.{}.self_attn.v_proj.weight": None,
+        "model.layers.{}.self_attn.q_norm.weight": "transformer.h.{}.attn.norm_q.weight",
+        "model.layers.{}.self_attn.k_norm.weight": "transformer.h.{}.attn.norm_k.weight",
+        "model.layers.{}.self_attn.o_proj.weight": "transformer.h.{}.attn.proj.weight",
+        "model.layers.{}.self_attn.rotary_emb.inv_freq": None,
+        "model.layers.{}.post_attention_layernorm.weight": "transformer.h.{}.norm_2.weight",
+        "model.layers.{}.mlp.gate.weight": "transformer.h.{}.mlp.gate.weight",
+        "model.norm.weight": "transformer.ln_f.weight",
+        "lm_head.weight": "lm_head.weight",
+    }
+
+    if progress_per_file is not None:
+        progress_per_file = progress_per_file / max(1, len(hf_weights) + len(qkv_weights))
+
+    for from_name, param in hf_weights.items():
+        param = load_param(param, from_name, dtype, verbose=debug_mode)
+
+        # ── per-expert gate_proj → fc_1 ──
+        if ".mlp.experts." in from_name and from_name.endswith("gate_proj.weight"):
+            layer_idx, expert_idx = from_name.split(".")[2], from_name.split(".")[5]
+            to_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.fc_1.weight"
+            state_dict[to_key] = param
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        # ── per-expert up_proj → fc_2 ──
+        if ".mlp.experts." in from_name and from_name.endswith("up_proj.weight"):
+            layer_idx, expert_idx = from_name.split(".")[2], from_name.split(".")[5]
+            to_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.fc_2.weight"
+            state_dict[to_key] = param
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        # ── per-expert down_proj → proj ──
+        if ".mlp.experts." in from_name and from_name.endswith("down_proj.weight"):
+            layer_idx, expert_idx = from_name.split(".")[2], from_name.split(".")[5]
+            to_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.proj.weight"
+            state_dict[to_key] = param
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        # ── fused gate_up_proj: shape (n_expert, 2*intermediate, n_embd) ──
+        if from_name.endswith("mlp.experts.gate_up_proj"):
+            name_template, *ids = layer_template(from_name, num_matches=1)
+            layer_idx = ids[0]
+            gate, up = param.chunk(2, dim=1)
+            for expert_idx in range(config.n_expert):
+                fc1_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.fc_1.weight"
+                fc2_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.fc_2.weight"
+                state_dict[fc1_key] = gate[expert_idx]
+                state_dict[fc2_key] = up[expert_idx]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        # ── fused down_proj: shape (n_expert, n_embd, moe_intermediate_size) ──
+        if from_name.endswith("mlp.experts.down_proj"):
+            name_template, *ids = layer_template(from_name, num_matches=1)
+            layer_idx = ids[0]
+            for expert_idx in range(config.n_expert):
+                proj_key = f"transformer.h.{layer_idx}.mlp.experts.{expert_idx}.proj.weight"
+                state_dict[proj_key] = param[expert_idx]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        # ── q / k / v projections: accumulate for qkv merge ──
+        name_template, *ids = layer_template(from_name, num_matches=1)
+        if any(w in from_name for w in ("q_proj", "k_proj", "v_proj")):
+            qkv = qkv_weights.setdefault(ids[0], defaultdict(dict))
+            weight_name, weight_type = from_name.split(".")[-2:]
+            qkv[weight_type][weight_name] = param
+
+        to_name = weight_map.get(name_template)
+        if to_name is None:
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+            continue
+
+        to_name = to_name.format(*ids)
+        if saver is not None:
+            param = saver.store_early(param)
+        state_dict[to_name] = param
+
+        if progress_per_file is not None:
+            pbar.update(progress_per_file)
+
+    for i in list(qkv_weights):
+        for weight_type in list(qkv_weights[i]):
+            qkv = qkv_weights[i][weight_type]
+            if len(qkv) != 3:
+                continue
+            q = load_param(qkv["q_proj"], f"layer {i} q {weight_type}", dtype, verbose=debug_mode)
+            k = load_param(qkv["k_proj"], f"layer {i} k {weight_type}", dtype, verbose=debug_mode)
+            v = load_param(qkv["v_proj"], f"layer {i} v {weight_type}", dtype, verbose=debug_mode)
+            state_dict[f"transformer.h.{i}.attn.qkv.{weight_type}"] = torch.cat((q, k, v))
+            del qkv_weights[i][weight_type]
+            if progress_per_file is not None:
+                pbar.update(progress_per_file)
+
+
 def copy_weights_qwen_3(
     config: Config,
     qkv_weights: dict[int, list[NotYetLoadedTensor | None]],
@@ -814,6 +949,9 @@ def convert_hf_checkpoint(
         # holder to reconstitute the split q, k, v
         qkv_weights = {}
         copy_fn = partial(copy_weights_qwen_2_5, config, qkv_weights)
+    elif model_name.lower().startswith("olmoe"):
+        qkv_weights = {}
+        copy_fn = partial(copy_weights_olmoe, config, qkv_weights)
     elif model_name.lower().startswith("olmo-2-"):
         # holder to reconstitute the split q, k, v
         qkv_weights = {}

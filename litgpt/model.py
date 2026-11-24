@@ -866,8 +866,11 @@ class LLaMAMoE(nn.Module):
         x = x.view(-1, C)  # (B*T, C)
         if not self.config.n_expert_groups:
             router = self.gate(x)  # (B*T, n_expert)
-            probs, indices = torch.topk(router, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
-            probs = probs.softmax(dim=1, dtype=torch.float).to(dtype=x.dtype)
+            probs = F.softmax(router, dim=1, dtype=torch.float)
+            probs, indices = torch.topk(probs, self.config.n_expert_per_token)  # (B*T, n_expert_per_token)
+            if self.config.norm_topk_prob:
+                probs = probs / probs.sum(dim=-1, keepdim=True)
+            probs = probs.to(dtype=x.dtype)
         else:
             probs, indices = self.gate(x)
         if self.config.routed_scaling_factor != 1.0:
