@@ -194,6 +194,7 @@ def test_cycle_iterator():
     iterator = CycleIterator([])
     with pytest.raises(StopIteration):
         next(iterator)
+    assert iterator.state_dict() == {"epoch": 1}
 
     iterator = CycleIterator(range(3))
     assert iterator.epoch == 0
@@ -203,6 +204,14 @@ def test_cycle_iterator():
     assert iterator.epoch == 0
     assert next(iterator) == 2
     assert iterator.epoch == 0
+    assert iterator.state_dict() == {"epoch": 1}
+
+    resumed_iterator = CycleIterator(range(3))
+    assert next(resumed_iterator) == 0
+    resumed_iterator.load_state_dict(iterator.state_dict())
+    assert resumed_iterator.epoch == 1
+    assert next(resumed_iterator) == 0
+
     assert next(iterator) == 0
     assert iterator.epoch == 1
 

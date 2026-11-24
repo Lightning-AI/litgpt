@@ -495,19 +495,41 @@ class CycleIterator:
         self.iterable = iterable
         self.epoch = 0
         self._iterator = None
+        self._num_yielded = 0
 
     def __next__(self) -> Any:
         if self._iterator is None:
             self._iterator = iter(self.iterable)
         try:
-            return next(self._iterator)
+            item = next(self._iterator)
         except StopIteration:
             self._iterator = iter(self.iterable)
             self.epoch += 1
-            return next(self._iterator)
+            self._num_yielded = 0
+            item = next(self._iterator)
+        self._num_yielded += 1
+        return item
 
     def __iter__(self) -> Self:
         return self
+
+    def state_dict(self) -> dict[str, int]:
+        epoch = self.epoch
+        try:
+            iterable_length = len(self.iterable)
+            is_epoch_complete = (
+                iterable_length > 0 and self._iterator is not None and self._num_yielded == iterable_length
+            )
+        except TypeError:
+            is_epoch_complete = False
+        if is_epoch_complete:
+            epoch += 1
+        return {"epoch": epoch}
+
+    def load_state_dict(self, state_dict: dict[str, int]) -> None:
+        self.epoch = state_dict["epoch"]
+        self._iterator = None
+        self._num_yielded = 0
 
 
 def copy_config_files(source_dir: Path, out_dir: Path) -> None:
