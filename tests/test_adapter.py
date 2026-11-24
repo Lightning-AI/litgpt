@@ -19,6 +19,7 @@ from transformers.models.gemma2 import Gemma2Config, Gemma2ForCausalLM
 from transformers.models.gemma3 import Gemma3ForCausalLM, Gemma3TextConfig
 
 import litgpt.adapter as gpt_adapter
+import litgpt.adapter_v2 as gpt_adapter_v2
 import litgpt.finetune.adapter as module
 import litgpt.model as gpt
 from litgpt.adapter import GPT, CausalSelfAttention, Config, adapter_filter
@@ -453,3 +454,88 @@ def test_load_legacy_state_dict():
 
     attention_2 = CausalSelfAttention(config=config, block_idx=0)
     attention_2.load_state_dict(state_dict)
+
+
+@pytest.mark.parametrize("adapter_module", [gpt_adapter, gpt_adapter_v2])
+@pytest.mark.parametrize("warmup", ["none", "validation", "cached_inference"])
+@pytest.mark.parametrize("training", [False, True])
+def test_adapter_cache_preserves_gradients(adapter_module, warmup, training):
+    torch.manual_seed(42)
+    model = adapter_module.GPT(
+        adapter_module.Config(
+            n_layer=2,
+            n_head=2,
+            n_embd=16,
+            block_size=8,
+            vocab_size=32,
+            padding_multiple=1,
+            adapter_start_layer=1,
+            adapter_prompt_length=2,
+        )
+    )
+    if adapter_module is gpt_adapter:
+        gpt_adapter.mark_only_adapter_as_trainable(model)
+    else:
+        gpt_adapter_v2.mark_only_adapter_v2_as_trainable(model)
+    tokens = torch.randint(0, 32, (2, 8))
+    if warmup != "none":
+        model.eval()
+        with torch.no_grad():
+            if warmup == "cached_inference":
+                model.set_kv_cache(batch_size=2)
+                model(tokens, input_pos=torch.arange(8))
+            else:
+                model(tokens)
+    # eval() alone must not disable gradients, either.
+    model.train(training)
+    optimizer = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad), lr=0.01)
+    embedding = model.transformer.h[1].attn.adapter_wte.weight
+    before = embedding.detach().clone()
+    for _ in range(3):
+        optimizer.zero_grad()
+        logits = model(tokens)
+        loss = torch.nn.functional.cross_entropy(logits[:, :-1].reshape(-1, 32), tokens[:, 1:].reshape(-1))
+        loss.backward()
+        assert embedding.grad is not None
+        assert torch.isfinite(embedding.grad).all()
+        optimizer.step()
+    assert not torch.equal(embedding, before)
+
+
+@pytest.mark.parametrize("adapter_module", [gpt_adapter, gpt_adapter_v2])
+@torch.no_grad()
+def test_adapter_cache_clear_and_reuse(adapter_module):
+    torch.manual_seed(42)
+    model = adapter_module.GPT(
+        adapter_module.Config(
+            n_layer=2,
+            n_head=2,
+            n_embd=16,
+            block_size=8,
+            vocab_size=32,
+            padding_multiple=1,
+            adapter_start_layer=1,
+            adapter_prompt_length=2,
+        )
+    ).eval()
+    attention = model.transformer.h[1].attn
+    attention.gating_factor.fill_(0.5)
+    tokens = torch.randint(0, 32, (1, 4))
+    expected = model(tokens)
+    model.set_kv_cache(batch_size=1)
+    first = model(tokens[:, :3], input_pos=torch.arange(3))
+    cache = attention.adapter_kv_cache
+    assert cache is not None
+    last = model(tokens[:, 3:], input_pos=torch.tensor([3]))
+    assert attention.adapter_kv_cache is cache
+    torch.testing.assert_close(torch.cat([first, last], dim=1), expected)
+    model.clear_kv_cache()
+    assert attention.adapter_kv_cache is None
+    assert model.mask_cache is None
+    assert all(block.attn.kv_cache is None for block in model.transformer.h)
+    # A new inference session must see updated adapter weights.
+    attention.adapter_wte.weight.add_(1)
+    expected = model(tokens)
+    model.set_kv_cache(batch_size=1)
+    actual = model(tokens, input_pos=torch.arange(4))
+    torch.testing.assert_close(actual, expected)
