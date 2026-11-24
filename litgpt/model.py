@@ -96,6 +96,11 @@ class GPT(nn.Module):
         your forward algorithm. This slices the KV cache buffers and speeds
         up multi-head attention.
 
+        Standard attention can omit the explicit mask for single-token decoding
+        with shared (1D) positions and `input_pos_maxp1`. This allows SDPA to
+        select Flash Attention on supported hardware. Sliding-window attention
+        and attention-logit softcapping retain their existing masked paths.
+
         Without `input_pos_maxp1`, the computation uses the full KV cache
         (`max_seq_length`) with masking applied. Note that inferring
         `input_pos_maxp1` from `input_pos` causes graph breaks and prevents
@@ -562,6 +567,19 @@ class CausalSelfAttention(nn.Module):
                 sliding_window_mask = sliding_window_mask.view(1, 1, T, T)
                 mask = sliding_window_mask
 
+        # For a shared, single-token position, input_pos_maxp1 trims the cache
+        # exactly through the current token. Every remaining key is visible.
+        # Keep the mask for unsliced caches, per-example positions, and windows.
+        if (
+            input_pos is not None
+            and input_pos.ndim == 1
+            and T == 1
+            and input_pos_maxp1 is not None
+            and not self.apply_sliding_window_attention
+            and self.config.attention_logit_softcapping is None
+        ):
+            mask = None
+
         # Efficient attention using Flash Attention CUDA kernels.
         # NOTE: efficient implementation is disabled if `mask` is not None or softcapping is enabled.
         # ↓ (B, nh, T, hs) @ (B, nh, T, hs).mT --> (B, nh, T, T) @ (B, nh, T, hs) --> (B, nh, T, hs)
@@ -590,8 +608,10 @@ class CausalSelfAttention(nn.Module):
             scores = F.softmax(scores, dim=-1, dtype=torch.float).to(dtype=q.dtype)
             y = scores @ v
         else:
+            # A single query over a trimmed cache sees all keys. SDPA's
+            # upper-left causal mask would incorrectly expose only the first.
             y = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None
+                q, k, v, attn_mask=mask, dropout_p=0.0, scale=scale, is_causal=mask is None and q.size(2) > 1
             )
         return y.transpose(1, 2)
 
