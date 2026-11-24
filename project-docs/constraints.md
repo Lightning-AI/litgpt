@@ -1,0 +1,21 @@
+# Project constraints
+
+- Preserve all existing SFT behavior and defaults.
+- Do not redesign masking into a generalized token-weighting framework.
+- Do not modify training loops unless absolutely necessary.
+- Do not modify the loss implementation unless absolutely necessary.
+- Keep initial conversation support narrow and controlled.
+- Do not add caching, databases, or new infrastructure.
+- Do not optimize prematurely.
+- Do not expand initial support to every prompt style or dataset.
+- Assistant-only masking means assistant message content plus its termination token are trainable.
+- System content, user content, role markers, and non-assistant termination tokens are ignored.
+- Do not assume strict user/assistant alternation; mark messages by role and validate only what is necessary.
+- Preserve the complete conversation as one sequence and tokenize the serialized conversation once.
+- Construct labels aligned with the final token sequence; truncate `input_ids` and labels together.
+- Keep BOS and role/control tokens available as input context but not as assistant-only targets.
+- Treat the final empty assistant generation header as context, not a trainable target.
+- Define and test behavior for conversations with no retained assistant tokens after truncation.
+- Do not silently claim offset support for tokenizer backends that have not been validated.
+- Prefer the smallest implementation that enables the controlled experiment.
+- Keep the eventual contribution small enough to be a realistic upstream PR.

@@ -35,6 +35,8 @@ class JSON(DataModule):
     """The random seed for creating the train/val splits and shuffling the dataset."""
     num_workers: int = 4
     """How many DataLoader processes to use for loading."""
+    mask_strategy: str | None = None
+    """Optional masking strategy. ``'assistant'`` enables Llama 3 conversation masking."""
 
     tokenizer: Tokenizer | None = field(default=None, init=False, repr=False)
     batch_size: int = field(default=1, init=False, repr=False)
@@ -82,6 +84,7 @@ class JSON(DataModule):
             prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
+            mask_strategy=self.mask_strategy,
             ignore_index=self.ignore_index,
         )
         self.test_dataset = SFTDataset(
@@ -90,6 +93,7 @@ class JSON(DataModule):
             prompt_style=self.prompt_style,
             max_seq_length=self.max_seq_length,
             mask_prompt=self.mask_prompt,
+            mask_strategy=self.mask_strategy,
             ignore_index=self.ignore_index,
         )
 
