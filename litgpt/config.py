@@ -38,6 +38,7 @@ class Config:
     norm_eps: float = 1e-5
     norm_qk: bool = False
     norm_qk_type: Literal["default", "olmo2"] = "default"
+    attn_gate: bool = False
     post_attention_norm: bool = False
     post_mlp_norm: bool = False
     parallel_residual: bool = True

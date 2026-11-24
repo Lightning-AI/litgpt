@@ -398,6 +398,8 @@ class CausalSelfAttention(nn.Module):
         )
         # output projection
         self.proj = nn.Linear(config.head_size * config.n_head, config.n_embd, bias=config.bias)
+        # optional sigmoid gate on the attention output (Qwen3-Next style)
+        self.g_proj = nn.Linear(config.n_embd, config.n_embd, bias=False) if config.attn_gate else None
         # disabled by default
         self.kv_cache: KVCache | None = None
         self.apply_sliding_window_attention = False
@@ -571,6 +573,8 @@ class CausalSelfAttention(nn.Module):
         y = y.reshape(B, T, head_size * n_head)
 
         # Output projection.
+        if self.g_proj is not None:
+            y = y * torch.sigmoid(self.g_proj(x))
         return self.proj(y)  # (B, T, C)
 
     def scaled_dot_product_attention(
