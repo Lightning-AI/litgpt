@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import torch
 import yaml
+from lightning import Fabric
 
 import litgpt.finetune.full as module
 from litgpt.args import EvalArgs, TrainArgs
@@ -69,3 +70,38 @@ def test_full_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert f"Resuming training from {out_dir / 'step-000006' / 'lit_model.pth'}" in logs
     assert logs.count("(step)") == 2
     assert out_dir / "step-000008" in set(out_dir.iterdir())
+
+
+@mock.patch.dict(os.environ, {"LT_ACCELERATOR": "cpu"})
+def test_full_script_max_norm(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
+    model_config = dict(block_size=128, n_layer=2, n_embd=8, n_head=4, padded_vocab_size=8)
+    (fake_checkpoint_dir / "model_config.yaml").write_text(yaml.dump(model_config))
+    monkeypatch.setattr(module, "load_checkpoint", Mock())
+
+    tokenizer_mock = Mock()
+    tokenizer_mock.return_value = tokenizer_mock
+    tokenizer_mock.encode = lambda *_, **__: torch.tensor([3, 2, 1])
+    monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
+
+    stdout = StringIO()
+    with (
+        redirect_stdout(stdout),
+        mock.patch("sys.argv", ["full.py", str(fake_checkpoint_dir)]),
+        mock.patch.object(Fabric, "clip_gradients") as clip_mock,
+    ):
+        module.setup(
+            fake_checkpoint_dir,
+            data=Alpaca(
+                download_dir=alpaca_path.parent, file_name=alpaca_path.name, val_split_fraction=0.5, num_workers=0
+            ),
+            out_dir=tmp_path / "out",
+            precision="32-true",
+            train=TrainArgs(
+                global_batch_size=1, save_interval=2, epochs=1, max_steps=2, micro_batch_size=1, max_norm=1.0
+            ),
+            eval=EvalArgs(interval=2, max_iters=2, max_new_tokens=1),
+        )
+
+    # gradient clipping is applied once per optimizer step
+    assert clip_mock.call_count == 2
+    assert all(call.kwargs["max_norm"] == 1.0 for call in clip_mock.call_args_list)
