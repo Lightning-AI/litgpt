@@ -85,6 +85,11 @@ class Config:
     rope_condense_ratio: int = 1
     rope_adjustments: dict | None = None
     rope_interleave: bool = False
+    # When True, delegates RoPE application to torchembed's fused Triton kernel
+    # (requires ``pip install torchembed``). Falls back to the standard
+    # implementation if torchembed is unavailable or the tensors are not on a
+    # CUDA device. Incompatible with rope_interleave=True or rope_adjustments.
+    use_torchembed_rope: bool = False
     # Transformer block (MLP)
     intermediate_size: int | None = None
     moe_intermediate_size: int | None = None
