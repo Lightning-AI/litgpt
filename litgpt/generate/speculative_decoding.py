@@ -256,9 +256,12 @@ def generate(
     input_pos_maxp1 += 1
 
     # Step 2: Main generation loop.
-    tokens = []
+    prefill_token = token.squeeze(0)
+    stop_reached = prefill_token in stop_tokens
+    tokens = [] if stop_reached else [prefill_token]
+    max_generated_tokens = max_returned_tokens - prompt_size
     total_generated, total_accepted = 0, 0  # Track acceptance statistics
-    while input_pos < max_returned_tokens - 1:
+    while not stop_reached and input_pos < max_returned_tokens - 1:
         # Calculate speculative tokens to generate
         _speculative_k = min(speculative_k, (max_returned_tokens - input_pos - 1).item())
 
@@ -287,6 +290,9 @@ def generate(
                 should_break = True
                 break
             tokens.append(new_token)
+            if len(tokens) == max_generated_tokens:
+                should_break = True
+                break
 
         if should_break:
             break
@@ -297,7 +303,7 @@ def generate(
         token = new_tokens[-1].unsqueeze(0)
 
     # Finalize generated sequence
-    tokens = torch.stack(tokens)
+    tokens = torch.stack(tokens) if tokens else prompt.new_empty(0)
     if include_prompt:
         tokens = torch.cat([prompt, tokens])
     acceptance_rate = total_accepted / total_generated if total_generated > 0 else 0.0
