@@ -26,6 +26,7 @@ from litgpt.utils import (
     auto_download_checkpoint,
     check_nvlink_connectivity,
     check_valid_checkpoint_dir,
+    checkpoint_ties_embeddings,
     choose_logger,
     chunked_cross_entropy,
     copy_config_files,
@@ -150,8 +151,24 @@ def main(
         os.makedirs(out_dir, exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "lit_model.pth"
-    with fabric.init_module(empty_init=(fabric.world_size > 1)):
+    resume = find_resume_path(resume, out_dir)
+    tie_embeddings = train.tie_embeddings
+    if tie_embeddings is None:
+        # follow the checkpoint: a resumed run keeps the parameter layout that its optimizer state was saved with
+        tie_embeddings = checkpoint_ties_embeddings(resume or checkpoint_path)
+        if tie_embeddings and fabric.world_size > 1:
+            fabric.print(
+                "The checkpoint ties `lm_head` to the token embedding, but multi-device runs untie them unless"
+                " `--train.tie_embeddings true` is passed (also on resume), which builds the full model on every rank."
+            )
+            tie_embeddings = False
+    # a tie made on the meta device is lost when FSDP materializes the model, so tied models are initialized for real
+    with fabric.init_module(empty_init=(fabric.world_size > 1 and not tie_embeddings)):
         model = GPT(config)
+    if tie_embeddings:
+        # tie before `fabric.setup` (as pretrain.py does) so that the optimizer sees a single parameter
+        model.lm_head.weight = model.transformer.wte.weight
+        fabric.print("Tying the embedding weights with the language modeling head weights")
 
     fabric.print(f"Number of trainable parameters: {num_parameters(model, requires_grad=True):,}")
 
@@ -162,7 +179,6 @@ def main(
     scheduler = get_lr_scheduler(optimizer, warmup_steps=train.lr_warmup_steps, max_steps=lr_max_steps)
     state = {"model": model, "optimizer": optimizer, "scheduler": scheduler, "iter_num": 0, "step_count": 0}
 
-    resume = find_resume_path(resume, out_dir)
     if resume:
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
@@ -442,7 +458,7 @@ def get_longest_seq_length(data: list[dict]) -> tuple[int, int]:
 
 def validate_args(train: TrainArgs, eval: EvalArgs) -> None:
     issues = []
-    unsupported = [(train, ["max_tokens", "max_norm", "tie_embeddings", "lr_warmup_fraction"])]
+    unsupported = [(train, ["max_tokens", "max_norm", "lr_warmup_fraction"])]
     for args, names in unsupported:
         for name in names:
             if getattr(args, name) is not None:

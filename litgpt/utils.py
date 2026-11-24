@@ -398,6 +398,29 @@ def load_checkpoint(fabric: L.Fabric, model: nn.Module, checkpoint_path: Path, s
         model.load_state_dict(state_dict, strict=strict)
 
 
+def checkpoint_ties_embeddings(checkpoint_path: Path) -> bool:
+    """Whether ``lm_head.weight`` and ``transformer.wte.weight`` share storage in a ``lit_model.pth`` file.
+
+    ``convert_hf_checkpoint`` stores the two keys as one tensor when the Hugging Face checkpoint has no separate
+    ``lm_head.weight``, as in safetensors exports of models with tied word embeddings. Saving a tied model on one
+    device keeps that layout, but FSDP's full state dict writes two tensors. The file is memory-mapped, so no
+    weights are read.
+    """
+    if not checkpoint_path.is_file():
+        return False
+    try:
+        state_dict = torch.load(checkpoint_path, mmap=True, weights_only=True, map_location="cpu")
+    except (RuntimeError, pickle.UnpicklingError):  # not in the zipfile format, or not loadable with weights_only
+        return False
+    state_dict = state_dict.get("model", state_dict)
+    lm_head, wte = state_dict.get("lm_head.weight"), state_dict.get("transformer.wte.weight")
+    if lm_head is None or wte is None or lm_head.shape != wte.shape:
+        return False
+    return lm_head.untyped_storage().data_ptr() == wte.untyped_storage().data_ptr() and (
+        lm_head.storage_offset() == wte.storage_offset()
+    )
+
+
 def load_checkpoint_update(
     fabric: L.Fabric, adapter_path: Path, model: nn.Module, checkpoint_path: Path, strict: bool = True
 ) -> None:
