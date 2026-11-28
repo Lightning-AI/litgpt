@@ -255,6 +255,10 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     monkeypatch.setattr(module, "Tokenizer", tokenizer_mock)
 
     out_dir = tmp_path / "out"
+    previous_merge = out_dir / "final" / "lit_model.pth"
+    previous_merge.parent.mkdir(parents=True)
+    previous_merge.touch()
+
     stdout = StringIO()
     with redirect_stdout(stdout), mock.patch("sys.argv", ["lora.py", str(fake_checkpoint_dir)]):
         module.setup(
@@ -288,6 +292,18 @@ def test_lora_script(tmp_path, fake_checkpoint_dir, monkeypatch, alpaca_path):
     assert logs.count("val loss") == 4  # 3 validations + 1 final validation
     assert logs.count("Final evaluation") == 1
     assert "of trainable parameters: 512" in logs
+
+
+def test_lora_rejects_base_checkpoint_as_final_output(tmp_path, fake_checkpoint_dir):
+    out_dir = tmp_path / "out"
+    checkpoint_dir = out_dir / "final"
+    out_dir.mkdir()
+    fake_checkpoint_dir.rename(checkpoint_dir)
+
+    with pytest.raises(ValueError, match="final output directory must differ"):
+        module.setup(checkpoint_dir, out_dir=out_dir)
+
+    assert (checkpoint_dir / "lit_model.pth").is_file()
 
 
 def test_lora_init_when_linear_overridden():

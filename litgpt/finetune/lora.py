@@ -115,6 +115,9 @@ def setup(
     out_dir = init_out_dir(out_dir)
 
     check_valid_checkpoint_dir(checkpoint_dir)
+    if (out_dir / "final").resolve() == checkpoint_dir.resolve():
+        raise ValueError("The final output directory must differ from the base checkpoint directory.")
+
     config = Config.from_file(
         checkpoint_dir / "model_config.yaml",
         lora_r=lora_r,
@@ -266,6 +269,9 @@ def main(
     # Save the final LoRA checkpoint at the end of training
     save_path = out_dir / "final" / "lit_model.pth.lora"
     save_path.parent.mkdir(parents=True, exist_ok=True)
+    if fabric.global_rank == 0:
+        # An earlier merge no longer represents the adapter we are about to save.
+        save_path.with_name("lit_model.pth").unlink(missing_ok=True)
     save_lora_checkpoint(fabric, model, save_path)
 
     fabric.barrier()
